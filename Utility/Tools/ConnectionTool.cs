@@ -1,77 +1,129 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using System.Data;
 using Dapper;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
-using SqlKata;
 using SqlKata.Compilers;
 using SqlKata.Execution;
+using Microsoft.Data.Sqlite;
 
 namespace Utility.Tools
 {
+    public enum DbProvider
+    {
+        SqlServer,
+        SQLite
+    }
+
     public class ConnectionTool
     {
-        public static QueryFactory JJNET => new QueryFactory(GetConnection(), new SqlServerCompiler());
+        public static QueryFactory JJNET => GetQueryFactory("Default");
 
-        public static SqlConnection GetConnection(string name = "Default", bool DefaultOpenConnection = true, bool MultipleActiveResultSets = true)
+        public static QueryFactory GetQueryFactory(string name = "Default")
+        {
+            var provider = ResolveProvider(name);
+            var conn = GetConnection(name);
+
+            Compiler compiler;
+            switch (provider)
+            {
+                case DbProvider.SqlServer:
+                    compiler = new SqlServerCompiler();
+                    break;
+                case DbProvider.SQLite:
+                    compiler = new SqliteCompiler();
+                    break;
+                default:
+                    throw new NotSupportedException($"不支援的資料庫類型：{provider}。");
+            }
+
+            return new QueryFactory(conn, compiler);
+        }
+
+        public static IDbConnection GetConnection(
+            string name = "Default",
+            bool openConnection = true)
         {
             name ??= "Default";
             var conf = ParameterTool.GetConfiguration();
+            var rawConnStr = conf.GetConnectionString(name);
+
+            if (string.IsNullOrEmpty(rawConnStr))
+                throw new Exception($"missing database connection string definition in appsettings.json: {name}");
+
+            var provider = ResolveProvider(name);
+
+            switch (provider)
+            {
+                case DbProvider.SqlServer:
+                    return OpenSqlServer(rawConnStr, openConnection);
+                case DbProvider.SQLite:
+                    return OpenSQLite(rawConnStr, openConnection);
+                default:
+                    throw new NotSupportedException($"不支援的資料庫類型：{provider}。");
+            }
+        }
+
+        // ── private helpers ──────────────────────────────────────────────
+
+        /// <summary>
+        /// 從 appsettings.json 讀取 "DBType" 決定資料庫類型。
+        /// 範例：{ "DBType": "SQLite" }
+        /// </summary>
+        private static DbProvider ResolveProvider(string _ = null)
+        {
+            var conf = ParameterTool.GetConfiguration();
+            var dbType = conf["DBType"];
+
+            if (string.IsNullOrWhiteSpace(dbType))
+                throw new Exception("appsettings.json 設定錯誤：缺少 \"DBType\" 欄位，請指定資料庫類型（例如 SqlServer 或 SQLite）。");
+
+            if (!Enum.TryParse<DbProvider>(dbType, ignoreCase: true, out var provider))
+                throw new NotSupportedException($"不支援的資料庫類型：\"{dbType}\"，目前支援：{string.Join(", ", Enum.GetNames<DbProvider>())}。");
+
+            return provider;
+        }
+
+        private static IDbConnection OpenSqlServer(string rawConnStr, bool open)
+        {
             SqlConnection conn = null;
             var retryCount = 3;
+
             while (retryCount >= 0)
                 try
                 {
-                    var connectionString = conf.GetConnectionString(name);
-                    if (string.IsNullOrEmpty(connectionString))
+                    // DecryptSQLConnectionString 內部用 SqlConnectionStringBuilder，僅限 SQL Server
+                    var decrypted = ConfigurationProvider.DecryptSQLConnectionString(rawConnStr);
+                    var builder = new SqlConnectionStringBuilder(decrypted)
                     {
-                        retryCount = 0;
-                        throw new Exception($"missing database connection string definition in appsettings.json {name}");
-                    }
-
-                    connectionString = ConfigurationProvider.DecryptSQLConnectionString(connectionString);
-
-                    var builder = new SqlConnectionStringBuilder(connectionString);
-                    var pw = builder.Password;
-                    builder.MultipleActiveResultSets = MultipleActiveResultSets;
-
+                        MultipleActiveResultSets = true
+                    };
                     conn = new SqlConnection(builder.ConnectionString);
-                    if (DefaultOpenConnection)
-                        conn.Open();
+                    if (open) conn.Open();
                     break;
                 }
-                catch (Exception ex)
+                catch
                 {
                     retryCount--;
-                    if (retryCount <= 0)
-                        throw;
-                    try
-                    {
-                        Thread.Sleep(5_000);
-                    }
-                    catch (Exception e)
-                    {
-                    }
+                    if (retryCount <= 0) throw;
+                    try { Thread.Sleep(5_000); } catch { }
                 }
 
-            string who;
-
-            //login ID
-            who = Thread.CurrentPrincipal?.Identity?.Name;
-            if (string.IsNullOrEmpty(who))
-                who = SecurityTool.GetLoginID();
-
+            // SQL Server 專屬：設定 session context
+            var who = Thread.CurrentPrincipal?.Identity?.Name ?? SecurityTool.GetLoginID();
             if (!string.IsNullOrEmpty(who))
-                SqlMapper.Execute(conn, "sp_set_session_context 'sp_user', @who ,1", new { who });
+                SqlMapper.Execute(conn, "sp_set_session_context 'sp_user', @who, 1", new { who });
 
-            //代理人
             var user = SecurityTool.GetUserID();
             if (!string.IsNullOrEmpty(user))
-                SqlMapper.Execute(conn, "sp_set_session_context 'sp_user2', @user ,1", new { user });
+                SqlMapper.Execute(conn, "sp_set_session_context 'sp_user2', @user, 1", new { user });
 
+            return conn;
+        }
+
+        private static IDbConnection OpenSQLite(string rawConnStr, bool open)
+        {
+            var conn = new SqliteConnection(rawConnStr);
+            if (open) conn.Open();
             return conn;
         }
     }
