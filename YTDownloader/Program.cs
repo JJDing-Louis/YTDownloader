@@ -1,3 +1,5 @@
+using System.Data.SQLite;
+
 namespace YTDownloader
 {
     internal static class Program
@@ -11,7 +13,7 @@ namespace YTDownloader
             // To customize application configuration such as set high DPI settings or default font,
             // see https://aka.ms/applicationconfiguration.
             ApplicationConfiguration.Initialize();
-            Application.Run(new Form1());
+            Application.Run(new Main());
         }
     }
 }
