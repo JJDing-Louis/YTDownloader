@@ -1,18 +1,19 @@
-using System.Data.SQLite;
+using YTDownloader.Startup;
 
 namespace YTDownloader
 {
     internal static class Program
     {
+        public static AppStartup Startup { get; } = new();
+
         /// <summary>
         ///  The main entry point for the application.
         /// </summary>
         [STAThread]
         static void Main()
         {
-            // To customize application configuration such as set high DPI settings or default font,
-            // see https://aka.ms/applicationconfiguration.
             ApplicationConfiguration.Initialize();
+            Startup.Run();
             Application.Run(new Main());
         }
     }
