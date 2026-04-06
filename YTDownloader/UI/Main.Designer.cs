@@ -29,28 +29,28 @@
         private void InitializeComponent()
         {
             menuStrip1 = new MenuStrip();
-            設定ToolStripMenuItem = new ToolStripMenuItem();
-            下載紀錄ToolStripMenuItem = new ToolStripMenuItem();
+            MSItem_Config = new ToolStripMenuItem();
+            MSItem_DownloadHistory = new ToolStripMenuItem();
             tableLayoutPanel1 = new TableLayoutPanel();
             tableLayoutPanel2 = new TableLayoutPanel();
-            button1 = new Button();
-            button2 = new Button();
-            groupBox2 = new GroupBox();
-            comboBox1 = new ComboBox();
-            groupBox3 = new GroupBox();
-            comboBox2 = new ComboBox();
+            btn_Download = new Button();
+            btn_OpenDownloadForder = new Button();
+            gB_ListMediaType = new GroupBox();
+            cB_ListMediaType = new ComboBox();
+            gB_ListSourceType = new GroupBox();
+            cB_ListSourceType = new ComboBox();
             groupBox4 = new GroupBox();
             textBox1 = new TextBox();
             groupBox1 = new GroupBox();
             dataGridView1 = new DataGridView();
             tableLayoutPanel3 = new TableLayoutPanel();
-            button3 = new Button();
-            button4 = new Button();
+            btn_ClearCompleteTask = new Button();
+            btn_CancelAll = new Button();
             menuStrip1.SuspendLayout();
             tableLayoutPanel1.SuspendLayout();
             tableLayoutPanel2.SuspendLayout();
-            groupBox2.SuspendLayout();
-            groupBox3.SuspendLayout();
+            gB_ListMediaType.SuspendLayout();
+            gB_ListSourceType.SuspendLayout();
             groupBox4.SuspendLayout();
             groupBox1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)dataGridView1).BeginInit();
@@ -59,24 +59,24 @@
             // 
             // menuStrip1
             // 
-            menuStrip1.Items.AddRange(new ToolStripItem[] { 設定ToolStripMenuItem, 下載紀錄ToolStripMenuItem });
+            menuStrip1.Items.AddRange(new ToolStripItem[] { MSItem_Config, MSItem_DownloadHistory });
             menuStrip1.Location = new Point(0, 0);
             menuStrip1.Name = "menuStrip1";
             menuStrip1.Size = new Size(958, 24);
             menuStrip1.TabIndex = 0;
             menuStrip1.Text = "menuStrip1";
             // 
-            // 設定ToolStripMenuItem
+            // MSItem_Config
             // 
-            設定ToolStripMenuItem.Name = "設定ToolStripMenuItem";
-            設定ToolStripMenuItem.Size = new Size(43, 20);
-            設定ToolStripMenuItem.Text = "設定";
+            MSItem_Config.Name = "MSItem_Config";
+            MSItem_Config.Size = new Size(43, 20);
+            MSItem_Config.Text = "設定";
             // 
-            // 下載紀錄ToolStripMenuItem
+            // MSItem_DownloadHistory
             // 
-            下載紀錄ToolStripMenuItem.Name = "下載紀錄ToolStripMenuItem";
-            下載紀錄ToolStripMenuItem.Size = new Size(67, 20);
-            下載紀錄ToolStripMenuItem.Text = "下載紀錄";
+            MSItem_DownloadHistory.Name = "MSItem_DownloadHistory";
+            MSItem_DownloadHistory.Size = new Size(67, 20);
+            MSItem_DownloadHistory.Text = "下載紀錄";
             // 
             // tableLayoutPanel1
             // 
@@ -104,10 +104,10 @@
             tableLayoutPanel2.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 8.176006F));
             tableLayoutPanel2.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 9.091354F));
             tableLayoutPanel2.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 20F));
-            tableLayoutPanel2.Controls.Add(button1, 3, 0);
-            tableLayoutPanel2.Controls.Add(button2, 4, 0);
-            tableLayoutPanel2.Controls.Add(groupBox2, 0, 0);
-            tableLayoutPanel2.Controls.Add(groupBox3, 1, 0);
+            tableLayoutPanel2.Controls.Add(btn_Download, 3, 0);
+            tableLayoutPanel2.Controls.Add(btn_OpenDownloadForder, 4, 0);
+            tableLayoutPanel2.Controls.Add(gB_ListMediaType, 0, 0);
+            tableLayoutPanel2.Controls.Add(gB_ListSourceType, 1, 0);
             tableLayoutPanel2.Controls.Add(groupBox4, 2, 0);
             tableLayoutPanel2.Dock = DockStyle.Fill;
             tableLayoutPanel2.Location = new Point(3, 3);
@@ -117,65 +117,65 @@
             tableLayoutPanel2.Size = new Size(952, 55);
             tableLayoutPanel2.TabIndex = 0;
             // 
-            // button1
+            // btn_Download
             // 
-            button1.Dock = DockStyle.Fill;
-            button1.Location = new Point(789, 3);
-            button1.Name = "button1";
-            button1.Size = new Size(71, 49);
-            button1.TabIndex = 2;
-            button1.Text = "下載";
-            button1.UseVisualStyleBackColor = true;
+            btn_Download.Dock = DockStyle.Fill;
+            btn_Download.Location = new Point(789, 3);
+            btn_Download.Name = "btn_Download";
+            btn_Download.Size = new Size(71, 49);
+            btn_Download.TabIndex = 2;
+            btn_Download.Text = "下載";
+            btn_Download.UseVisualStyleBackColor = true;
             // 
-            // button2
+            // btn_OpenDownloadForder
             // 
-            button2.Dock = DockStyle.Fill;
-            button2.Location = new Point(866, 3);
-            button2.Name = "button2";
-            button2.Size = new Size(83, 49);
-            button2.TabIndex = 3;
-            button2.Text = "開啟資料夾";
-            button2.UseVisualStyleBackColor = true;
+            btn_OpenDownloadForder.Dock = DockStyle.Fill;
+            btn_OpenDownloadForder.Location = new Point(866, 3);
+            btn_OpenDownloadForder.Name = "btn_OpenDownloadForder";
+            btn_OpenDownloadForder.Size = new Size(83, 49);
+            btn_OpenDownloadForder.TabIndex = 3;
+            btn_OpenDownloadForder.Text = "開啟資料夾";
+            btn_OpenDownloadForder.UseVisualStyleBackColor = true;
             // 
-            // groupBox2
+            // gB_ListMediaType
             // 
-            groupBox2.Controls.Add(comboBox1);
-            groupBox2.Dock = DockStyle.Fill;
-            groupBox2.Location = new Point(3, 3);
-            groupBox2.Name = "groupBox2";
-            groupBox2.Size = new Size(135, 49);
-            groupBox2.TabIndex = 4;
-            groupBox2.TabStop = false;
-            groupBox2.Text = "檔案類型";
+            gB_ListMediaType.Controls.Add(cB_ListMediaType);
+            gB_ListMediaType.Dock = DockStyle.Fill;
+            gB_ListMediaType.Location = new Point(3, 3);
+            gB_ListMediaType.Name = "gB_ListMediaType";
+            gB_ListMediaType.Size = new Size(135, 49);
+            gB_ListMediaType.TabIndex = 4;
+            gB_ListMediaType.TabStop = false;
+            gB_ListMediaType.Text = "媒體類型";
             // 
-            // comboBox1
+            // cB_ListMediaType
             // 
-            comboBox1.Dock = DockStyle.Fill;
-            comboBox1.FormattingEnabled = true;
-            comboBox1.Location = new Point(3, 19);
-            comboBox1.Name = "comboBox1";
-            comboBox1.Size = new Size(129, 23);
-            comboBox1.TabIndex = 0;
+            cB_ListMediaType.Dock = DockStyle.Fill;
+            cB_ListMediaType.FormattingEnabled = true;
+            cB_ListMediaType.Location = new Point(3, 19);
+            cB_ListMediaType.Name = "cB_ListMediaType";
+            cB_ListMediaType.Size = new Size(129, 23);
+            cB_ListMediaType.TabIndex = 0;
             // 
-            // groupBox3
+            // gB_ListSourceType
             // 
-            groupBox3.Controls.Add(comboBox2);
-            groupBox3.Dock = DockStyle.Fill;
-            groupBox3.Location = new Point(144, 3);
-            groupBox3.Name = "groupBox3";
-            groupBox3.Size = new Size(122, 49);
-            groupBox3.TabIndex = 5;
-            groupBox3.TabStop = false;
-            groupBox3.Text = "來源類型";
+            gB_ListSourceType.Controls.Add(cB_ListSourceType);
+            gB_ListSourceType.Dock = DockStyle.Fill;
+            gB_ListSourceType.Location = new Point(144, 3);
+            gB_ListSourceType.Name = "gB_ListSourceType";
+            gB_ListSourceType.Size = new Size(122, 49);
+            gB_ListSourceType.TabIndex = 5;
+            gB_ListSourceType.TabStop = false;
+            gB_ListSourceType.Text = "來源類型";
             // 
-            // comboBox2
+            // cB_ListSourceType
             // 
-            comboBox2.Dock = DockStyle.Fill;
-            comboBox2.FormattingEnabled = true;
-            comboBox2.Location = new Point(3, 19);
-            comboBox2.Name = "comboBox2";
-            comboBox2.Size = new Size(116, 23);
-            comboBox2.TabIndex = 0;
+            cB_ListSourceType.Dock = DockStyle.Fill;
+            cB_ListSourceType.FormattingEnabled = true;
+            cB_ListSourceType.Location = new Point(3, 19);
+            cB_ListSourceType.Name = "cB_ListSourceType";
+            cB_ListSourceType.Size = new Size(116, 23);
+            cB_ListSourceType.TabIndex = 0;
             // 
             // groupBox4
             // 
@@ -229,8 +229,8 @@
             tableLayoutPanel3.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 10F));
             tableLayoutPanel3.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 10F));
             tableLayoutPanel3.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 10F));
-            tableLayoutPanel3.Controls.Add(button3, 0, 0);
-            tableLayoutPanel3.Controls.Add(button4, 1, 0);
+            tableLayoutPanel3.Controls.Add(btn_ClearCompleteTask, 0, 0);
+            tableLayoutPanel3.Controls.Add(btn_CancelAll, 1, 0);
             tableLayoutPanel3.Dock = DockStyle.Fill;
             tableLayoutPanel3.Location = new Point(3, 64);
             tableLayoutPanel3.Name = "tableLayoutPanel3";
@@ -240,25 +240,25 @@
             tableLayoutPanel3.Size = new Size(952, 55);
             tableLayoutPanel3.TabIndex = 2;
             // 
-            // button3
+            // btn_ClearCompleteTask
             // 
-            button3.Dock = DockStyle.Fill;
-            button3.Location = new Point(3, 3);
-            button3.Name = "button3";
-            button3.Size = new Size(89, 49);
-            button3.TabIndex = 0;
-            button3.Text = "清空已完成";
-            button3.UseVisualStyleBackColor = true;
+            btn_ClearCompleteTask.Dock = DockStyle.Fill;
+            btn_ClearCompleteTask.Location = new Point(3, 3);
+            btn_ClearCompleteTask.Name = "btn_ClearCompleteTask";
+            btn_ClearCompleteTask.Size = new Size(89, 49);
+            btn_ClearCompleteTask.TabIndex = 0;
+            btn_ClearCompleteTask.Text = "清空已完成";
+            btn_ClearCompleteTask.UseVisualStyleBackColor = true;
             // 
-            // button4
+            // btn_CancelAll
             // 
-            button4.Dock = DockStyle.Fill;
-            button4.Location = new Point(98, 3);
-            button4.Name = "button4";
-            button4.Size = new Size(89, 49);
-            button4.TabIndex = 1;
-            button4.Text = "全部取消";
-            button4.UseVisualStyleBackColor = true;
+            btn_CancelAll.Dock = DockStyle.Fill;
+            btn_CancelAll.Location = new Point(98, 3);
+            btn_CancelAll.Name = "btn_CancelAll";
+            btn_CancelAll.Size = new Size(89, 49);
+            btn_CancelAll.TabIndex = 1;
+            btn_CancelAll.Text = "全部取消";
+            btn_CancelAll.UseVisualStyleBackColor = true;
             // 
             // Main
             // 
@@ -273,8 +273,8 @@
             menuStrip1.PerformLayout();
             tableLayoutPanel1.ResumeLayout(false);
             tableLayoutPanel2.ResumeLayout(false);
-            groupBox2.ResumeLayout(false);
-            groupBox3.ResumeLayout(false);
+            gB_ListMediaType.ResumeLayout(false);
+            gB_ListSourceType.ResumeLayout(false);
             groupBox4.ResumeLayout(false);
             groupBox4.PerformLayout();
             groupBox1.ResumeLayout(false);
@@ -287,22 +287,22 @@
         #endregion
 
         private MenuStrip menuStrip1;
-        private ToolStripMenuItem 設定ToolStripMenuItem;
-        private ToolStripMenuItem 下載紀錄ToolStripMenuItem;
+        private ToolStripMenuItem MSItem_Config;
+        private ToolStripMenuItem MSItem_DownloadHistory;
         private TableLayoutPanel tableLayoutPanel1;
         private TableLayoutPanel tableLayoutPanel2;
-        private Button button1;
-        private Button button2;
+        private Button btn_Download;
+        private Button btn_OpenDownloadForder;
         private GroupBox groupBox1;
         private DataGridView dataGridView1;
-        private GroupBox groupBox2;
-        private ComboBox comboBox1;
-        private GroupBox groupBox3;
-        private ComboBox comboBox2;
+        private GroupBox gB_ListMediaType;
+        private ComboBox cB_ListMediaType;
+        private GroupBox gB_ListSourceType;
+        private ComboBox cB_ListSourceType;
         private GroupBox groupBox4;
         private TextBox textBox1;
         private TableLayoutPanel tableLayoutPanel3;
-        private Button button3;
-        private Button button4;
+        private Button btn_ClearCompleteTask;
+        private Button btn_CancelAll;
     }
 }

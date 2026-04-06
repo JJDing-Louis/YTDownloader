@@ -54,15 +54,21 @@ namespace YTDownloader.Data
                 );
                 """,
                 """
-                CREATE TABLE IF NOT EXISTS ListMediaType (
-                    Name         TEXT NOT NULL PRIMARY KEY,
-                    Desc         TEXT 
+                CREATE TABLE  IF NOT EXISTS ListMediaType
+                (
+                    Name TEXT not null,
+                    Desc TEXT not null,
+                    constraint ListMediaType_pk
+                        primary key (Desc, Name)
                 );
                 """,
                 """
-                CREATE TABLE IF NOT EXISTS ListSourceType (
-                    Name         TEXT NOT NULL PRIMARY KEY,
-                    Desc         TEXT 
+                CREATE TABLE  IF NOT EXISTS ListSourceType
+                (
+                    Name TEXT not null,
+                    Desc TEXT  not null,
+                    constraint ListSourceType_pk
+                        primary key (Desc, Name)
                 );
                 """,
             };
