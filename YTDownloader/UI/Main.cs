@@ -25,7 +25,7 @@ namespace YTDownloader
             logger.LogInformation("Initializing options...");
             var options = new List<KeyValuePair<string, string>>();
 
-            cB_ListMediaType.Items.AddRange(options);
+            cB_ListMediaType.Items.AddRange(options.Cast<object>().ToArray());
         }
 
         #endregion

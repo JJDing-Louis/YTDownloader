@@ -32,7 +32,7 @@ namespace YTDownloader.Service
                      cmd.CommandText = """
                     SELECT
                         *
-                    FROM ListMediaType;
+                    FROM ListMediaType
                     """;
                     using (var reader = cmd.ExecuteReader())
                     {
@@ -54,7 +54,7 @@ namespace YTDownloader.Service
                 cmd.CommandText = """
                     SELECT
                         *
-                    FROM ListSourceType;
+                    FROM ListSourceType
                     """;
                 using (var reader = cmd.ExecuteReader())
                 {

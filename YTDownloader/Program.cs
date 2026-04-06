@@ -1,5 +1,7 @@
 using YTDownloader.Startup;
 
+[assembly: System.Runtime.CompilerServices.InternalsVisibleTo("YTDownloaderTest")]
+
 namespace YTDownloader
 {
     internal static class Program

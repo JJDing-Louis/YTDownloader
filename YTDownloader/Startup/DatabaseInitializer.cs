@@ -92,18 +92,12 @@ namespace YTDownloader.Data
             var commands = new[]
             {
                 """
-                INSERT INTO ListMediaType (Name, "Desc") VALUES ('Audio', '音訊')
-                    ON CONFLICT(Name) DO UPDATE SET "Desc" = excluded."Desc";
-
-                INSERT INTO ListMediaType (Name, "Desc") VALUES ('Video', '視訊')
-                    ON CONFLICT(Name) DO UPDATE SET "Desc" = excluded."Desc";
+                INSERT OR IGNORE INTO ListMediaType (Name, "Desc") VALUES ('Audio', '音訊');
+                INSERT OR IGNORE INTO ListMediaType (Name, "Desc") VALUES ('Video', '視訊');
                 """,
                 """
-                INSERT INTO ListSourceType (Name, Desc) VALUES ('VideoOnly', '單一影片')
-                ON CONFLICT(Name) DO UPDATE SET "Desc" = excluded."Desc";
-
-                INSERT INTO ListSourceType (Name, Desc) VALUES ('PlayList', '播放清單')
-                ON CONFLICT(Name) DO UPDATE SET "Desc" = excluded."Desc";
+                INSERT OR IGNORE INTO ListSourceType (Name, Desc) VALUES ('VideoOnly', '單一影片');
+                INSERT OR IGNORE INTO ListSourceType (Name, Desc) VALUES ('PlayList', '播放清單');
                 """
             };
 
