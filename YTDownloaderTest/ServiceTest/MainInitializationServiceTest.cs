@@ -42,8 +42,12 @@ namespace YTDownloaderTest.ServiceTest
         {
             var result = TestedService.GetListMediaType();
 
-            Assert.That(result, Is.Not.Null);
-            Assert.That(result.Count, Is.GreaterThan(0));
+            var expected = new List<KeyValuePair<string, string>>
+            {
+                new("音訊", "Audio"),
+                new("視訊", "Video"),
+            };
+            Assert.That(result, Is.EquivalentTo(expected));
         }
 
         [Test]
@@ -51,8 +55,12 @@ namespace YTDownloaderTest.ServiceTest
         {
             var result = TestedService.GetListSourceType();
 
-            Assert.That(result, Is.Not.Null);
-            Assert.That(result.Count, Is.GreaterThan(0));
+            var expected = new List<KeyValuePair<string, string>>
+            {
+                new("單一影片", "VideoOnly"),
+                new("播放清單", "PlayList"),
+            };
+            Assert.That(result, Is.EquivalentTo(expected));
         }
     }
 }
