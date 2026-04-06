@@ -136,7 +136,6 @@
             button2.TabIndex = 3;
             button2.Text = "開啟資料夾";
             button2.UseVisualStyleBackColor = true;
-            button2.Click += this.button2_Click;
             // 
             // groupBox2
             // 
