@@ -19,7 +19,6 @@ namespace YTDownloader.Service
             var options = new  Dictionary<string, List<KeyValuePair<string, string>>>();
             options.Add("ListMediaType", GetListMediaType());
             options.Add("ListSourceType",GetListSourceType());
-
             return options;
         }
 

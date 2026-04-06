@@ -1,31 +1,55 @@
 using Autofac;
 using Microsoft.Extensions.Logging;
 using Utility.Tools;
+using YTDownloader.Service;
 
 namespace YTDownloader
 {
     public partial class Main : Form
     {
         ILogger logger = Program.Startup.Container.Resolve<ILogger<Main>>();
+        MainInitializationService initializationService = Program.Startup.Container.Resolve<MainInitializationService>();
 
         public Main()
         {
             InitializeComponent();
             logger.LogInformation("Main form initialized.");
+            Init();
         }
 
         private void Init()
         {
-
+            InitOptions();
         }
 
-        #region  Init
+        #region Init
         private void InitOptions()
         {
             logger.LogInformation("Initializing options...");
-            var options = new List<KeyValuePair<string, string>>();
 
-            cB_ListMediaType.Items.AddRange(options.Cast<object>().ToArray());
+            try
+            {
+                var options = initializationService.GetOptions();
+                BindComboBox(cB_ListMediaType, options, "ListMediaType");
+                BindComboBox(cB_ListSourceType, options, "ListSourceType");
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Failed to initialize options.");
+                MessageBox.Show("選項載入失敗，請確認資料庫連線。", "初始化錯誤", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void BindComboBox(ComboBox comboBox, Dictionary<string, List<KeyValuePair<string, string>>> options, string key)
+        {
+            if (!options.TryGetValue(key, out var items) || items == null || items.Count == 0)
+            {
+                logger.LogWarning("Options key '{Key}' is missing or empty.", key);
+                return;
+            }
+
+            comboBox.DisplayMember = "Key";
+            comboBox.Items.AddRange(items.Cast<object>().ToArray());
         }
 
         #endregion
