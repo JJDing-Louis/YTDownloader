@@ -58,7 +58,13 @@ namespace YTDownloader.Data
                     Name         TEXT NOT NULL PRIMARY KEY,
                     Desc         TEXT 
                 );
+                """,
                 """
+                CREATE TABLE IF NOT EXISTS ListSourceType (
+                    Name         TEXT NOT NULL PRIMARY KEY,
+                    Desc         TEXT 
+                );
+                """,
             };
 
             using var conn = new SQLiteConnection(connectionString);
@@ -85,6 +91,13 @@ namespace YTDownloader.Data
 
                 INSERT INTO ListMediaType (Name, "Desc") VALUES ('Video', '視訊')
                     ON CONFLICT(Name) DO UPDATE SET "Desc" = excluded."Desc";
+                """,
+                """
+                INSERT INTO ListSourceType (Name, Desc) VALUES ('VideoOnly', '單一影片')
+                ON CONFLICT(Name) DO UPDATE SET "Desc" = excluded."Desc";
+
+                INSERT INTO ListSourceType (Name, Desc) VALUES ('PlayList', '播放清單')
+                ON CONFLICT(Name) DO UPDATE SET "Desc" = excluded."Desc";
                 """
             };
 
