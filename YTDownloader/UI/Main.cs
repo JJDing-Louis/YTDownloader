@@ -53,5 +53,22 @@ namespace YTDownloader
         }
 
         #endregion
+
+        private void btn_Download_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                var SelectedMediaType = ((KeyValuePair<string, string>)cB_ListMediaType.SelectedItem).Value;
+                var SelectedSourceType = ((KeyValuePair<string, string>)cB_ListSourceType.SelectedItem).Value;
+
+
+
+
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Failed to retrieve selected options.");
+            }
+        }
     }
 }

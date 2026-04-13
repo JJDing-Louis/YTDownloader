@@ -126,6 +126,7 @@
             btn_Download.TabIndex = 2;
             btn_Download.Text = "下載";
             btn_Download.UseVisualStyleBackColor = true;
+            btn_Download.Click += btn_Download_Click;
             // 
             // btn_OpenDownloadForder
             // 
