@@ -1,14 +1,13 @@
 using Autofac;
 using Microsoft.Extensions.Logging;
-using Utility.Tools;
 using YTDownloader.Service;
 
 namespace YTDownloader
 {
     public partial class Main : Form
     {
-        ILogger logger = Program.Startup.Container.Resolve<ILogger<Main>>();
-        MainInitializationService initializationService = Program.Startup.Container.Resolve<MainInitializationService>();
+        private ILogger logger = Program.Startup.Container.Resolve<ILogger<Main>>();
+        private MainInitializationService initializationService = Program.Startup.Container.Resolve<MainInitializationService>();
 
         public Main()
         {
@@ -23,6 +22,7 @@ namespace YTDownloader
         }
 
         #region Init
+
         private void InitOptions()
         {
             logger.LogInformation("Initializing options...");
@@ -52,7 +52,7 @@ namespace YTDownloader
             comboBox.Items.AddRange(items.Cast<object>().ToArray());
         }
 
-        #endregion
+        #endregion Init
 
         private void btn_Download_Click(object sender, EventArgs e)
         {
@@ -60,10 +60,6 @@ namespace YTDownloader
             {
                 var SelectedMediaType = ((KeyValuePair<string, string>)cB_ListMediaType.SelectedItem).Value;
                 var SelectedSourceType = ((KeyValuePair<string, string>)cB_ListSourceType.SelectedItem).Value;
-
-
-
-
             }
             catch (Exception ex)
             {

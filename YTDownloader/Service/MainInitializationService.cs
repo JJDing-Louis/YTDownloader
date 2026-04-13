@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Utility.Tools;
+﻿using Utility.Tools;
 
 namespace YTDownloader.Service
 {
@@ -11,34 +6,33 @@ namespace YTDownloader.Service
     {
         public MainInitializationService()
         {
-        
         }
 
-        public new Dictionary<string, List<KeyValuePair<string, string>>> GetOptions() 
+        public new Dictionary<string, List<KeyValuePair<string, string>>> GetOptions()
         {
-            var options = new  Dictionary<string, List<KeyValuePair<string, string>>>();
+            var options = new Dictionary<string, List<KeyValuePair<string, string>>>();
             options.Add("ListMediaType", GetListMediaType());
-            options.Add("ListSourceType",GetListSourceType());
+            options.Add("ListSourceType", GetListSourceType());
             return options;
         }
 
-        public List<KeyValuePair<string, string>> GetListMediaType() 
+        public List<KeyValuePair<string, string>> GetListMediaType()
         {
             var options = new List<KeyValuePair<string, string>>();
-            using (var con = ConnectionTool.GetConnection()) 
+            using (var con = ConnectionTool.GetConnection())
             {
-                    var cmd = con.CreateCommand();
-                     cmd.CommandText = """
+                var cmd = con.CreateCommand();
+                cmd.CommandText = """
                     SELECT
                         *
                     FROM ListMediaType
                     """;
-                    using (var reader = cmd.ExecuteReader())
+                using (var reader = cmd.ExecuteReader())
+                {
+                    while (reader.Read())
                     {
-                        while (reader.Read())
-                        {
-                            options.Add(new KeyValuePair<string, string>(reader["Desc"].ToString()!, reader["Name"].ToString()!));
-                        }
+                        options.Add(new KeyValuePair<string, string>(reader["Desc"].ToString()!, reader["Name"].ToString()!));
+                    }
                 }
             }
             return options;
