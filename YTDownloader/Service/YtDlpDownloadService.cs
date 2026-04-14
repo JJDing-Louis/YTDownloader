@@ -378,6 +378,123 @@ namespace YTDownloader.Service
                 cancellationToken: cancellationToken);
         }
 
+        /// <summary>
+        /// 讀取播放清單的所有影片資訊，供 UI 勾選後決定下載項目。
+        /// <para>
+        /// 回傳的 <see cref="PlaylistFetchResult.Videos"/> 中每個 <see cref="PlaylistVideoItem"/>
+        /// 預設 <c>IsSelected = true</c>，UI 可讓使用者取消勾選後，
+        /// 只把 IsSelected == true 且 WebpageUrl 不為空的項目送給下載方法。
+        /// </para>
+        /// </summary>
+        /// <param name="url">播放清單 URL（也接受單一影片 URL，會包成單項清單回傳）</param>
+        /// <param name="progress">
+        /// 可選的進度回報，參數為 (目前索引, 總數, 目前影片標題)，
+        /// 適合用來更新 ProgressBar 或 Label。
+        /// </param>
+        /// <param name="bufferKb">讀取 metadata 時的緩衝大小，大型清單建議調高（預設 8192 KB）</param>
+        /// <param name="cancellationToken">取消權杖</param>
+        public async Task<PlaylistFetchResult> GetPlaylistVideosAsync(
+            string url,
+            IProgress<(int Current, int Total, string? CurrentTitle)>? progress = null,
+            int bufferKb = 8192,
+            CancellationToken cancellationToken = default)
+        {
+            ValidateUrl(url);
+
+            try
+            {
+                await using var ytdlp = CreateBaseClient();
+
+                var raw = await ytdlp.GetMetadataAsync(url, cancellationToken, bufferKb: bufferKb);
+
+                if (raw == null)
+                    return PlaylistFetchResult.Fail("無法取得播放清單資料，請確認 URL 是否正確");
+
+                var videos = new List<PlaylistVideoItem>();
+
+                // ── 播放清單：逐一解析 Entries ────────────────────────────
+                bool hasEntries = false;
+                try { hasEntries = raw.Entries != null; } catch { }
+
+                if (hasEntries)
+                {
+                    int total = 0;
+                    try { total = (int)raw.Entries.Count; } catch { }
+
+                    int index = 0;
+                    foreach (var entry in raw.Entries)
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+
+                        index++;
+                        string? title = TryGetString(() => entry.Title);
+
+                        progress?.Report((index, total, title));
+
+                        // Entry.Url 就是影片頁面網址（Entry 沒有 WebpageUrl 屬性）
+                        string? videoUrl = TryGetString(() => entry.Url);
+
+                        // Entry.Thumbnails 是集合，取第一個的 Url 作為縮圖
+                        string? thumbnailUrl = null;
+                        try
+                        {
+                            if (entry.Thumbnails != null && entry.Thumbnails.Count > 0)
+                                thumbnailUrl = TryGetString(() => entry.Thumbnails[0].Url);
+                        }
+                        catch { }
+
+                        videos.Add(new PlaylistVideoItem
+                        {
+                            Index      = index,
+                            Id         = TryGetString(() => entry.Id),
+                            Title      = title,
+                            Uploader   = TryGetString(() => entry.Uploader),
+                            Duration   = TryGetNullableInt(() => entry.Duration),
+                            Thumbnail  = thumbnailUrl,
+                            WebpageUrl = videoUrl,
+                            IsSelected = true
+                        });
+                    }
+
+                    return PlaylistFetchResult.Success(
+                        playlistId:    TryGetString(() => raw.Id),
+                        playlistTitle: TryGetString(() => raw.Title),
+                        videos:        videos);
+                }
+
+                // ── 單一影片：包成單項清單回傳 ────────────────────────────
+                var single = new PlaylistVideoItem
+                {
+                    Index      = 1,
+                    Id         = TryGetString(() => raw.Id),
+                    Title      = TryGetString(() => raw.Title),
+                    Uploader   = TryGetString(() => raw.Uploader),
+                    Duration   = TryGetNullableInt(() => raw.Duration),
+                    Thumbnail  = TryGetString(() => raw.Thumbnail),
+                    WebpageUrl = TryGetString(() => raw.WebpageUrl),
+                    IsSelected = true
+                };
+                videos.Add(single);
+
+                progress?.Report((1, 1, single.Title));
+
+                return PlaylistFetchResult.Success(
+                    playlistId:    null,
+                    playlistTitle: single.Title,
+                    videos:        videos,
+                    message:       "URL 為單一影片，已轉為單項清單");
+            }
+            catch (OperationCanceledException)
+            {
+                return PlaylistFetchResult.Fail("播放清單載入已取消");
+            }
+            catch (Exception ex)
+            {
+                logger.LogError($"GetPlaylistVideosAsync 失敗: {ex}");
+                return PlaylistFetchResult.Fail($"播放清單載入失敗: {ex.Message}");
+            }
+        }
+
         private Ytdlp CreateBaseClient()
         {
             var client = new Ytdlp(_ytDlpPath);
