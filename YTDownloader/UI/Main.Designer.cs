@@ -37,8 +37,6 @@
             btn_OpenDownloadForder = new Button();
             gB_ListMediaType = new GroupBox();
             cB_ListMediaType = new ComboBox();
-            gB_ListSourceType = new GroupBox();
-            cB_ListSourceType = new ComboBox();
             groupBox4 = new GroupBox();
             textBox1 = new TextBox();
             groupBox1 = new GroupBox();
@@ -50,7 +48,6 @@
             tableLayoutPanel1.SuspendLayout();
             tableLayoutPanel2.SuspendLayout();
             gB_ListMediaType.SuspendLayout();
-            gB_ListSourceType.SuspendLayout();
             groupBox4.SuspendLayout();
             groupBox1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)dataGridView1).BeginInit();
@@ -97,18 +94,15 @@
             // 
             // tableLayoutPanel2
             // 
-            tableLayoutPanel2.ColumnCount = 5;
-            tableLayoutPanel2.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 14.9103432F));
-            tableLayoutPanel2.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 13.4588985F));
-            tableLayoutPanel2.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 54.36339F));
-            tableLayoutPanel2.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 8.176006F));
-            tableLayoutPanel2.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 9.091354F));
-            tableLayoutPanel2.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 20F));
-            tableLayoutPanel2.Controls.Add(btn_Download, 3, 0);
-            tableLayoutPanel2.Controls.Add(btn_OpenDownloadForder, 4, 0);
+            tableLayoutPanel2.ColumnCount = 4;
+            tableLayoutPanel2.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 15F));
+            tableLayoutPanel2.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 65F));
+            tableLayoutPanel2.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 10F));
+            tableLayoutPanel2.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 10F));
+            tableLayoutPanel2.Controls.Add(btn_Download, 2, 0);
+            tableLayoutPanel2.Controls.Add(btn_OpenDownloadForder, 3, 0);
             tableLayoutPanel2.Controls.Add(gB_ListMediaType, 0, 0);
-            tableLayoutPanel2.Controls.Add(gB_ListSourceType, 1, 0);
-            tableLayoutPanel2.Controls.Add(groupBox4, 2, 0);
+            tableLayoutPanel2.Controls.Add(groupBox4, 1, 0);
             tableLayoutPanel2.Dock = DockStyle.Fill;
             tableLayoutPanel2.Location = new Point(3, 3);
             tableLayoutPanel2.Name = "tableLayoutPanel2";
@@ -120,9 +114,9 @@
             // btn_Download
             // 
             btn_Download.Dock = DockStyle.Fill;
-            btn_Download.Location = new Point(789, 3);
+            btn_Download.Location = new Point(763, 3);
             btn_Download.Name = "btn_Download";
-            btn_Download.Size = new Size(71, 49);
+            btn_Download.Size = new Size(89, 49);
             btn_Download.TabIndex = 2;
             btn_Download.Text = "下載";
             btn_Download.UseVisualStyleBackColor = true;
@@ -131,9 +125,9 @@
             // btn_OpenDownloadForder
             // 
             btn_OpenDownloadForder.Dock = DockStyle.Fill;
-            btn_OpenDownloadForder.Location = new Point(866, 3);
+            btn_OpenDownloadForder.Location = new Point(858, 3);
             btn_OpenDownloadForder.Name = "btn_OpenDownloadForder";
-            btn_OpenDownloadForder.Size = new Size(83, 49);
+            btn_OpenDownloadForder.Size = new Size(91, 49);
             btn_OpenDownloadForder.TabIndex = 3;
             btn_OpenDownloadForder.Text = "開啟資料夾";
             btn_OpenDownloadForder.UseVisualStyleBackColor = true;
@@ -144,7 +138,7 @@
             gB_ListMediaType.Dock = DockStyle.Fill;
             gB_ListMediaType.Location = new Point(3, 3);
             gB_ListMediaType.Name = "gB_ListMediaType";
-            gB_ListMediaType.Size = new Size(135, 49);
+            gB_ListMediaType.Size = new Size(136, 49);
             gB_ListMediaType.TabIndex = 4;
             gB_ListMediaType.TabStop = false;
             gB_ListMediaType.Text = "媒體類型";
@@ -155,36 +149,16 @@
             cB_ListMediaType.FormattingEnabled = true;
             cB_ListMediaType.Location = new Point(3, 19);
             cB_ListMediaType.Name = "cB_ListMediaType";
-            cB_ListMediaType.Size = new Size(129, 23);
+            cB_ListMediaType.Size = new Size(130, 23);
             cB_ListMediaType.TabIndex = 0;
-            // 
-            // gB_ListSourceType
-            // 
-            gB_ListSourceType.Controls.Add(cB_ListSourceType);
-            gB_ListSourceType.Dock = DockStyle.Fill;
-            gB_ListSourceType.Location = new Point(144, 3);
-            gB_ListSourceType.Name = "gB_ListSourceType";
-            gB_ListSourceType.Size = new Size(122, 49);
-            gB_ListSourceType.TabIndex = 5;
-            gB_ListSourceType.TabStop = false;
-            gB_ListSourceType.Text = "來源類型";
-            // 
-            // cB_ListSourceType
-            // 
-            cB_ListSourceType.Dock = DockStyle.Fill;
-            cB_ListSourceType.FormattingEnabled = true;
-            cB_ListSourceType.Location = new Point(3, 19);
-            cB_ListSourceType.Name = "cB_ListSourceType";
-            cB_ListSourceType.Size = new Size(116, 23);
-            cB_ListSourceType.TabIndex = 0;
             // 
             // groupBox4
             // 
             groupBox4.Controls.Add(textBox1);
             groupBox4.Dock = DockStyle.Fill;
-            groupBox4.Location = new Point(272, 3);
+            groupBox4.Location = new Point(145, 3);
             groupBox4.Name = "groupBox4";
-            groupBox4.Size = new Size(511, 49);
+            groupBox4.Size = new Size(612, 49);
             groupBox4.TabIndex = 6;
             groupBox4.TabStop = false;
             groupBox4.Text = "網址";
@@ -194,7 +168,7 @@
             textBox1.Dock = DockStyle.Fill;
             textBox1.Location = new Point(3, 19);
             textBox1.Name = "textBox1";
-            textBox1.Size = new Size(505, 23);
+            textBox1.Size = new Size(606, 23);
             textBox1.TabIndex = 0;
             // 
             // groupBox1
@@ -275,7 +249,6 @@
             tableLayoutPanel1.ResumeLayout(false);
             tableLayoutPanel2.ResumeLayout(false);
             gB_ListMediaType.ResumeLayout(false);
-            gB_ListSourceType.ResumeLayout(false);
             groupBox4.ResumeLayout(false);
             groupBox4.PerformLayout();
             groupBox1.ResumeLayout(false);
@@ -298,8 +271,6 @@
         private DataGridView dataGridView1;
         private GroupBox gB_ListMediaType;
         private ComboBox cB_ListMediaType;
-        private GroupBox gB_ListSourceType;
-        private ComboBox cB_ListSourceType;
         private GroupBox groupBox4;
         private TextBox textBox1;
         private TableLayoutPanel tableLayoutPanel3;
