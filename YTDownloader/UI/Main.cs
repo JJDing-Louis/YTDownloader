@@ -1,6 +1,7 @@
 using Autofac;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using YTDownloader.Model;
 using YTDownloader.Service;
 
 namespace YTDownloader
@@ -11,6 +12,8 @@ namespace YTDownloader
         private MainInitializationService initializationService = Program.Startup.Container.Resolve<MainInitializationService>();
         private Dictionary<string, List<KeyValuePair<string, string>>> options;
         private IConfiguration config;
+        private string ytDlpPath;
+        private string ffmpegPath;
 
         public Main()
         {
@@ -47,7 +50,19 @@ namespace YTDownloader
         {
             logger.LogInformation("Initializing configuration...");
             config = initializationService.GetConfig();
+            ytDlpPath = Path.Combine( Environment.CurrentDirectory, config["ytDlpPath"]);
+            ffmpegPath = Path.Combine( Environment.CurrentDirectory, config["ffmpegPath"]);
+             if (!File.Exists(ytDlpPath))
+            {
+                logger.LogError("yt-dlp executable not found at path: {Path}", ytDlpPath);
+                MessageBox.Show($"yt-dlp 可執行檔未找到，請確認路徑：{ytDlpPath}", "配置錯誤", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
 
+            if (!File.Exists(ffmpegPath))
+            {
+                logger.LogError("ffmpeg executable not found at path: {Path}", ffmpegPath);
+                MessageBox.Show($"ffmpeg 可執行檔未找到，請確認路徑：{ffmpegPath}", "配置錯誤", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
 
         private void BindComboBox(ComboBox comboBox, Dictionary<string, List<KeyValuePair<string, string>>> options, string key)
@@ -76,6 +91,21 @@ namespace YTDownloader
                     return;
                 }
 
+                var YTDownloadService = new YtDlpDownloadService(ytDlpPath, ffmpegPath);
+
+                var SourceType = YTDownloadService.DetectResourceAsync(URL).GetAwaiter().GetResult();
+                switch (SourceType.ResourceType)
+                {
+                    case UrlResourceType.SingleVideo:
+                       logger.LogInformation ($"檢測到單一影片：{SourceType.Title}", "資源檢測", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        break;
+                    case UrlResourceType.Playlist:
+                        logger.LogInformation($"檢測到播放清單：{SourceType.PlaylistTitle}，共 {SourceType.PlaylistCount} 部影片", "資源檢測", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        break;
+                    default:
+                        MessageBox.Show("無法識別的 URL 類型。", "資源檢測", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        break;
+                }
 
             }
             catch (Exception ex)
