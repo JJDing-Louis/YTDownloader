@@ -170,6 +170,7 @@
             tB_URL.Name = "tB_URL";
             tB_URL.Size = new Size(606, 23);
             tB_URL.TabIndex = 0;
+            tB_URL.Text = "https://www.youtube.com/watch?v=Q6AUf_OEQp4&list=PLClMLjxDWU1_MLVOZ87WBy5u0W4MPTG1g";
             // 
             // groupBox1
             // 

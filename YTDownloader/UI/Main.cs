@@ -50,18 +50,46 @@ namespace YTDownloader
         {
             logger.LogInformation("Initializing configuration...");
             config = initializationService.GetConfig();
-            ytDlpPath = Path.Combine( Environment.CurrentDirectory, config["ytDlpPath"]);
-            ffmpegPath = Path.Combine( Environment.CurrentDirectory, config["ffmpegPath"]);
-             if (!File.Exists(ytDlpPath))
+
+            if (config == null)
             {
-                logger.LogError("yt-dlp executable not found at path: {Path}", ytDlpPath);
-                MessageBox.Show($"yt-dlp 可執行檔未找到，請確認路徑：{ytDlpPath}", "配置錯誤", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                logger.LogError("Configuration object is null.");
+                MessageBox.Show("載入設定失敗（config 為 null）。", "初始化錯誤", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
             }
 
-            if (!File.Exists(ffmpegPath))
+            // 以安全方式讀取設定 (支援 appsettings.json 的 "yt-dlp"/"ffmpeg" 與原本預期的 "ytDlpPath"/"ffmpegPath")
+            var ytDlpRel = config["Path:yt-dlp"] ;
+            var ffmpegRel = config["Path:ffmpeg"] ;
+
+            if (string.IsNullOrWhiteSpace(ytDlpRel))
             {
-                logger.LogError("ffmpeg executable not found at path: {Path}", ffmpegPath);
-                MessageBox.Show($"ffmpeg 可執行檔未找到，請確認路徑：{ffmpegPath}", "配置錯誤", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                logger.LogError("yt-dlp path is not configured (Path:yt-dlp or Path:ytDlpPath).");
+                MessageBox.Show("yt-dlp 路徑未在設定中指定。", "配置錯誤", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            else
+            {
+                ytDlpPath = Path.Combine(Environment.CurrentDirectory, ytDlpRel.Trim());
+                if (!File.Exists(ytDlpPath))
+                {
+                    logger.LogError("yt-dlp executable not found at path: {Path}", ytDlpPath);
+                    MessageBox.Show($"yt-dlp 可執行檔未找到，請確認路徑：{ytDlpPath}", "配置錯誤", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
+
+            if (string.IsNullOrWhiteSpace(ffmpegRel))
+            {
+                logger.LogError("ffmpeg path is not configured (Path:ffmpeg or Path:ffmpegPath).");
+                MessageBox.Show("ffmpeg 路徑未在設定中指定。", "配置錯誤", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            else
+            {
+                ffmpegPath = Path.Combine(Environment.CurrentDirectory, ffmpegRel.Trim());
+                if (!File.Exists(ffmpegPath))
+                {
+                    logger.LogError("ffmpeg executable not found at path: {Path}", ffmpegPath);
+                    MessageBox.Show($"ffmpeg 可執行檔未找到，請確認路徑：{ffmpegPath}", "配置錯誤", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
             }
         }
 

@@ -365,6 +365,24 @@ namespace YTDownloader.Service
 
             try
             {
+                // ── 快速路徑：純解析 URL，不呼叫 yt-dlp ──────────────────
+                // 當 URL 帶有 list= 等明確播放清單參數時，可以在毫秒內完成判斷，
+                // 避免 yt-dlp 把整個播放清單的所有影片 metadata 全部 dump 出來。
+                var uri = new Uri(url);
+                var quickType = TryDetectFromUrlPattern(uri);
+                if (quickType.HasValue)
+                {
+                    return new ResourceDetectionResult
+                    {
+                        Url          = url,
+                        ResourceType = quickType.Value,
+                        Message      = quickType.Value == UrlResourceType.Playlist
+                            ? "URL 特徵判斷為播放清單（快速路徑）"
+                            : "URL 特徵判斷為單一影片（快速路徑）"
+                    };
+                }
+
+                // ── Fallback：呼叫 yt-dlp 取得完整 metadata ──────────────
                 var metadata = await GetMetadataAsync(url, bufferKb, cancellationToken);
 
                 if (metadata == null)
@@ -913,6 +931,80 @@ namespace YTDownloader.Service
             {
                 return null;
             }
+        }
+
+        /// <summary>
+        /// 純解析 URL 字串判斷資源類型，無需呼叫 yt-dlp。
+        /// 支援 YouTube、YouTube Music、Bilibili 等常見平台的播放清單 URL 特徵。
+        /// </summary>
+        /// <returns>
+        /// 能從 URL 確定類型時回傳 <see cref="UrlResourceType"/>；
+        /// 無法判斷時回傳 <c>null</c>，由呼叫端 fallback 至 yt-dlp。
+        /// </returns>
+        private static UrlResourceType? TryDetectFromUrlPattern(Uri uri)
+        {
+            var host = uri.Host.ToLowerInvariant();
+            var path = uri.AbsolutePath.ToLowerInvariant();
+            var query = uri.Query;
+
+            // ── YouTube / YouTube Music ───────────────────────────────────
+            if (host.EndsWith("youtube.com") || host == "youtu.be" || host.EndsWith("music.youtube.com"))
+            {
+                // 明確的播放清單頁面：youtube.com/playlist?list=xxx
+                if (path == "/playlist")
+                    return UrlResourceType.Playlist;
+
+                // 頻道/用戶頁面：通常為多部影片集合
+                if (path.StartsWith("/channel/") ||
+                    path.StartsWith("/user/")    ||
+                    path.StartsWith("/@"))
+                    return UrlResourceType.Playlist;
+
+                // youtu.be 短網址（無 list 參數）→ 單一影片
+                if (host == "youtu.be" && !HasQueryParam(query, "list"))
+                    return UrlResourceType.SingleVideo;
+
+                // watch?v=xxx&list=yyy → 帶播放清單 context 的影片頁面，視為播放清單
+                if (path == "/watch")
+                {
+                    bool hasVideo = HasQueryParam(query, "v");
+                    bool hasList  = HasQueryParam(query, "list");
+
+                    if (hasList)  return UrlResourceType.Playlist;
+                    if (hasVideo) return UrlResourceType.SingleVideo;
+                }
+            }
+
+            // ── Bilibili ─────────────────────────────────────────────────
+            if (host.EndsWith("bilibili.com"))
+            {
+                // 合集/播放清單頁面
+                if (path.StartsWith("/list/") ||
+                    path.Contains("/channel/") ||
+                    path.Contains("/medialist/"))
+                    return UrlResourceType.Playlist;
+
+                // 一般影片頁面
+                if (path.StartsWith("/video/"))
+                    return UrlResourceType.SingleVideo;
+            }
+
+            // 其他平台無法從 URL 特徵判斷，交由 yt-dlp
+            return null;
+        }
+
+        /// <summary>
+        /// 判斷 URL 的 query string 中是否包含指定的參數名稱。
+        /// </summary>
+        private static bool HasQueryParam(string query, string paramName)
+        {
+            if (string.IsNullOrEmpty(query))
+                return false;
+
+            // query 格式為 "?key=val&key2=val2"
+            // 確保比對的是完整的 key 而非子字串（e.g. "list" 不誤判 "playlist"）
+            return query.Contains($"?{paramName}=",  StringComparison.OrdinalIgnoreCase) ||
+                   query.Contains($"&{paramName}=",  StringComparison.OrdinalIgnoreCase);
         }
 
         private static void ValidateUrl(string url)
