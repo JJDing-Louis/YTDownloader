@@ -1,4 +1,5 @@
 using Autofac;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using YTDownloader.Service;
 
@@ -8,6 +9,8 @@ namespace YTDownloader
     {
         private ILogger logger = Program.Startup.Container.Resolve<ILogger<Main>>();
         private MainInitializationService initializationService = Program.Startup.Container.Resolve<MainInitializationService>();
+        private Dictionary<string, List<KeyValuePair<string, string>>> options;
+        private IConfiguration config;
 
         public Main()
         {
@@ -18,6 +21,7 @@ namespace YTDownloader
 
         private void Init()
         {
+            InitConfig();
             InitOptions();
         }
 
@@ -29,15 +33,21 @@ namespace YTDownloader
 
             try
             {
-                var options = initializationService.GetOptions();
+                options = initializationService.GetOptions();
                 BindComboBox(cB_ListMediaType, options, "ListMediaType");
-                BindComboBox(cB_ListSourceType, options, "ListSourceType");
             }
             catch (Exception ex)
             {
                 logger.LogError(ex, "Failed to initialize options.");
                 MessageBox.Show("選項載入失敗，請確認資料庫連線。", "初始化錯誤", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
+        }
+
+        private void InitConfig()
+        {
+            logger.LogInformation("Initializing configuration...");
+            config = initializationService.GetConfig();
+
         }
 
         private void BindComboBox(ComboBox comboBox, Dictionary<string, List<KeyValuePair<string, string>>> options, string key)
@@ -59,7 +69,14 @@ namespace YTDownloader
             try
             {
                 var SelectedMediaType = ((KeyValuePair<string, string>)cB_ListMediaType.SelectedItem).Value;
-                var SelectedSourceType = ((KeyValuePair<string, string>)cB_ListSourceType.SelectedItem).Value;
+                var URL = tB_URL.Text;
+                if (string.IsNullOrWhiteSpace(URL))
+                {
+                    MessageBox.Show("請輸入有效的 URL。", "輸入錯誤", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+
             }
             catch (Exception ex)
             {

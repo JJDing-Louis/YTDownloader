@@ -1,7 +1,10 @@
-﻿namespace YTDownloader.Service
+﻿using Microsoft.Extensions.Configuration;
+
+namespace YTDownloader.Service
 {
     public interface IInitializationService
     {
-        public new Dictionary<string, List<KeyValuePair<string, string>>> GetOptions();
+        public  Dictionary<string, List<KeyValuePair<string, string>>> GetOptions();
+        public IConfiguration GetConfig();
     }
 }

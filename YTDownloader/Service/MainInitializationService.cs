@@ -1,4 +1,5 @@
-﻿using Utility.Tools;
+﻿using Microsoft.Extensions.Configuration;
+using Utility.Tools;
 
 namespace YTDownloader.Service
 {
@@ -8,13 +9,20 @@ namespace YTDownloader.Service
         {
         }
 
-        public new Dictionary<string, List<KeyValuePair<string, string>>> GetOptions()
+        public Dictionary<string, List<KeyValuePair<string, string>>> GetOptions()
         {
             var options = new Dictionary<string, List<KeyValuePair<string, string>>>();
             options.Add("ListMediaType", GetListMediaType());
             options.Add("ListSourceType", GetListSourceType());
             return options;
         }
+
+        public IConfiguration GetConfig()
+        {
+            var config = ParameterTool.GetConfiguration();
+            return config;
+        }
+
 
         public List<KeyValuePair<string, string>> GetListMediaType()
         {

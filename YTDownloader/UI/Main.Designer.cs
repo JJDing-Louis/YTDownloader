@@ -38,7 +38,7 @@
             gB_ListMediaType = new GroupBox();
             cB_ListMediaType = new ComboBox();
             groupBox4 = new GroupBox();
-            textBox1 = new TextBox();
+            tB_URL = new TextBox();
             groupBox1 = new GroupBox();
             dataGridView1 = new DataGridView();
             tableLayoutPanel3 = new TableLayoutPanel();
@@ -154,7 +154,7 @@
             // 
             // groupBox4
             // 
-            groupBox4.Controls.Add(textBox1);
+            groupBox4.Controls.Add(tB_URL);
             groupBox4.Dock = DockStyle.Fill;
             groupBox4.Location = new Point(145, 3);
             groupBox4.Name = "groupBox4";
@@ -163,13 +163,13 @@
             groupBox4.TabStop = false;
             groupBox4.Text = "網址";
             // 
-            // textBox1
+            // tB_URL
             // 
-            textBox1.Dock = DockStyle.Fill;
-            textBox1.Location = new Point(3, 19);
-            textBox1.Name = "textBox1";
-            textBox1.Size = new Size(606, 23);
-            textBox1.TabIndex = 0;
+            tB_URL.Dock = DockStyle.Fill;
+            tB_URL.Location = new Point(3, 19);
+            tB_URL.Name = "tB_URL";
+            tB_URL.Size = new Size(606, 23);
+            tB_URL.TabIndex = 0;
             // 
             // groupBox1
             // 
@@ -272,7 +272,7 @@
         private GroupBox gB_ListMediaType;
         private ComboBox cB_ListMediaType;
         private GroupBox groupBox4;
-        private TextBox textBox1;
+        private TextBox tB_URL;
         private TableLayoutPanel tableLayoutPanel3;
         private Button btn_ClearCompleteTask;
         private Button btn_CancelAll;

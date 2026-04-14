@@ -15,6 +15,17 @@ namespace YTDownloader.Service
         private readonly string? _ffmpegFolder;
         private readonly ILogger logger = Program.Startup.Container.Resolve<ILogger<YtDlpDownloadService>>();
 
+        /// <summary>
+        /// 初始化 <see cref="YtDlpDownloadService"/>。
+        /// </summary>
+        /// <param name="ytDlpPath">
+        /// yt-dlp 執行檔的完整路徑，例如 <c>C:\tools\yt-dlp.exe</c>。
+        /// </param>
+        /// <param name="ffmpegFolder">
+        /// ffmpeg 執行檔所在的資料夾路徑（非執行檔本身），例如 <c>C:\tools\ffmpeg\bin</c>。
+        /// 用於影音合併（muxing）或音訊轉檔；若不需要則留 <c>null</c>。
+        /// </param>
+        /// <exception cref="ArgumentException"><paramref name="ytDlpPath"/> 為空白時拋出。</exception>
         public YtDlpDownloadService(
             string ytDlpPath,
             string? ffmpegFolder = null)
@@ -30,6 +41,38 @@ namespace YTDownloader.Service
         /// 下載單一影片或播放清單中的內容。
         /// 若 URL 指向播放清單，yt-dlp 會依其行為處理整個播放清單。
         /// </summary>
+        /// <param name="url">
+        /// 影片或播放清單的 URL，必須為絕對 URI 格式。
+        /// </param>
+        /// <param name="outputFolder">
+        /// 下載檔案的儲存資料夾路徑；若資料夾不存在，會自動建立。
+        /// </param>
+        /// <param name="format">
+        /// yt-dlp 格式選擇字串，預設為 <c>"best"</c>（最佳單一流）。
+        /// 可指定如 <c>"bestvideo+bestaudio/best"</c> 以分別選取最佳影像與音訊流再合併。
+        /// </param>
+        /// <param name="outputTemplate">
+        /// 輸出檔名模板，使用 yt-dlp 的 <c>%(field)s</c> 語法，預設為 <c>"%(title)s.%(ext)s"</c>。
+        /// </param>
+        /// <param name="downloadThumbnail">
+        /// 是否一併下載縮圖，預設為 <c>false</c>。
+        /// </param>
+        /// <param name="embedMetadata">
+        /// 是否將 metadata（標題、作者等）嵌入影片檔案，預設為 <c>false</c>。
+        /// </param>
+        /// <param name="cancellationToken">用於取消非同步操作的權杖。</param>
+        /// <returns>
+        /// <see cref="DownloadResult"/>，包含：
+        /// <list type="bullet">
+        ///   <item><see cref="DownloadResult.IsSuccess"/> — 是否下載成功。</item>
+        ///   <item><see cref="DownloadResult.OutputFolder"/> — 儲存路徑。</item>
+        ///   <item><see cref="DownloadResult.Message"/> — 成功說明或錯誤原因。</item>
+        /// </list>
+        /// 取消操作或執行期間發生錯誤時，回傳 <c>IsSuccess = false</c>，不拋出例外。
+        /// </returns>
+        /// <exception cref="ArgumentException">
+        /// <paramref name="url"/> 為空白或格式不正確，或 <paramref name="outputFolder"/> 為空白時拋出。
+        /// </exception>
         public async Task<DownloadResult> DownloadVideoAsync(
             string url,
             string outputFolder,
@@ -72,8 +115,43 @@ namespace YTDownloader.Service
         }
 
         /// <summary>
-        /// 下載音訊
+        /// 提取影片中的音訊並以指定格式轉檔後儲存。
         /// </summary>
+        /// <param name="url">
+        /// 影片的 URL，必須為絕對 URI 格式。
+        /// </param>
+        /// <param name="outputFolder">
+        /// 下載檔案的儲存資料夾路徑；若資料夾不存在，會自動建立。
+        /// </param>
+        /// <param name="audioFormat">
+        /// 輸出音訊格式，預設為 <see cref="AudioFormat.Mp3"/>。
+        /// 可選 <c>M4a</c>、<c>Flac</c>、<c>Wav</c>、<c>Opus</c> 等。
+        /// </param>
+        /// <param name="audioQuality">
+        /// 音質等級（VBR 模式），範圍 <c>0</c>（最佳）到 <c>10</c>（最差），預設為 <c>5</c>。
+        /// </param>
+        /// <param name="outputTemplate">
+        /// 輸出檔名模板，使用 yt-dlp 的 <c>%(field)s</c> 語法，預設為 <c>"%(title)s.%(ext)s"</c>。
+        /// </param>
+        /// <param name="embedMetadata">
+        /// 是否將 metadata（標題、作者等）嵌入音訊檔案，預設為 <c>true</c>。
+        /// </param>
+        /// <param name="embedThumbnail">
+        /// 是否將縮圖嵌入音訊檔案作為封面，預設為 <c>false</c>。
+        /// </param>
+        /// <param name="cancellationToken">用於取消非同步操作的權杖。</param>
+        /// <returns>
+        /// <see cref="DownloadResult"/>，包含：
+        /// <list type="bullet">
+        ///   <item><see cref="DownloadResult.IsSuccess"/> — 是否下載成功。</item>
+        ///   <item><see cref="DownloadResult.OutputFolder"/> — 儲存路徑。</item>
+        ///   <item><see cref="DownloadResult.Message"/> — 成功說明或錯誤原因，成功時會標示音訊格式。</item>
+        /// </list>
+        /// 取消操作或執行期間發生錯誤時，回傳 <c>IsSuccess = false</c>，不拋出例外。
+        /// </returns>
+        /// <exception cref="ArgumentException">
+        /// <paramref name="url"/> 為空白或格式不正確，或 <paramref name="outputFolder"/> 為空白時拋出。
+        /// </exception>
         public async Task<DownloadResult> DownloadAudioAsync(
             string url,
             string outputFolder,
@@ -118,8 +196,36 @@ namespace YTDownloader.Service
         }
 
         /// <summary>
-        /// 批次下載多個 URL
+        /// 批次下載多個 URL，支援並發控制。
+        /// 空白及重複的 URL 會在執行前自動過濾。
         /// </summary>
+        /// <param name="urls">
+        /// 要下載的影片 URL 清單。空白項目會自動略過，重複項目會自動去除。
+        /// </param>
+        /// <param name="outputFolder">
+        /// 下載檔案的儲存資料夾路徑；若資料夾不存在，會自動建立。
+        /// </param>
+        /// <param name="format">
+        /// yt-dlp 格式選擇字串，預設為 <c>"best"</c>。
+        /// </param>
+        /// <param name="maxConcurrency">
+        /// 同時進行下載的最大數量，預設為 <c>3</c>。
+        /// </param>
+        /// <param name="cancellationToken">用於取消非同步操作的權杖。</param>
+        /// <returns>
+        /// <see cref="BatchDownloadResult"/>，包含：
+        /// <list type="bullet">
+        ///   <item><see cref="BatchDownloadResult.IsSuccess"/> — 是否全部下載成功。</item>
+        ///   <item><see cref="BatchDownloadResult.TotalCount"/> — 實際執行下載的 URL 數量（過濾後）。</item>
+        ///   <item><see cref="BatchDownloadResult.OutputFolder"/> — 儲存路徑。</item>
+        ///   <item><see cref="BatchDownloadResult.Message"/> — 成功說明或錯誤原因。</item>
+        /// </list>
+        /// 取消操作或執行期間發生錯誤時，回傳 <c>IsSuccess = false</c>，不拋出例外。
+        /// </returns>
+        /// <exception cref="ArgumentNullException"><paramref name="urls"/> 為 <c>null</c> 時拋出。</exception>
+        /// <exception cref="ArgumentException">
+        /// <paramref name="urls"/> 過濾後為空，或 <paramref name="outputFolder"/> 為空白時拋出。
+        /// </exception>
         public async Task<BatchDownloadResult> DownloadVideosAsync(
             IEnumerable<string> urls,
             string outputFolder,
@@ -186,8 +292,23 @@ namespace YTDownloader.Service
         }
 
         /// <summary>
-        /// 取得 metadata 並轉成自有 DTO
+        /// 取得影片或播放清單的 metadata，並轉換為自有 DTO。
         /// </summary>
+        /// <param name="url">
+        /// 影片或播放清單的 URL，必須為絕對 URI 格式。
+        /// </param>
+        /// <param name="bufferKb">
+        /// 讀取 metadata 時的輸出緩衝大小（KB），預設為 <c>1024</c>。
+        /// 播放清單項目較多時可適當調高。
+        /// </param>
+        /// <param name="cancellationToken">用於取消非同步操作的權杖。</param>
+        /// <returns>
+        /// 解析成功時回傳 <see cref="YtDlpMetadata"/>，包含標題、上傳者、長度、播放清單資訊等欄位。
+        /// 若 URL 無法解析或發生錯誤，回傳 <c>null</c>，不拋出例外。
+        /// </returns>
+        /// <exception cref="ArgumentException">
+        /// <paramref name="url"/> 為空白或格式不正確時拋出。
+        /// </exception>
         public async Task<YtDlpMetadata?> GetMetadataAsync(
             string url,
             int bufferKb = 1024,
@@ -213,8 +334,28 @@ namespace YTDownloader.Service
         }
 
         /// <summary>
-        /// 直接用 metadata 判斷 URL 是單一影片或播放清單
+        /// 透過 metadata 判斷 URL 指向的是單一影片或播放清單。
         /// </summary>
+        /// <param name="url">
+        /// 要判斷的影片或播放清單 URL，必須為絕對 URI 格式。
+        /// </param>
+        /// <param name="bufferKb">
+        /// 讀取 metadata 時的輸出緩衝大小（KB），預設為 <c>1024</c>。
+        /// </param>
+        /// <param name="cancellationToken">用於取消非同步操作的權杖。</param>
+        /// <returns>
+        /// <see cref="ResourceDetectionResult"/>，包含：
+        /// <list type="bullet">
+        ///   <item><see cref="ResourceDetectionResult.ResourceType"/> — 判斷結果，<see cref="UrlResourceType.SingleVideo"/>、<see cref="UrlResourceType.Playlist"/> 或 <see cref="UrlResourceType.Unknown"/>。</item>
+        ///   <item><see cref="ResourceDetectionResult.Title"/> — 影片或播放清單標題。</item>
+        ///   <item><see cref="ResourceDetectionResult.PlaylistCount"/> — 播放清單宣告的影片總數（單一影片時為 <c>null</c>）。</item>
+        ///   <item><see cref="ResourceDetectionResult.Message"/> — 判斷說明或錯誤原因。</item>
+        /// </list>
+        /// 無法取得 metadata 時，<c>ResourceType</c> 為 <see cref="UrlResourceType.Unknown"/>，不拋出例外。
+        /// </returns>
+        /// <exception cref="ArgumentException">
+        /// <paramref name="url"/> 為空白或格式不正確時拋出。
+        /// </exception>
         public async Task<ResourceDetectionResult> DetectResourceAsync(
             string url,
             int bufferKb = 1024,
@@ -266,8 +407,23 @@ namespace YTDownloader.Service
         }
 
         /// <summary>
-        /// 取得格式清單
+        /// 取得指定 URL 所有可用的影音格式清單。
+        /// 適合讓使用者手動選擇格式 ID 後，再傳入 <see cref="DownloadVideoAsync"/> 的 <c>format</c> 參數。
         /// </summary>
+        /// <param name="url">
+        /// 影片的 URL，必須為絕對 URI 格式。
+        /// </param>
+        /// <param name="bufferKb">
+        /// 讀取格式資訊時的輸出緩衝大小（KB），預設為 <c>1024</c>。
+        /// </param>
+        /// <param name="cancellationToken">用於取消非同步操作的權杖。</param>
+        /// <returns>
+        /// 可用格式的清單，每筆 <see cref="VideoFormatDto"/> 包含格式 ID、副檔名、解析度、影音編碼等資訊。
+        /// 發生錯誤時回傳空清單，不拋出例外。
+        /// </returns>
+        /// <exception cref="ArgumentException">
+        /// <paramref name="url"/> 為空白或格式不正確時拋出。
+        /// </exception>
         public async Task<List<VideoFormatDto>> GetFormatsAsync(
             string url,
             int bufferKb = 1024,
@@ -299,8 +455,35 @@ namespace YTDownloader.Service
         }
 
         /// <summary>
-        /// 自動挑選最佳影音格式後下載
+        /// 自動查詢最佳影像與音訊格式 ID，以 <c>{bestVideo}+{bestAudio}/best</c> 合併後下載。
+        /// 適合不想手動選擇格式、追求最高品質的場景。
         /// </summary>
+        /// <remarks>
+        /// 此方法會呼叫兩次 yt-dlp（先查格式、再下載），需提供 ffmpeg 路徑以執行影音合併。
+        /// </remarks>
+        /// <param name="url">
+        /// 影片的 URL，必須為絕對 URI 格式。
+        /// </param>
+        /// <param name="outputFolder">
+        /// 下載檔案的儲存資料夾路徑；若資料夾不存在，會自動建立。
+        /// </param>
+        /// <param name="maxHeight">
+        /// 影像解析度上限（像素高度），預設為 <c>1080</c>。
+        /// 例如指定 <c>720</c> 則選取不超過 720p 的最佳格式。
+        /// </param>
+        /// <param name="cancellationToken">用於取消非同步操作的權杖。</param>
+        /// <returns>
+        /// <see cref="DownloadResult"/>，包含：
+        /// <list type="bullet">
+        ///   <item><see cref="DownloadResult.IsSuccess"/> — 是否下載成功。</item>
+        ///   <item><see cref="DownloadResult.OutputFolder"/> — 儲存路徑。</item>
+        ///   <item><see cref="DownloadResult.Message"/> — 成功時包含最終使用的格式字串，失敗時為錯誤原因。</item>
+        /// </list>
+        /// 執行期間發生錯誤時，回傳 <c>IsSuccess = false</c>，不拋出例外。
+        /// </returns>
+        /// <exception cref="ArgumentException">
+        /// <paramref name="url"/> 為空白或格式不正確，或 <paramref name="outputFolder"/> 為空白時拋出。
+        /// </exception>
         public async Task<DownloadResult> DownloadBestMuxedVideoAsync(
             string url,
             string outputFolder,
@@ -348,10 +531,41 @@ namespace YTDownloader.Service
         }
 
         /// <summary>
-        /// 下載時自動依 metadata 分流：
-        /// Playlist -> 下載整個播放清單
-        /// SingleVideo -> 下載單一影片
+        /// 先偵測 URL 類型，再自動分流下載。
+        /// <list type="bullet">
+        ///   <item><see cref="UrlResourceType.Playlist"/> — 下載整個播放清單。</item>
+        ///   <item><see cref="UrlResourceType.SingleVideo"/> — 下載單一影片。</item>
+        ///   <item><see cref="UrlResourceType.Unknown"/> — 直接回傳失敗，不進行下載。</item>
+        /// </list>
         /// </summary>
+        /// <param name="url">
+        /// 影片或播放清單的 URL，必須為絕對 URI 格式。
+        /// </param>
+        /// <param name="outputFolder">
+        /// 下載檔案的儲存資料夾路徑；若資料夾不存在，會自動建立。
+        /// </param>
+        /// <param name="format">
+        /// yt-dlp 格式選擇字串，預設為 <c>"best"</c>。
+        /// </param>
+        /// <param name="outputTemplate">
+        /// 輸出檔名模板，使用 yt-dlp 的 <c>%(field)s</c> 語法，預設為 <c>"%(title)s.%(ext)s"</c>。
+        /// </param>
+        /// <param name="downloadThumbnail">
+        /// 是否一併下載縮圖，預設為 <c>false</c>。
+        /// </param>
+        /// <param name="embedMetadata">
+        /// 是否將 metadata 嵌入檔案，預設為 <c>false</c>。
+        /// </param>
+        /// <param name="cancellationToken">用於取消非同步操作的權杖。</param>
+        /// <returns>
+        /// <see cref="DownloadResult"/>，包含：
+        /// <list type="bullet">
+        ///   <item><see cref="DownloadResult.IsSuccess"/> — 是否下載成功。</item>
+        ///   <item><see cref="DownloadResult.OutputFolder"/> — 儲存路徑。</item>
+        ///   <item><see cref="DownloadResult.Message"/> — 成功說明或錯誤原因。</item>
+        /// </list>
+        /// URL 類型無法判斷時，立即回傳 <c>IsSuccess = false</c>，不拋出例外。
+        /// </returns>
         public async Task<DownloadResult> DownloadByDetectedTypeAsync(
             string url,
             string outputFolder,
@@ -386,13 +600,34 @@ namespace YTDownloader.Service
         /// 只把 IsSelected == true 且 WebpageUrl 不為空的項目送給下載方法。
         /// </para>
         /// </summary>
-        /// <param name="url">播放清單 URL（也接受單一影片 URL，會包成單項清單回傳）</param>
-        /// <param name="progress">
-        /// 可選的進度回報，參數為 (目前索引, 總數, 目前影片標題)，
-        /// 適合用來更新 ProgressBar 或 Label。
+        /// <param name="url">
+        /// 播放清單的 URL，必須為絕對 URI 格式。
+        /// 也接受單一影片 URL，此時會自動包成只有一筆的清單回傳，UI 層無需特判。
         /// </param>
-        /// <param name="bufferKb">讀取 metadata 時的緩衝大小，大型清單建議調高（預設 8192 KB）</param>
-        /// <param name="cancellationToken">取消權杖</param>
+        /// <param name="progress">
+        /// 可選的進度回報介面，每解析完一筆影片時觸發，回報內容為
+        /// <c>(Current: 目前索引, Total: 總數, CurrentTitle: 目前影片標題)</c>，
+        /// 適合用來更新 <c>ProgressBar</c> 或 <c>Label</c>。
+        /// </param>
+        /// <param name="bufferKb">
+        /// 讀取 metadata 時的輸出緩衝大小（KB），預設為 <c>8192</c>。
+        /// 播放清單超過 100 部時建議調高至 <c>16384</c> 以避免資料截斷。
+        /// </param>
+        /// <param name="cancellationToken">用於取消非同步操作的權杖。</param>
+        /// <returns>
+        /// <see cref="PlaylistFetchResult"/>，包含：
+        /// <list type="bullet">
+        ///   <item><see cref="PlaylistFetchResult.IsSuccess"/> — 是否成功讀取。</item>
+        ///   <item><see cref="PlaylistFetchResult.PlaylistTitle"/> — 播放清單標題。</item>
+        ///   <item><see cref="PlaylistFetchResult.TotalCount"/> — 實際解析到的影片數量。</item>
+        ///   <item><see cref="PlaylistFetchResult.Videos"/> — 影片清單，每筆含標題、URL、時長、縮圖及 <c>IsSelected</c> 勾選狀態。</item>
+        ///   <item><see cref="PlaylistFetchResult.Message"/> — 成功說明或錯誤原因。</item>
+        /// </list>
+        /// 取消操作或執行期間發生錯誤時，回傳 <c>IsSuccess = false</c>，不拋出例外。
+        /// </returns>
+        /// <exception cref="ArgumentException">
+        /// <paramref name="url"/> 為空白或格式不正確時拋出。
+        /// </exception>
         public async Task<PlaylistFetchResult> GetPlaylistVideosAsync(
             string url,
             IProgress<(int Current, int Total, string? CurrentTitle)>? progress = null,
