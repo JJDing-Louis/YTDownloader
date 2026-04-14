@@ -15,6 +15,10 @@ namespace YTDownloader
         private string ytDlpPath;
         private string ffmpegPath;
 
+        #region
+        private PlaylistHandler playlistHandlerForm;
+        #endregion
+
         public Main()
         {
             InitializeComponent();
@@ -129,6 +133,12 @@ namespace YTDownloader
                         break;
                     case UrlResourceType.Playlist:
                         logger.LogInformation($"檢測到播放清單：{SourceType.PlaylistTitle}，共 {SourceType.PlaylistCount} 部影片", "資源檢測", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        playlistHandlerForm = new PlaylistHandler(URL,this);
+                        playlistHandlerForm.MdiParent = this;
+                        //playlistHandlerForm.Show();
+                        playlistHandlerForm.Location = new Point(700, 0);
+                        playlistHandlerForm.Disposed += new EventHandler(playlistHandlerForm_Disposed);
+
                         break;
                     default:
                         MessageBox.Show("無法識別的 URL 類型。", "資源檢測", MessageBoxButtons.OK, MessageBoxIcon.Warning);
@@ -140,6 +150,11 @@ namespace YTDownloader
             {
                 logger.LogError(ex, "Failed to retrieve selected options.");
             }
+        }
+
+        private void playlistHandlerForm_Disposed(object? sender, EventArgs e)
+        {
+            playlistHandlerForm = null;
         }
     }
 }

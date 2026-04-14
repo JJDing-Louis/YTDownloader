@@ -12,9 +12,24 @@ namespace YTDownloader
 {
     public partial class PlaylistHandler : Form
     {
+        private string playlistUrl;
+        private Main mainForm;
+
+
         public PlaylistHandler()
         {
             InitializeComponent();
+        }
+
+        public PlaylistHandler(string playlistUrl, Main mainForm) : this()
+        {
+            this.playlistUrl = playlistUrl;
+            this.mainForm = mainForm;
+        }
+
+        public bool GetPlaylistInfo()
+        {
+            return true;
         }
     }
 }
