@@ -193,6 +193,10 @@ namespace YTDownloader
                 dGV_PlayList.Rows.Clear();
                 if (playlist.Videos != null && playlist.Videos.Count > 0)
                 {
+                    //暫存目前取得的播放清單媒體資訊
+                    playlistVideos = playlist.Videos.DeepClone();
+
+                    //UI顯示
                     foreach (var video in playlist.Videos)
                     {
                         dGV_PlayList.Rows.Add(
@@ -229,47 +233,56 @@ namespace YTDownloader
         private async void btn_Download_Click(object sender, EventArgs e)
         {
             // ── 1. 收集已勾選的項目 ─────────────────────────────────────────
-            var selectedItems = new List<(string Title, string Url)>();
+            // 從 Grid 取出勾選列的 ID，再從暫存的 playlistVideos 查回完整物件
+            var selectedItemsId = new List<string>();
             foreach (DataGridViewRow row in dGV_PlayList.Rows)
             {
                 if (row.Cells["colSelected"].Value is true)
-                {
-                    var title = row.Cells["colTitle"].Value?.ToString() ?? "(未知標題)";
-                    var url = row.Cells["colURL"].Value?.ToString();
-                    if (!string.IsNullOrWhiteSpace(url))
-                        selectedItems.Add((title, url));
-                }
+                    selectedItemsId.Add(row.Cells["colId"].Value?.ToString() ?? string.Empty);
             }
 
-            if (selectedItems.Count == 0)
+            if (selectedItemsId.Count == 0)
             {
                 MessageBox.Show("請至少選取一個項目。", "提示", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
 
+            // 根據 ID 從暫存的 playlistVideos 中找到對應的完整資訊
+            var selectedVideoItems = selectedItemsId
+                .Select(id => playlistVideos.FirstOrDefault(v => v.Id == id))
+                .Where(v => v != null)
+                .Cast<PlaylistVideoItem>()
+                .ToList();
+
+            if (selectedVideoItems.Count == 0)
+            {
+                MessageBox.Show("找不到對應的影片資訊，請重新載入播放清單。", "錯誤", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
             // ── 2. 判斷媒體類型 ──────────────────────────────────────────────
-            var mediaTypeValue = mainForm.SelectedMediaTypeValue;
-            bool isAudio = mediaTypeValue.Equals("Audio", StringComparison.OrdinalIgnoreCase);
+            var    mediaTypeValue   = mainForm.SelectedMediaTypeValue;
+            bool   isAudio          = mediaTypeValue.Equals("Audio", StringComparison.OrdinalIgnoreCase);
             string mediaTypeDisplay = isAudio ? "音訊" : "視訊";
 
             // ── 3. 在 Main 下載清單中預先新增所有列（等待中）─────────────────
-            var rowIndices = new int[selectedItems.Count];
-            for (int i = 0; i < selectedItems.Count; i++)
-                rowIndices[i] = mainForm.AddDownloadItem(selectedItems[i].Title, mediaTypeDisplay);
+            var rowIndices = new int[selectedVideoItems.Count];
+            for (int i = 0; i < selectedVideoItems.Count; i++)
+                rowIndices[i] = mainForm.AddDownloadItem(selectedVideoItems[i].DisplayTitle, mediaTypeDisplay);
 
             // ── 4. 停用按鈕，防止重複觸發 ────────────────────────────────────
             btn_Download.Enabled = false;
 
             var downloadService = new YtDlpDownloadService(ytDlpPath, ffmpegPath);
-            var semaphore = new SemaphoreSlim(3);   // 最多 3 個並發
-            var tasks = new List<Task>();
+            var semaphore       = new SemaphoreSlim(3);   // 最多 3 個並發
+            var tasks           = new List<Task>();
 
-            for (int i = 0; i < selectedItems.Count; i++)
+            for (int i = 0; i < selectedVideoItems.Count; i++)
             {
                 // 使用區域變數，避免 closure 捕捉迴圈變數
-                int rowIndex = rowIndices[i];
-                var item = selectedItems[i];
-                string dir = downloadDir;
+                int    rowIndex = rowIndices[i];
+                var    item     = selectedVideoItems[i];
+                string dir      = downloadDir;
 
                 // ── 5. 建立可重複使用的下載 Action（暫停後「繼續」時由 Main 呼叫）──
                 Func<CancellationToken, Task> downloadAction = async (ct) =>
@@ -280,17 +293,17 @@ namespace YTDownloader
                     if (isAudio)
                     {
                         result = await downloadService.DownloadAudioAsync(
-                            url: item.Url,
-                            outputFolder: dir,
-                            onProgress: pct => mainForm.UpdateDownloadProgress(rowIndex, pct, "下載中"),
+                            url:               item.WebpageUrl!,
+                            outputFolder:      dir,
+                            onProgress:        pct => mainForm.UpdateDownloadProgress(rowIndex, pct, "下載中"),
                             cancellationToken: ct);
                     }
                     else
                     {
                         result = await downloadService.DownloadVideoAsync(
-                            url: item.Url,
-                            outputFolder: dir,
-                            onProgress: pct => mainForm.UpdateDownloadProgress(rowIndex, pct, "下載中"),
+                            url:               item.WebpageUrl!,
+                            outputFolder:      dir,
+                            onProgress:        pct => mainForm.UpdateDownloadProgress(rowIndex, pct, "下載中"),
                             cancellationToken: ct);
                     }
 
@@ -300,13 +313,13 @@ namespace YTDownloader
                     if (result.IsSuccess)
                     {
                         mainForm.UpdateDownloadProgress(rowIndex, 100, "完成");
-                        mainForm.SetActionButton(rowIndex, "—");   // 完成後按鈕停用
+                        mainForm.SetActionButton(rowIndex, "—");   // 完成後停用按鈕
                     }
                     else
                     {
                         mainForm.UpdateDownloadProgress(rowIndex, 0, "失敗");
                         mainForm.SetActionButton(rowIndex, "重試");
-                        logger.LogError("下載失敗 [{Title}]：{Message}", item.Title, result.Message);
+                        logger.LogError("下載失敗 [{Title}]：{Message}", item.DisplayTitle, result.Message);
                     }
                 };
 
@@ -333,9 +346,9 @@ namespace YTDownloader
 
             // ── 7. 初始批次結束 ───────────────────────────────────────────────
             btn_Download.Enabled = true;
-            logger.LogInformation("播放清單批次下載完成，共 {Count} 個項目。", selectedItems.Count);
+            logger.LogInformation("播放清單批次下載完成，共 {Count} 個項目。", selectedVideoItems.Count);
             MessageBox.Show(
-                $"批次下載完成！共 {selectedItems.Count} 個項目。\n（若有已暫停的項目，可在主視窗按「繼續」繼續下載。）",
+                $"批次下載完成！共 {selectedVideoItems.Count} 個項目。\n（若有已暫停的項目，可在主視窗按「繼續」繼續下載。）",
                 "下載完成",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Information);

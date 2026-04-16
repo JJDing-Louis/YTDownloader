@@ -70,5 +70,38 @@ namespace YTDownloader.Model
         /// </summary>
         public string DisplayTitle =>
             !string.IsNullOrWhiteSpace(Title) ? Title : (Id ?? "(未知標題)");
+
+        /// <summary>
+        /// 回傳此物件的深複製。
+        /// <para>
+        /// 由於所有屬性均為不可變字串或值型別，成員複製即等同深複製。
+        /// </para>
+        /// </summary>
+        public PlaylistVideoItem Clone() => new()
+        {
+            Index      = this.Index,
+            Id         = this.Id,
+            Title      = this.Title,
+            Uploader   = this.Uploader,
+            Duration   = this.Duration,
+            Thumbnail  = this.Thumbnail,
+            WebpageUrl = this.WebpageUrl,
+            IsSelected = this.IsSelected
+        };
+    }
+
+    /// <summary>
+    /// <see cref="List{T}"/> 的 <see cref="PlaylistVideoItem"/> 擴充方法。
+    /// </summary>
+    public static class PlaylistVideoItemListExtensions
+    {
+        /// <summary>
+        /// 回傳清單的深複製（每個元素各自呼叫 <see cref="PlaylistVideoItem.Clone"/>）。
+        /// </summary>
+        public static List<PlaylistVideoItem> DeepClone(this List<PlaylistVideoItem> source)
+        {
+            if (source is null) throw new ArgumentNullException(nameof(source));
+            return source.Select(v => v.Clone()).ToList();
+        }
     }
 }
