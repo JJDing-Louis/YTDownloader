@@ -1,6 +1,7 @@
 using Autofac;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Microsoft.SqlServer.Management.SqlParser.SqlCodeDom;
 using YTDownloader.Model;
 using YTDownloader.Service;
 
@@ -135,7 +136,16 @@ namespace YTDownloader
                         logger.LogInformation($"檢測到播放清單：{SourceType.PlaylistTitle}，共 {SourceType.PlaylistCount} 部影片", "資源檢測", MessageBoxButtons.OK, MessageBoxIcon.Information);
                         playlistHandlerForm = new PlaylistHandler(URL,this);
                         playlistHandlerForm.MdiParent = this;
-                        //playlistHandlerForm.Show();
+                        if (playlistHandlerForm.GetPlaylistInfo(out var msg))
+                        {
+                            logger.LogInformation($"成功獲取播放清單資訊：{msg}");
+                            playlistHandlerForm.Show();
+                        }
+                        else
+                        {
+                            logger.LogInformation($"獲取播放清單資訊失敗：{msg}");
+                        }
+                      
                         playlistHandlerForm.Location = new Point(700, 0);
                         playlistHandlerForm.Disposed += new EventHandler(playlistHandlerForm_Disposed);
 

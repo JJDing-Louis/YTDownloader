@@ -34,14 +34,14 @@
             button1 = new Button();
             button2 = new Button();
             groupBox2 = new GroupBox();
-            dataGridView1 = new DataGridView();
+            dGV_PlayList = new DataGridView();
             tableLayoutPanel3 = new TableLayoutPanel();
             checkBox1 = new CheckBox();
             tableLayoutPanel1.SuspendLayout();
             groupBox1.SuspendLayout();
             tableLayoutPanel2.SuspendLayout();
             groupBox2.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)dataGridView1).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)dGV_PlayList).BeginInit();
             tableLayoutPanel3.SuspendLayout();
             SuspendLayout();
             // 
@@ -119,7 +119,7 @@
             // 
             // groupBox2
             // 
-            groupBox2.Controls.Add(dataGridView1);
+            groupBox2.Controls.Add(dGV_PlayList);
             groupBox2.Dock = DockStyle.Fill;
             groupBox2.Location = new Point(3, 115);
             groupBox2.Name = "groupBox2";
@@ -128,14 +128,14 @@
             groupBox2.TabStop = false;
             groupBox2.Text = "清單";
             // 
-            // dataGridView1
+            // dGV_PlayList
             // 
-            dataGridView1.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
-            dataGridView1.Dock = DockStyle.Fill;
-            dataGridView1.Location = new Point(3, 19);
-            dataGridView1.Name = "dataGridView1";
-            dataGridView1.Size = new Size(788, 310);
-            dataGridView1.TabIndex = 0;
+            dGV_PlayList.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
+            dGV_PlayList.Dock = DockStyle.Fill;
+            dGV_PlayList.Location = new Point(3, 19);
+            dGV_PlayList.Name = "dGV_PlayList";
+            dGV_PlayList.Size = new Size(788, 310);
+            dGV_PlayList.TabIndex = 0;
             // 
             // tableLayoutPanel3
             // 
@@ -183,7 +183,7 @@
             groupBox1.ResumeLayout(false);
             tableLayoutPanel2.ResumeLayout(false);
             groupBox2.ResumeLayout(false);
-            ((System.ComponentModel.ISupportInitialize)dataGridView1).EndInit();
+            ((System.ComponentModel.ISupportInitialize)dGV_PlayList).EndInit();
             tableLayoutPanel3.ResumeLayout(false);
             tableLayoutPanel3.PerformLayout();
             ResumeLayout(false);
@@ -197,7 +197,7 @@
         private Button button1;
         private Button button2;
         private GroupBox groupBox2;
-        private DataGridView dataGridView1;
+        private DataGridView dGV_PlayList;
         private TableLayoutPanel tableLayoutPanel3;
         private CheckBox checkBox1;
     }

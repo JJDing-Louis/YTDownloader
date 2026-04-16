@@ -391,7 +391,7 @@ namespace YTDownloaderTest.ServiceTest
 
         [Test]
         [Category("Integration")]
-        [Ignore("需要實際 yt-dlp 執行檔，請手動執行整合測試")]
+        //[Ignore("需要實際 yt-dlp 執行檔，請手動執行整合測試")]
         [Description("播放清單 URL 應回傳多筆影片資訊，且每筆 URL 不為空")]
         public async Task GetPlaylistVideosAsync_RealPlaylistUrl_ReturnsMultipleVideos()
         {
@@ -416,7 +416,7 @@ namespace YTDownloaderTest.ServiceTest
 
         [Test]
         [Category("Integration")]
-        [Ignore("需要實際 yt-dlp 執行檔，請手動執行整合測試")]
+        //[Ignore("需要實際 yt-dlp 執行檔，請手動執行整合測試")]
         [Description("單一影片 URL 傳入 GetPlaylistVideosAsync 應包成 1 筆清單回傳")]
         public async Task GetPlaylistVideosAsync_SingleVideoUrl_ReturnsOneItem()
         {
