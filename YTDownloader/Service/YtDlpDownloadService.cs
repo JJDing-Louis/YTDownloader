@@ -705,7 +705,7 @@ namespace YTDownloader.Service
                             Duration   = TryGetNullableInt(() => entry.Duration),
                             Thumbnail  = thumbnailUrl,
                             WebpageUrl = videoUrl,
-                            IsSelected = true
+                            IsSelected = false
                         });
                     }
 
@@ -725,7 +725,7 @@ namespace YTDownloader.Service
                     Duration   = TryGetNullableInt(() => raw.Duration),
                     Thumbnail  = TryGetString(() => raw.Thumbnail),
                     WebpageUrl = TryGetString(() => raw.WebpageUrl),
-                    IsSelected = true
+                    IsSelected = false
                 };
                 videos.Add(single);
 

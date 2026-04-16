@@ -36,7 +36,7 @@
             groupBox2 = new GroupBox();
             dGV_PlayList = new DataGridView();
             tableLayoutPanel3 = new TableLayoutPanel();
-            checkBox1 = new CheckBox();
+            cB_SelectedAll = new CheckBox();
             tableLayoutPanel1.SuspendLayout();
             groupBox1.SuspendLayout();
             tableLayoutPanel2.SuspendLayout();
@@ -150,7 +150,7 @@
             tableLayoutPanel3.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 10F));
             tableLayoutPanel3.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 10F));
             tableLayoutPanel3.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 10F));
-            tableLayoutPanel3.Controls.Add(checkBox1, 0, 0);
+            tableLayoutPanel3.Controls.Add(cB_SelectedAll, 0, 0);
             tableLayoutPanel3.Dock = DockStyle.Fill;
             tableLayoutPanel3.Location = new Point(3, 70);
             tableLayoutPanel3.Name = "tableLayoutPanel3";
@@ -160,16 +160,17 @@
             tableLayoutPanel3.Size = new Size(794, 39);
             tableLayoutPanel3.TabIndex = 3;
             // 
-            // checkBox1
+            // cB_SelectedAll
             // 
-            checkBox1.AutoSize = true;
-            checkBox1.Dock = DockStyle.Fill;
-            checkBox1.Location = new Point(3, 3);
-            checkBox1.Name = "checkBox1";
-            checkBox1.Size = new Size(73, 33);
-            checkBox1.TabIndex = 0;
-            checkBox1.Text = "全選";
-            checkBox1.UseVisualStyleBackColor = true;
+            cB_SelectedAll.AutoSize = true;
+            cB_SelectedAll.Dock = DockStyle.Fill;
+            cB_SelectedAll.Location = new Point(3, 3);
+            cB_SelectedAll.Name = "cB_SelectedAll";
+            cB_SelectedAll.Size = new Size(73, 33);
+            cB_SelectedAll.TabIndex = 0;
+            cB_SelectedAll.Text = "全選";
+            cB_SelectedAll.UseVisualStyleBackColor = true;
+            cB_SelectedAll.CheckStateChanged += cB_SelectedAll_CheckStateChanged;
             // 
             // PlaylistHandler
             // 
@@ -199,6 +200,6 @@
         private GroupBox groupBox2;
         private DataGridView dGV_PlayList;
         private TableLayoutPanel tableLayoutPanel3;
-        private CheckBox checkBox1;
+        private CheckBox cB_SelectedAll;
     }
 }

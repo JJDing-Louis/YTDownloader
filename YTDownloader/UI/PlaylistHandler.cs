@@ -40,11 +40,17 @@ namespace YTDownloader
             this.playlistUrl = playlistUrl;
             this.mainForm = mainForm;
             Init();
+            InitUI();
         }
 
         private void Init()
         {
             InitConfig();
+      
+        }
+
+        private void InitUI()
+        {
             InitDataGridView();
         }
 
@@ -55,47 +61,67 @@ namespace YTDownloader
             // 勾選欄
             dGV_PlayList.Columns.Add(new DataGridViewCheckBoxColumn
             {
-                Name        = "colSelected",
-                HeaderText  = "選取",
-                Width       = 50,
-                ReadOnly    = false,
-                Resizable   = DataGridViewTriState.False
+                Name = "colSelected",
+                HeaderText = "選取",
+                Width = 50,
+                ReadOnly = false,
+                Resizable = DataGridViewTriState.False
             });
 
             // 序號欄
             dGV_PlayList.Columns.Add(new DataGridViewTextBoxColumn
             {
-                Name       = "colIndex",
+                Name = "colIndex",
                 HeaderText = "#",
-                Width      = 45,
-                ReadOnly   = true
+                Width = 45,
+                ReadOnly = true
+            });
+
+            // 影片唯一識別碼
+            dGV_PlayList.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                Name = "colId",
+                HeaderText = "Id",
+                Width = 45,
+                ReadOnly = true,
+                Visible = false // 隱藏 ID 欄位，僅供內部使用
             });
 
             // 標題欄
             dGV_PlayList.Columns.Add(new DataGridViewTextBoxColumn
             {
-                Name          = "colTitle",
-                HeaderText    = "標題",
-                AutoSizeMode  = DataGridViewAutoSizeColumnMode.Fill,
-                ReadOnly      = true
+                Name = "colTitle",
+                HeaderText = "標題",
+                AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill,
+                ReadOnly = true
             });
 
             // 頻道欄
             dGV_PlayList.Columns.Add(new DataGridViewTextBoxColumn
             {
-                Name       = "colUploader",
+                Name = "colUploader",
                 HeaderText = "頻道",
-                Width      = 150,
-                ReadOnly   = true
+                Width = 150,
+                ReadOnly = true
             });
 
             // 時長欄
             dGV_PlayList.Columns.Add(new DataGridViewTextBoxColumn
             {
-                Name       = "colDuration",
+                Name = "colDuration",
                 HeaderText = "時長",
-                Width      = 80,
-                ReadOnly   = true
+                Width = 80,
+                ReadOnly = true
+            });
+
+            // 時長欄
+            dGV_PlayList.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                Name = "colURL",
+                HeaderText = "連結",
+                Width = 80,
+                ReadOnly = true,
+                Visible = false // 隱藏 URL 欄位，僅供內部使用
             });
         }
 
@@ -166,9 +192,11 @@ namespace YTDownloader
                         dGV_PlayList.Rows.Add(
                             video.IsSelected,       // CheckBox 欄
                             video.Index,            // #
+                            video.Id,                   //Id（隱藏欄位）
                             video.DisplayTitle,     // 標題（自動 fallback 到 ID）
                             video.Uploader,         // 頻道
-                            video.DurationString    // 時長（mm:ss / hh:mm:ss）
+                            video.DurationString,    // 時長（mm:ss / hh:mm:ss）
+                            video.WebpageUrl        // 連結（隱藏欄位）
                         );
                     }
                 }
@@ -179,6 +207,17 @@ namespace YTDownloader
                 return (false, $"獲取播放列表資訊時發生錯誤: {ex.Message}");
             }
         }
-       
+
+        private void cB_SelectedAll_CheckStateChanged(object sender, EventArgs e)
+        {
+            if(dGV_PlayList.RowCount > 0)
+            {
+                bool isChecked = cB_SelectedAll.Checked;
+                foreach (DataGridViewRow row in dGV_PlayList.Rows)
+                {
+                    row.Cells["colSelected"].Value = isChecked;
+                }
+            }
+        }
     }
 }
