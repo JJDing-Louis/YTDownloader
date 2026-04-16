@@ -112,7 +112,7 @@ namespace YTDownloader
 
         #endregion Init
 
-        private void btn_Download_Click(object sender, EventArgs e)
+        private async void btn_Download_Click(object sender, EventArgs e)
         {
             try
             {
@@ -126,7 +126,7 @@ namespace YTDownloader
 
                 var YTDownloadService = new YtDlpDownloadService(ytDlpPath, ffmpegPath);
 
-                var SourceType = YTDownloadService.DetectResourceAsync(URL).GetAwaiter().GetResult();
+                var SourceType = await YTDownloadService.DetectResourceAsync(URL);
                 switch (SourceType.ResourceType)
                 {
                     case UrlResourceType.SingleVideo:
@@ -134,8 +134,9 @@ namespace YTDownloader
                         break;
                     case UrlResourceType.Playlist:
                         logger.LogInformation($"檢測到播放清單：{SourceType.PlaylistTitle}，共 {SourceType.PlaylistCount} 部影片", "資源檢測", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                        playlistHandlerForm = new PlaylistHandler(URL,this);
-                        if (playlistHandlerForm.GetPlaylistInfo(out var msg))
+                        playlistHandlerForm = new PlaylistHandler(URL, this);
+                        var (isSuccess, msg) = await playlistHandlerForm.GetPlaylistInfoAsync();
+                        if (isSuccess)
                         {
                             logger.LogInformation($"成功獲取播放清單資訊：{msg}");
                             playlistHandlerForm.Show();

@@ -45,6 +45,58 @@ namespace YTDownloader
         private void Init()
         {
             InitConfig();
+            InitDataGridView();
+        }
+
+        private void InitDataGridView()
+        {
+            dGV_PlayList.Columns.Clear();
+
+            // 勾選欄
+            dGV_PlayList.Columns.Add(new DataGridViewCheckBoxColumn
+            {
+                Name        = "colSelected",
+                HeaderText  = "選取",
+                Width       = 50,
+                ReadOnly    = false,
+                Resizable   = DataGridViewTriState.False
+            });
+
+            // 序號欄
+            dGV_PlayList.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                Name       = "colIndex",
+                HeaderText = "#",
+                Width      = 45,
+                ReadOnly   = true
+            });
+
+            // 標題欄
+            dGV_PlayList.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                Name          = "colTitle",
+                HeaderText    = "標題",
+                AutoSizeMode  = DataGridViewAutoSizeColumnMode.Fill,
+                ReadOnly      = true
+            });
+
+            // 頻道欄
+            dGV_PlayList.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                Name       = "colUploader",
+                HeaderText = "頻道",
+                Width      = 150,
+                ReadOnly   = true
+            });
+
+            // 時長欄
+            dGV_PlayList.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                Name       = "colDuration",
+                HeaderText = "時長",
+                Width      = 80,
+                ReadOnly   = true
+            });
         }
 
 
@@ -96,22 +148,18 @@ namespace YTDownloader
         }
 
         /// <summary>
-        /// 再想一下要怎麼設計?
+        /// 非同步取得播放清單資訊，並填入 DataGridView。
+        /// 避免在 UI Thread 上使用 .Result/.GetAwaiter().GetResult()，防止 async deadlock。
         /// </summary>
-        /// <param name="returnMsg"></param>
-        /// <returns></returns>
-        public bool GetPlaylistInfo(out string returnMsg)
+        /// <returns>(IsSuccess, Message)</returns>
+        public async Task<(bool IsSuccess, string Message)> GetPlaylistInfoAsync()
         {
-            var result = false;
-            returnMsg = string.Empty;
             try
             {
                 var YTDownloadService = new YtDlpDownloadService(ytDlpPath, ffmpegPath);
-                var playlist = YTDownloadService.GetPlaylistVideosAsync(playlistUrl).Result;
-                result = playlist.IsSuccess;
-                returnMsg = playlist.Message;
+                var playlist = await YTDownloadService.GetPlaylistVideosAsync(playlistUrl);
                 dGV_PlayList.Rows.Clear();
-                if(playlist.Videos != null && playlist.Videos.Count > 0)
+                if (playlist.Videos != null && playlist.Videos.Count > 0)
                 {
                     foreach (var video in playlist.Videos)
                     {
@@ -124,12 +172,12 @@ namespace YTDownloader
                         );
                     }
                 }
+                return (playlist.IsSuccess, playlist.Message);
             }
             catch (Exception ex)
             {
-                   returnMsg = $"獲取播放列表資訊時發生錯誤: {ex.Message}";
+                return (false, $"獲取播放列表資訊時發生錯誤: {ex.Message}");
             }
-            return result;
         }
        
     }
