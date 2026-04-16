@@ -186,6 +186,7 @@
             // 
             // dGV_DownloadList
             // 
+            dGV_DownloadList.AllowUserToAddRows = false;
             dGV_DownloadList.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
             dGV_DownloadList.Dock = DockStyle.Fill;
             dGV_DownloadList.Location = new Point(3, 19);

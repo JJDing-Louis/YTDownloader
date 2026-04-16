@@ -18,8 +18,17 @@ namespace YTDownloader
         private string ytDlpPath;
         private string ffmpegPath;
 
-        /// <summary>以 Row Index 為 Key，記錄每筆下載任務的控制器。</summary>
+        /// <summary>以 Task ID 為 Key，記錄每筆下載任務的控制器。</summary>
         private readonly Dictionary<int, DownloadTaskController> _downloadControllers = new();
+
+        /// <summary>自動遞增的任務 ID，確保行刪除後 Key 不衝突。</summary>
+        private int _nextTaskId = 0;
+
+        /// <summary>跨批次共用的並發信號量，最多同時執行 3 個下載。</summary>
+        private readonly SemaphoreSlim _downloadSemaphore = new(3, 3);
+
+        /// <summary>共用的下載服務實例（延遲建立，確保 ytDlpPath / ffmpegPath 已讀取完畢）。</summary>
+        private YtDlpDownloadService? _downloadService;
 
         #region
         private PlaylistHandler playlistHandlerForm;
@@ -48,6 +57,8 @@ namespace YTDownloader
         private void InitDownloadListColumns()
         {
             dGV_DownloadList.Columns.Clear();
+            dGV_DownloadList.AllowUserToAddRows    = false;   // 禁止自動產生空白新增列
+            dGV_DownloadList.AllowUserToDeleteRows = false;   // 禁止使用者刪除列
 
             // # 序號
             dGV_DownloadList.Columns.Add(new DataGridViewTextBoxColumn
@@ -108,6 +119,26 @@ namespace YTDownloader
                 Resizable = DataGridViewTriState.False,
                 UseColumnTextForButtonValue = false   // 使用每格的 Value 作為按鈕文字
             });
+
+            // 取消按鈕
+            dGV_DownloadList.Columns.Add(new DataGridViewButtonColumn
+            {
+                Name = "colCancel",
+                HeaderText = "",
+                Width = 55,
+                Resizable = DataGridViewTriState.False,
+                UseColumnTextForButtonValue = false
+            });
+
+            // 隱藏的任務 ID（用於刪除列後仍能找到正確的 controller）
+            dGV_DownloadList.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                Name = "colTaskId",
+                HeaderText = "TaskId",
+                Visible = false
+            });
+
+            dGV_DownloadList.Rows.Clear();
         }
 
         /// <summary>
@@ -117,7 +148,7 @@ namespace YTDownloader
             cB_ListMediaType.SelectedItem is KeyValuePair<string, string> kv ? kv.Value : string.Empty;
 
         /// <summary>
-        /// 新增一筆下載項目至清單，回傳其 Row Index，可用於後續進度更新。
+        /// 新增一筆下載項目至清單，回傳穩定的 Task ID（不受列刪除影響）。
         /// 執行緒安全（可從非 UI 執行緒呼叫）。
         /// </summary>
         public int AddDownloadItem(string title, string mediaType)
@@ -125,38 +156,40 @@ namespace YTDownloader
             if (dGV_DownloadList.InvokeRequired)
                 return (int)dGV_DownloadList.Invoke(new Func<int>(() => AddDownloadItem(title, mediaType)));
 
-            int rowIndex = dGV_DownloadList.Rows.Add(
+            int taskId = _nextTaskId++;
+            dGV_DownloadList.Rows.Add(
                 dGV_DownloadList.Rows.Count + 1,  // colIndex
                 title,                             // colTitle
                 mediaType,                         // colMediaType
                 0.0,                               // colProgress（double，ProgressBarCell 讀取）
                 "等待中",                           // colStatus
-                "暫停"                              // colAction 按鈕文字
+                "暫停",                             // colAction 按鈕文字
+                "取消",                             // colCancel 按鈕文字
+                taskId                             // colTaskId（隱藏）
             );
-            return rowIndex;
+            return taskId;
         }
 
         /// <summary>
-        /// 更新指定 Row 的進度條與狀態欄位，並同步更新控制器的 LastPercent。
+        /// 更新指定任務的進度條與狀態欄位，並同步更新控制器的 LastPercent。
         /// 執行緒安全（可從非 UI 執行緒呼叫）。
         /// </summary>
-        public void UpdateDownloadProgress(int rowIndex, double percent, string status)
+        public void UpdateDownloadProgress(int taskId, double percent, string status)
         {
             if (dGV_DownloadList.InvokeRequired)
             {
-                dGV_DownloadList.Invoke(new Action(() => UpdateDownloadProgress(rowIndex, percent, status)));
+                dGV_DownloadList.Invoke(new Action(() => UpdateDownloadProgress(taskId, percent, status)));
                 return;
             }
 
-            if (rowIndex < 0 || rowIndex >= dGV_DownloadList.Rows.Count)
-                return;
+            var row = FindRowByTaskId(taskId);
+            if (row == null) return;
 
-            var row = dGV_DownloadList.Rows[rowIndex];
             row.Cells["colProgress"].Value = percent;   // double → DataGridViewProgressBarCell
             row.Cells["colStatus"].Value = status;
 
             // 同步控制器的最後進度（供「繼續」時顯示）
-            if (_downloadControllers.TryGetValue(rowIndex, out var ctrl))
+            if (_downloadControllers.TryGetValue(taskId, out var ctrl))
                 ctrl.LastPercent = percent;
 
             // 依狀態設定列底色
@@ -173,41 +206,154 @@ namespace YTDownloader
         /// <summary>
         /// 向 Main 登錄一筆下載任務的控制器（含重啟 Action），回傳可操控該任務的 controller。
         /// </summary>
-        public DownloadTaskController RegisterDownload(int rowIndex, Func<CancellationToken, Task> restartAction)
+        public DownloadTaskController RegisterDownload(int taskId, Func<CancellationToken, Task> restartAction)
         {
             var controller = new DownloadTaskController { RestartAction = restartAction };
-            _downloadControllers[rowIndex] = controller;
+            _downloadControllers[taskId] = controller;
             return controller;
         }
 
         /// <summary>
-        /// 設定指定 Row 的操作按鈕文字。執行緒安全（可從非 UI 執行緒呼叫）。
+        /// 設定指定任務的操作按鈕文字。執行緒安全（可從非 UI 執行緒呼叫）。
         /// </summary>
-        public void SetActionButton(int rowIndex, string text)
+        public void SetActionButton(int taskId, string text)
         {
             if (dGV_DownloadList.InvokeRequired)
             {
-                dGV_DownloadList.Invoke(new Action(() => SetActionButton(rowIndex, text)));
+                dGV_DownloadList.Invoke(new Action(() => SetActionButton(taskId, text)));
                 return;
             }
 
-            if (rowIndex >= 0 && rowIndex < dGV_DownloadList.Rows.Count)
-                dGV_DownloadList.Rows[rowIndex].Cells["colAction"].Value = text;
+            var row = FindRowByTaskId(taskId);
+            if (row != null)
+                row.Cells["colAction"].Value = text;
         }
 
         /// <summary>
-        /// 處理下載清單的操作按鈕點擊（暫停 / 繼續 / 重試）。
+        /// 接收來自 PlaylistHandler（或其他來源）的下載請求，
+        /// 加入清單並立即以背景工作排入佇列執行。
+        /// 可在視窗已關閉後安全呼叫（執行緒安全）。
+        /// </summary>
+        public void EnqueueDownloads(IEnumerable<DownloadRequest> requests)
+        {
+            _downloadService ??= new YtDlpDownloadService(ytDlpPath, ffmpegPath);
+
+            foreach (var req in requests)
+            {
+                // 先在 UI 清單加入一列，取得穩定 taskId
+                int taskId = AddDownloadItem(req.Title, req.MediaTypeDisplay);
+
+                // 捕捉區域變數，避免 closure 捕捉迴圈變數
+                var capturedReq = req;
+                var svc         = _downloadService;
+
+                Func<CancellationToken, Task> downloadAction = async (ct) =>
+                {
+                    UpdateDownloadProgress(taskId, 0, "下載中");
+
+                    DownloadResult result = capturedReq.IsAudio
+                        ? await svc.DownloadAudioAsync(
+                            url:               capturedReq.WebpageUrl,
+                            outputFolder:      capturedReq.DownloadDir,
+                            onProgress:        pct => UpdateDownloadProgress(taskId, pct, "下載中"),
+                            cancellationToken: ct)
+                        : await svc.DownloadVideoAsync(
+                            url:               capturedReq.WebpageUrl,
+                            outputFolder:      capturedReq.DownloadDir,
+                            onProgress:        pct => UpdateDownloadProgress(taskId, pct, "下載中"),
+                            cancellationToken: ct);
+
+                    // 被取消（暫停 / 取消按鈕）→ 不覆蓋狀態
+                    if (ct.IsCancellationRequested) return;
+
+                    if (result.IsSuccess)
+                    {
+                        UpdateDownloadProgress(taskId, 100, "完成");
+                        SetActionButton(taskId, "—");
+                    }
+                    else
+                    {
+                        UpdateDownloadProgress(taskId, 0, "失敗");
+                        SetActionButton(taskId, "重試");
+                        logger.LogError("下載失敗 [{Title}]：{Message}", capturedReq.Title, result.Message);
+                    }
+                };
+
+                var controller = RegisterDownload(taskId, downloadAction);
+
+                // 排入背景，受全域信號量並發控制
+                _ = Task.Run(async () =>
+                {
+                    await _downloadSemaphore.WaitAsync();
+                    try   { await downloadAction(controller.Cts.Token); }
+                    finally { _downloadSemaphore.Release(); }
+                });
+            }
+        }
+
+        /// <summary>
+        /// 依 Task ID 找出對應的 DataGridView 列（列刪除後仍穩定）。
+        /// </summary>
+        private DataGridViewRow? FindRowByTaskId(int taskId)
+        {
+            foreach (DataGridViewRow row in dGV_DownloadList.Rows)
+            {
+                var cellVal = row.Cells["colTaskId"].Value;
+                // DataGridViewTextBoxColumn 可能以 int 或 string 儲存
+                if (cellVal is int id && id == taskId) return row;
+                if (cellVal is string s && int.TryParse(s, out int sid) && sid == taskId) return row;
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// 重新編排 colIndex（刪除列後維持連續序號）。
+        /// </summary>
+        private void RenumberRows()
+        {
+            for (int i = 0; i < dGV_DownloadList.Rows.Count; i++)
+                dGV_DownloadList.Rows[i].Cells["colIndex"].Value = i + 1;
+        }
+
+        /// <summary>
+        /// 處理下載清單的按鈕點擊（暫停 / 繼續 / 重試 / 取消）。
         /// </summary>
         private void OnDownloadListCellContentClick(object sender, DataGridViewCellEventArgs e)
         {
             if (e.RowIndex < 0) return;
-            if (dGV_DownloadList.Columns[e.ColumnIndex].Name != "colAction") return;
+
+            var colName = dGV_DownloadList.Columns[e.ColumnIndex].Name;
+            if (colName != "colAction" && colName != "colCancel") return;
 
             var row = dGV_DownloadList.Rows[e.RowIndex];
+
+            // 取得此列的 Task ID（TextBox 儲存格可能回傳 int 或 string）
+            var taskIdCell = row.Cells["colTaskId"].Value;
+            int taskId;
+            if (taskIdCell is int directId)
+                taskId = directId;
+            else if (taskIdCell is string s && int.TryParse(s, out int parsedId))
+                taskId = parsedId;
+            else
+                return;
+
+            // ── 取消按鈕 ──────────────────────────────────────────
+            if (colName == "colCancel")
+            {
+                if (_downloadControllers.TryGetValue(taskId, out var cancelCtrl))
+                {
+                    cancelCtrl.Cts.Cancel();
+                    _downloadControllers.Remove(taskId);
+                }
+                dGV_DownloadList.Rows.RemoveAt(e.RowIndex);
+                RenumberRows();
+                return;
+            }
+
+            // ── colAction ─────────────────────────────────────────
+            if (!_downloadControllers.TryGetValue(taskId, out var controller)) return;
+
             var btnText = row.Cells["colAction"].Value?.ToString() ?? "";
-
-            if (!_downloadControllers.TryGetValue(e.RowIndex, out var controller)) return;
-
             switch (btnText)
             {
                 // ── 暫停 ─────────────────────────────────────────
@@ -225,7 +371,7 @@ namespace YTDownloader
                     controller.Cts = new CancellationTokenSource();
                     controller.IsPaused = false;
                     row.Cells["colAction"].Value = "暫停";
-                    UpdateDownloadProgress(e.RowIndex, controller.LastPercent, "下載中");
+                    UpdateDownloadProgress(taskId, controller.LastPercent, "下載中");
                     var cts = controller.Cts;
                     _ = Task.Run(async () => await controller.RestartAction(cts.Token));
                     break;

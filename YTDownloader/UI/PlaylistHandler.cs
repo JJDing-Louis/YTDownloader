@@ -58,6 +58,8 @@ namespace YTDownloader
         private void InitDataGridView()
         {
             dGV_PlayList.Columns.Clear();
+            dGV_PlayList.AllowUserToAddRows    = false;   // 禁止自動產生空白新增列
+            dGV_PlayList.AllowUserToDeleteRows = false;   // 禁止使用者刪除列
 
             // 勾選欄
             dGV_PlayList.Columns.Add(new DataGridViewCheckBoxColumn
@@ -230,10 +232,9 @@ namespace YTDownloader
             }
         }
 
-        private async void btn_Download_Click(object sender, EventArgs e)
+        private void btn_Download_Click(object sender, EventArgs e)
         {
-            // ── 1. 收集已勾選的項目 ─────────────────────────────────────────
-            // 從 Grid 取出勾選列的 ID，再從暫存的 playlistVideos 查回完整物件
+            // ── 1. 收集已勾選項目的 ID ──────────────────────────────────────
             var selectedItemsId = new List<string>();
             foreach (DataGridViewRow row in dGV_PlayList.Rows)
             {
@@ -247,7 +248,7 @@ namespace YTDownloader
                 return;
             }
 
-            // 根據 ID 從暫存的 playlistVideos 中找到對應的完整資訊
+            // ── 2. 從暫存的 playlistVideos 查回完整物件 ──────────────────────
             var selectedVideoItems = selectedItemsId
                 .Select(id => playlistVideos.FirstOrDefault(v => v.Id == id))
                 .Where(v => v != null)
@@ -260,98 +261,25 @@ namespace YTDownloader
                 return;
             }
 
-            // ── 2. 判斷媒體類型 ──────────────────────────────────────────────
-            var    mediaTypeValue   = mainForm.SelectedMediaTypeValue;
-            bool   isAudio          = mediaTypeValue.Equals("Audio", StringComparison.OrdinalIgnoreCase);
+            // ── 3. 組成 DownloadRequest 清單，交給 Main 執行 ─────────────────
+            var mediaTypeValue   = mainForm.SelectedMediaTypeValue;
+            bool   isAudio       = mediaTypeValue.Equals("Audio", StringComparison.OrdinalIgnoreCase);
             string mediaTypeDisplay = isAudio ? "音訊" : "視訊";
 
-            // ── 3. 在 Main 下載清單中預先新增所有列（等待中）─────────────────
-            var rowIndices = new int[selectedVideoItems.Count];
-            for (int i = 0; i < selectedVideoItems.Count; i++)
-                rowIndices[i] = mainForm.AddDownloadItem(selectedVideoItems[i].DisplayTitle, mediaTypeDisplay);
-
-            // ── 4. 停用按鈕，防止重複觸發 ────────────────────────────────────
-            btn_Download.Enabled = false;
-
-            var downloadService = new YtDlpDownloadService(ytDlpPath, ffmpegPath);
-            var semaphore       = new SemaphoreSlim(3);   // 最多 3 個並發
-            var tasks           = new List<Task>();
-
-            for (int i = 0; i < selectedVideoItems.Count; i++)
+            var requests = selectedVideoItems.Select(item => new DownloadRequest
             {
-                // 使用區域變數，避免 closure 捕捉迴圈變數
-                int    rowIndex = rowIndices[i];
-                var    item     = selectedVideoItems[i];
-                string dir      = downloadDir;
+                Title            = item.DisplayTitle,
+                WebpageUrl       = item.WebpageUrl!,
+                MediaTypeDisplay = mediaTypeDisplay,
+                IsAudio          = isAudio,
+                DownloadDir      = downloadDir
+            });
 
-                // ── 5. 建立可重複使用的下載 Action（暫停後「繼續」時由 Main 呼叫）──
-                Func<CancellationToken, Task> downloadAction = async (ct) =>
-                {
-                    mainForm.UpdateDownloadProgress(rowIndex, 0, "下載中");
+            mainForm.EnqueueDownloads(requests);
 
-                    DownloadResult result;
-                    if (isAudio)
-                    {
-                        result = await downloadService.DownloadAudioAsync(
-                            url:               item.WebpageUrl!,
-                            outputFolder:      dir,
-                            onProgress:        pct => mainForm.UpdateDownloadProgress(rowIndex, pct, "下載中"),
-                            cancellationToken: ct);
-                    }
-                    else
-                    {
-                        result = await downloadService.DownloadVideoAsync(
-                            url:               item.WebpageUrl!,
-                            outputFolder:      dir,
-                            onProgress:        pct => mainForm.UpdateDownloadProgress(rowIndex, pct, "下載中"),
-                            cancellationToken: ct);
-                    }
-
-                    // ct 被取消 = 使用者主動按了「暫停」→ Main 已將狀態設為「已暫停」，不覆蓋
-                    if (ct.IsCancellationRequested) return;
-
-                    if (result.IsSuccess)
-                    {
-                        mainForm.UpdateDownloadProgress(rowIndex, 100, "完成");
-                        mainForm.SetActionButton(rowIndex, "—");   // 完成後停用按鈕
-                    }
-                    else
-                    {
-                        mainForm.UpdateDownloadProgress(rowIndex, 0, "失敗");
-                        mainForm.SetActionButton(rowIndex, "重試");
-                        logger.LogError("下載失敗 [{Title}]：{Message}", item.DisplayTitle, result.Message);
-                    }
-                };
-
-                // 向 Main 登錄此任務的控制器，讓「繼續」按鈕可重啟
-                var controller = mainForm.RegisterDownload(rowIndex, downloadAction);
-
-                // ── 6. 加入初始批次下載 Task（受 semaphore 並發控制）─────────
-                tasks.Add(Task.Run(async () =>
-                {
-                    await semaphore.WaitAsync();
-                    try
-                    {
-                        await downloadAction(controller.Cts.Token);
-                    }
-                    finally
-                    {
-                        semaphore.Release();
-                    }
-                }));
-            }
-
-            // 等候所有初始任務完成（使用者自行「繼續」的任務不在此等候）
-            await Task.WhenAll(tasks);
-
-            // ── 7. 初始批次結束 ───────────────────────────────────────────────
-            btn_Download.Enabled = true;
-            logger.LogInformation("播放清單批次下載完成，共 {Count} 個項目。", selectedVideoItems.Count);
-            MessageBox.Show(
-                $"批次下載完成！共 {selectedVideoItems.Count} 個項目。\n（若有已暫停的項目，可在主視窗按「繼續」繼續下載。）",
-                "下載完成",
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Information);
+            // ── 4. 關閉視窗，下載在 Main 背景進行 ────────────────────────────
+            logger.LogInformation("已提交 {Count} 個下載任務，關閉 PlaylistHandler。", selectedVideoItems.Count);
+            this.Close();
         }
 
         private void btn_Cancel_Click(object sender, EventArgs e) => this.Close();
