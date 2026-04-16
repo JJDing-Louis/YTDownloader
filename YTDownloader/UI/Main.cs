@@ -135,7 +135,6 @@ namespace YTDownloader
                     case UrlResourceType.Playlist:
                         logger.LogInformation($"檢測到播放清單：{SourceType.PlaylistTitle}，共 {SourceType.PlaylistCount} 部影片", "資源檢測", MessageBoxButtons.OK, MessageBoxIcon.Information);
                         playlistHandlerForm = new PlaylistHandler(URL,this);
-                        playlistHandlerForm.MdiParent = this;
                         if (playlistHandlerForm.GetPlaylistInfo(out var msg))
                         {
                             logger.LogInformation($"成功獲取播放清單資訊：{msg}");

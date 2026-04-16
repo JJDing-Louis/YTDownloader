@@ -39,6 +39,7 @@ namespace YTDownloader
         {
             this.playlistUrl = playlistUrl;
             this.mainForm = mainForm;
+            Init();
         }
 
         private void Init()
