@@ -46,7 +46,7 @@ namespace YTDownloader
         private void Init()
         {
             InitConfig();
-      
+
         }
 
         private void InitUI()
@@ -210,7 +210,7 @@ namespace YTDownloader
 
         private void cB_SelectedAll_CheckStateChanged(object sender, EventArgs e)
         {
-            if(dGV_PlayList.RowCount > 0)
+            if (dGV_PlayList.RowCount > 0)
             {
                 bool isChecked = cB_SelectedAll.Checked;
                 foreach (DataGridViewRow row in dGV_PlayList.Rows)
@@ -218,6 +218,11 @@ namespace YTDownloader
                     row.Cells["colSelected"].Value = isChecked;
                 }
             }
+        }
+
+        private void btn_Download_Click(object sender, EventArgs e)
+        {
+            
         }
     }
 }

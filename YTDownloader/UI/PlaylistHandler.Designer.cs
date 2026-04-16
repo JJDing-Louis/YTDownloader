@@ -31,7 +31,7 @@
             tableLayoutPanel1 = new TableLayoutPanel();
             groupBox1 = new GroupBox();
             tableLayoutPanel2 = new TableLayoutPanel();
-            button1 = new Button();
+            btn_Download = new Button();
             button2 = new Button();
             groupBox2 = new GroupBox();
             dGV_PlayList = new DataGridView();
@@ -86,7 +86,7 @@
             tableLayoutPanel2.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 10F));
             tableLayoutPanel2.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 10F));
             tableLayoutPanel2.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 10F));
-            tableLayoutPanel2.Controls.Add(button1, 0, 0);
+            tableLayoutPanel2.Controls.Add(btn_Download, 0, 0);
             tableLayoutPanel2.Controls.Add(button2, 1, 0);
             tableLayoutPanel2.Dock = DockStyle.Fill;
             tableLayoutPanel2.Location = new Point(3, 19);
@@ -97,15 +97,16 @@
             tableLayoutPanel2.Size = new Size(788, 39);
             tableLayoutPanel2.TabIndex = 0;
             // 
-            // button1
+            // btn_Download
             // 
-            button1.Dock = DockStyle.Fill;
-            button1.Location = new Point(3, 3);
-            button1.Name = "button1";
-            button1.Size = new Size(72, 33);
-            button1.TabIndex = 0;
-            button1.Text = "下載";
-            button1.UseVisualStyleBackColor = true;
+            btn_Download.Dock = DockStyle.Fill;
+            btn_Download.Location = new Point(3, 3);
+            btn_Download.Name = "btn_Download";
+            btn_Download.Size = new Size(72, 33);
+            btn_Download.TabIndex = 0;
+            btn_Download.Text = "下載";
+            btn_Download.UseVisualStyleBackColor = true;
+            btn_Download.Click += btn_Download_Click;
             // 
             // button2
             // 
@@ -195,7 +196,7 @@
         private TableLayoutPanel tableLayoutPanel1;
         private GroupBox groupBox1;
         private TableLayoutPanel tableLayoutPanel2;
-        private Button button1;
+        private Button btn_Download;
         private Button button2;
         private GroupBox groupBox2;
         private DataGridView dGV_PlayList;

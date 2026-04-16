@@ -25,12 +25,23 @@ namespace YTDownloader
             InitializeComponent();
             logger.LogInformation("Main form initialized.");
             Init();
+            InitUI();
         }
 
         private void Init()
         {
             InitConfig();
             InitOptions();
+        }
+
+        private void InitUI()
+        {
+            // 目前沒有其他 UI 元件需要初始化，但未來如果有需要可以在這裡添加
+        }
+
+        private void InitDataGridView()
+        {
+            // 目前沒有 DataGridView 需要初始化，但未來如果有需要可以在這裡添加
         }
 
         #region Init

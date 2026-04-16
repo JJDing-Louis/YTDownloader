@@ -40,7 +40,7 @@
             groupBox4 = new GroupBox();
             tB_URL = new TextBox();
             groupBox1 = new GroupBox();
-            dataGridView1 = new DataGridView();
+            dGV_DownloadList = new DataGridView();
             tableLayoutPanel3 = new TableLayoutPanel();
             btn_ClearCompleteTask = new Button();
             btn_CancelAll = new Button();
@@ -50,7 +50,7 @@
             gB_ListMediaType.SuspendLayout();
             groupBox4.SuspendLayout();
             groupBox1.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)dataGridView1).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)dGV_DownloadList).BeginInit();
             tableLayoutPanel3.SuspendLayout();
             SuspendLayout();
             // 
@@ -174,7 +174,7 @@
             // 
             // groupBox1
             // 
-            groupBox1.Controls.Add(dataGridView1);
+            groupBox1.Controls.Add(dGV_DownloadList);
             groupBox1.Dock = DockStyle.Fill;
             groupBox1.Location = new Point(3, 125);
             groupBox1.Name = "groupBox1";
@@ -183,14 +183,14 @@
             groupBox1.TabStop = false;
             groupBox1.Text = "下載清單";
             // 
-            // dataGridView1
+            // dGV_DownloadList
             // 
-            dataGridView1.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
-            dataGridView1.Dock = DockStyle.Fill;
-            dataGridView1.Location = new Point(3, 19);
-            dataGridView1.Name = "dataGridView1";
-            dataGridView1.Size = new Size(946, 461);
-            dataGridView1.TabIndex = 0;
+            dGV_DownloadList.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
+            dGV_DownloadList.Dock = DockStyle.Fill;
+            dGV_DownloadList.Location = new Point(3, 19);
+            dGV_DownloadList.Name = "dGV_DownloadList";
+            dGV_DownloadList.Size = new Size(946, 461);
+            dGV_DownloadList.TabIndex = 0;
             // 
             // tableLayoutPanel3
             // 
@@ -253,7 +253,7 @@
             groupBox4.ResumeLayout(false);
             groupBox4.PerformLayout();
             groupBox1.ResumeLayout(false);
-            ((System.ComponentModel.ISupportInitialize)dataGridView1).EndInit();
+            ((System.ComponentModel.ISupportInitialize)dGV_DownloadList).EndInit();
             tableLayoutPanel3.ResumeLayout(false);
             ResumeLayout(false);
             PerformLayout();
@@ -269,7 +269,7 @@
         private Button btn_Download;
         private Button btn_OpenDownloadForder;
         private GroupBox groupBox1;
-        private DataGridView dataGridView1;
+        private DataGridView dGV_DownloadList;
         private GroupBox gB_ListMediaType;
         private ComboBox cB_ListMediaType;
         private GroupBox groupBox4;
