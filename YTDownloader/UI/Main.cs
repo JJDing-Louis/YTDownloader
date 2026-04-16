@@ -36,12 +36,112 @@ namespace YTDownloader
 
         private void InitUI()
         {
-            // 目前沒有其他 UI 元件需要初始化，但未來如果有需要可以在這裡添加
+            InitDownloadListColumns();
         }
 
-        private void InitDataGridView()
+        private void InitDownloadListColumns()
         {
-            // 目前沒有 DataGridView 需要初始化，但未來如果有需要可以在這裡添加
+            dGV_DownloadList.Columns.Clear();
+
+            dGV_DownloadList.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                Name = "colIndex",
+                HeaderText = "#",
+                Width = 40,
+                ReadOnly = true,
+                Resizable = DataGridViewTriState.False
+            });
+
+            dGV_DownloadList.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                Name = "colTitle",
+                HeaderText = "標題",
+                AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill,
+                ReadOnly = true
+            });
+
+            dGV_DownloadList.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                Name = "colMediaType",
+                HeaderText = "類型",
+                Width = 55,
+                ReadOnly = true,
+                Resizable = DataGridViewTriState.False
+            });
+
+            dGV_DownloadList.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                Name = "colProgress",
+                HeaderText = "進度",
+                Width = 65,
+                ReadOnly = true,
+                Resizable = DataGridViewTriState.False,
+                DefaultCellStyle = new DataGridViewCellStyle { Alignment = DataGridViewContentAlignment.MiddleCenter }
+            });
+
+            dGV_DownloadList.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                Name = "colStatus",
+                HeaderText = "狀態",
+                Width = 75,
+                ReadOnly = true,
+                Resizable = DataGridViewTriState.False,
+                DefaultCellStyle = new DataGridViewCellStyle { Alignment = DataGridViewContentAlignment.MiddleCenter }
+            });
+        }
+
+        /// <summary>
+        /// 目前選取的媒體類型 Value（如 "Audio" / "Video"）
+        /// </summary>
+        public string SelectedMediaTypeValue =>
+            cB_ListMediaType.SelectedItem is KeyValuePair<string, string> kv ? kv.Value : string.Empty;
+
+        /// <summary>
+        /// 新增一筆下載項目至清單，回傳其 Row Index，可用於後續進度更新。
+        /// 執行緒安全（可從非 UI 執行緒呼叫）。
+        /// </summary>
+        public int AddDownloadItem(string title, string mediaType)
+        {
+            if (dGV_DownloadList.InvokeRequired)
+                return (int)dGV_DownloadList.Invoke(new Func<int>(() => AddDownloadItem(title, mediaType)));
+
+            int rowIndex = dGV_DownloadList.Rows.Add(
+                dGV_DownloadList.Rows.Count + 1,
+                title,
+                mediaType,
+                "0.0 %",
+                "等待中"
+            );
+            return rowIndex;
+        }
+
+        /// <summary>
+        /// 更新指定 Row 的進度與狀態欄位。
+        /// 執行緒安全（可從非 UI 執行緒呼叫）。
+        /// </summary>
+        public void UpdateDownloadProgress(int rowIndex, double percent, string status)
+        {
+            if (dGV_DownloadList.InvokeRequired)
+            {
+                dGV_DownloadList.Invoke(new Action(() => UpdateDownloadProgress(rowIndex, percent, status)));
+                return;
+            }
+
+            if (rowIndex < 0 || rowIndex >= dGV_DownloadList.Rows.Count)
+                return;
+
+            var row = dGV_DownloadList.Rows[rowIndex];
+            row.Cells["colProgress"].Value = $"{percent:F1} %";
+            row.Cells["colStatus"].Value   = status;
+
+            // 依狀態換色
+            row.DefaultCellStyle.BackColor = status switch
+            {
+                "完成" => Color.FromArgb(200, 240, 200),
+                "失敗" => Color.FromArgb(255, 200, 200),
+                "下載中" => Color.FromArgb(230, 240, 255),
+                _     => dGV_DownloadList.DefaultCellStyle.BackColor
+            };
         }
 
         #region Init

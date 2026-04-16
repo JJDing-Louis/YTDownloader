@@ -23,6 +23,7 @@ namespace YTDownloader
         private IConfiguration config;
         private string ytDlpPath;
         private string ffmpegPath;
+        private string downloadDir;
         private string playlistUrl;
         private Main mainForm;
         private List<PlaylistVideoItem> playlistVideos = new();
@@ -171,6 +172,11 @@ namespace YTDownloader
                     MessageBox.Show($"ffmpeg 可執行檔未找到，請確認路徑：{ffmpegPath}", "配置錯誤", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
             }
+
+            var downloadDirRel = config["Path:DownLoadDir"];
+            downloadDir = string.IsNullOrWhiteSpace(downloadDirRel)
+                ? Path.Combine(Environment.CurrentDirectory, "Downloads")
+                : Path.Combine(Environment.CurrentDirectory, downloadDirRel.Trim());
         }
 
         /// <summary>
@@ -220,9 +226,105 @@ namespace YTDownloader
             }
         }
 
-        private void btn_Download_Click(object sender, EventArgs e)
+        private async void btn_Download_Click(object sender, EventArgs e)
         {
-            
+            // ── 1. 收集已勾選的項目 ─────────────────────────────────────────
+            var selectedItems = new List<(string Title, string Url)>();
+            foreach (DataGridViewRow row in dGV_PlayList.Rows)
+            {
+                if (row.Cells["colSelected"].Value is true)
+                {
+                    var title = row.Cells["colTitle"].Value?.ToString() ?? "(未知標題)";
+                    var url   = row.Cells["colURL"].Value?.ToString();
+                    if (!string.IsNullOrWhiteSpace(url))
+                        selectedItems.Add((title, url));
+                }
+            }
+
+            if (selectedItems.Count == 0)
+            {
+                MessageBox.Show("請至少選取一個項目。", "提示", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            // ── 2. 判斷媒體類型 ──────────────────────────────────────────────
+            var mediaTypeValue   = mainForm.SelectedMediaTypeValue;
+            bool isAudio         = mediaTypeValue.Equals("Audio", StringComparison.OrdinalIgnoreCase);
+            string mediaTypeDisplay = isAudio ? "音訊" : "視訊";
+
+            // ── 3. 在 Main 下載清單中預先新增所有列 ─────────────────────────
+            var rowIndices = new int[selectedItems.Count];
+            for (int i = 0; i < selectedItems.Count; i++)
+            {
+                rowIndices[i] = mainForm.AddDownloadItem(selectedItems[i].Title, mediaTypeDisplay);
+            }
+
+            // ── 4. 停用按鈕，防止重複觸發 ────────────────────────────────────
+            btn_Download.Enabled = false;
+
+            var downloadService = new YtDlpDownloadService(ytDlpPath, ffmpegPath);
+
+            // ── 5. 最多 3 個並發下載 ─────────────────────────────────────────
+            var semaphore = new SemaphoreSlim(3);
+            var tasks     = new List<Task>();
+
+            for (int i = 0; i < selectedItems.Count; i++)
+            {
+                // 使用區域變數避免 closure 捕捉問題
+                int   rowIndex = rowIndices[i];
+                var   item     = selectedItems[i];
+
+                tasks.Add(Task.Run(async () =>
+                {
+                    await semaphore.WaitAsync();
+                    try
+                    {
+                        mainForm.UpdateDownloadProgress(rowIndex, 0, "下載中");
+
+                        DownloadResult result;
+                        if (isAudio)
+                        {
+                            result = await downloadService.DownloadAudioAsync(
+                                url: item.Url,
+                                outputFolder: downloadDir,
+                                onProgress: pct => mainForm.UpdateDownloadProgress(rowIndex, pct, "下載中")
+                            );
+                        }
+                        else
+                        {
+                            result = await downloadService.DownloadVideoAsync(
+                                url: item.Url,
+                                outputFolder: downloadDir,
+                                onProgress: pct => mainForm.UpdateDownloadProgress(rowIndex, pct, "下載中")
+                            );
+                        }
+
+                        mainForm.UpdateDownloadProgress(
+                            rowIndex,
+                            percent: result.IsSuccess ? 100 : 0,
+                            status:  result.IsSuccess ? "完成" : "失敗"
+                        );
+
+                        if (!result.IsSuccess)
+                            logger.LogError("下載失敗 [{Title}]：{Message}", item.Title, result.Message);
+                    }
+                    finally
+                    {
+                        semaphore.Release();
+                    }
+                }));
+            }
+
+            await Task.WhenAll(tasks);
+
+            // ── 6. 下載全部結束 ───────────────────────────────────────────────
+            btn_Download.Enabled = true;
+            logger.LogInformation("播放清單批次下載完成，共 {Count} 個項目。", selectedItems.Count);
+            MessageBox.Show(
+                $"批次下載完成！共 {selectedItems.Count} 個項目。",
+                "下載完成",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
         }
     }
 }

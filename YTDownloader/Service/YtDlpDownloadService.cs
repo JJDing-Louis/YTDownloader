@@ -80,6 +80,7 @@ namespace YTDownloader.Service
             string? outputTemplate = "%(title)s.%(ext)s",
             bool downloadThumbnail = false,
             bool embedMetadata = false,
+            Action<double>? onProgress = null,
             CancellationToken cancellationToken = default)
         {
             ValidateUrl(url);
@@ -94,7 +95,7 @@ namespace YTDownloader.Service
                     downloadThumbnail: downloadThumbnail,
                     embedMetadata: embedMetadata);
 
-                AttachEvents(ytdlp);
+                AttachEvents(ytdlp, onProgress);
 
                 await ytdlp.DownloadAsync(url, cancellationToken);
 
@@ -160,6 +161,7 @@ namespace YTDownloader.Service
             string? outputTemplate = "%(title)s.%(ext)s",
             bool embedMetadata = true,
             bool embedThumbnail = false,
+            Action<double>? onProgress = null,
             CancellationToken cancellationToken = default)
         {
             ValidateUrl(url);
@@ -175,7 +177,7 @@ namespace YTDownloader.Service
                     embedMetadata: embedMetadata,
                     embedThumbnail: embedThumbnail);
 
-                AttachEvents(ytdlp);
+                AttachEvents(ytdlp, onProgress);
 
                 await ytdlp.DownloadAsync(url, cancellationToken);
 
@@ -854,12 +856,13 @@ namespace YTDownloader.Service
             };
         }
 
-        private void AttachEvents(Ytdlp ytdlp)
+        private void AttachEvents(Ytdlp ytdlp, Action<double>? onProgress = null)
         {
             ytdlp.OnProgressDownload += (_, e) =>
             {
                 logger.LogInformation(
                     $"[Download] {e.Percent:F2}% | Speed={e.Speed} | ETA={e.ETA}");
+                onProgress?.Invoke((double)e.Percent);
             };
 
             ytdlp.OnProgressMessage += (_, msg) =>
