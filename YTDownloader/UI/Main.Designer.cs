@@ -131,6 +131,7 @@
             btn_OpenDownloadForder.TabIndex = 3;
             btn_OpenDownloadForder.Text = "開啟資料夾";
             btn_OpenDownloadForder.UseVisualStyleBackColor = true;
+            btn_OpenDownloadForder.Click += btn_OpenDownloadForder_Click;
             // 
             // gB_ListMediaType
             // 

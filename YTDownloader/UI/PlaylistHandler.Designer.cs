@@ -32,7 +32,7 @@
             groupBox1 = new GroupBox();
             tableLayoutPanel2 = new TableLayoutPanel();
             btn_Download = new Button();
-            button2 = new Button();
+            btn_Cancel = new Button();
             groupBox2 = new GroupBox();
             dGV_PlayList = new DataGridView();
             tableLayoutPanel3 = new TableLayoutPanel();
@@ -87,7 +87,7 @@
             tableLayoutPanel2.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 10F));
             tableLayoutPanel2.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 10F));
             tableLayoutPanel2.Controls.Add(btn_Download, 0, 0);
-            tableLayoutPanel2.Controls.Add(button2, 1, 0);
+            tableLayoutPanel2.Controls.Add(btn_Cancel, 1, 0);
             tableLayoutPanel2.Dock = DockStyle.Fill;
             tableLayoutPanel2.Location = new Point(3, 19);
             tableLayoutPanel2.Name = "tableLayoutPanel2";
@@ -108,15 +108,16 @@
             btn_Download.UseVisualStyleBackColor = true;
             btn_Download.Click += btn_Download_Click;
             // 
-            // button2
+            // btn_Cancel
             // 
-            button2.Dock = DockStyle.Fill;
-            button2.Location = new Point(81, 3);
-            button2.Name = "button2";
-            button2.Size = new Size(72, 33);
-            button2.TabIndex = 1;
-            button2.Text = "取消";
-            button2.UseVisualStyleBackColor = true;
+            btn_Cancel.Dock = DockStyle.Fill;
+            btn_Cancel.Location = new Point(81, 3);
+            btn_Cancel.Name = "btn_Cancel";
+            btn_Cancel.Size = new Size(72, 33);
+            btn_Cancel.TabIndex = 1;
+            btn_Cancel.Text = "取消";
+            btn_Cancel.UseVisualStyleBackColor = true;
+            btn_Cancel.Click += btn_Cancel_Click;
             // 
             // groupBox2
             // 
@@ -197,7 +198,7 @@
         private GroupBox groupBox1;
         private TableLayoutPanel tableLayoutPanel2;
         private Button btn_Download;
-        private Button button2;
+        private Button btn_Cancel;
         private GroupBox groupBox2;
         private DataGridView dGV_PlayList;
         private TableLayoutPanel tableLayoutPanel3;

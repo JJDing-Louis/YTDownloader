@@ -2,6 +2,7 @@ using Autofac;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.SqlServer.Management.SqlParser.SqlCodeDom;
+using System.Diagnostics;
 using YTDownloader.Model;
 using YTDownloader.Service;
 
@@ -13,8 +14,12 @@ namespace YTDownloader
         private MainInitializationService initializationService = Program.Startup.Container.Resolve<MainInitializationService>();
         private Dictionary<string, List<KeyValuePair<string, string>>> options;
         private IConfiguration config;
+        private string DownloadFolder;
         private string ytDlpPath;
         private string ffmpegPath;
+
+        /// <summary>以 Row Index 為 Key，記錄每筆下載任務的控制器。</summary>
+        private readonly Dictionary<int, DownloadTaskController> _downloadControllers = new();
 
         #region
         private PlaylistHandler playlistHandlerForm;
@@ -37,12 +42,14 @@ namespace YTDownloader
         private void InitUI()
         {
             InitDownloadListColumns();
+            dGV_DownloadList.CellContentClick += OnDownloadListCellContentClick;
         }
 
         private void InitDownloadListColumns()
         {
             dGV_DownloadList.Columns.Clear();
 
+            // # 序號
             dGV_DownloadList.Columns.Add(new DataGridViewTextBoxColumn
             {
                 Name = "colIndex",
@@ -52,6 +59,7 @@ namespace YTDownloader
                 Resizable = DataGridViewTriState.False
             });
 
+            // 標題
             dGV_DownloadList.Columns.Add(new DataGridViewTextBoxColumn
             {
                 Name = "colTitle",
@@ -60,6 +68,7 @@ namespace YTDownloader
                 ReadOnly = true
             });
 
+            // 類型（音訊 / 視訊）
             dGV_DownloadList.Columns.Add(new DataGridViewTextBoxColumn
             {
                 Name = "colMediaType",
@@ -69,16 +78,16 @@ namespace YTDownloader
                 Resizable = DataGridViewTriState.False
             });
 
-            dGV_DownloadList.Columns.Add(new DataGridViewTextBoxColumn
+            // 進度條（自訂繪製）
+            dGV_DownloadList.Columns.Add(new DataGridViewProgressBarColumn
             {
                 Name = "colProgress",
                 HeaderText = "進度",
-                Width = 65,
-                ReadOnly = true,
-                Resizable = DataGridViewTriState.False,
-                DefaultCellStyle = new DataGridViewCellStyle { Alignment = DataGridViewContentAlignment.MiddleCenter }
+                Width = 160,
+                Resizable = DataGridViewTriState.False
             });
 
+            // 狀態文字
             dGV_DownloadList.Columns.Add(new DataGridViewTextBoxColumn
             {
                 Name = "colStatus",
@@ -86,7 +95,18 @@ namespace YTDownloader
                 Width = 75,
                 ReadOnly = true,
                 Resizable = DataGridViewTriState.False,
-                DefaultCellStyle = new DataGridViewCellStyle { Alignment = DataGridViewContentAlignment.MiddleCenter }
+                DefaultCellStyle = new DataGridViewCellStyle
+                { Alignment = DataGridViewContentAlignment.MiddleCenter }
+            });
+
+            // 操作按鈕（暫停 / 繼續 / 重試 / —）
+            dGV_DownloadList.Columns.Add(new DataGridViewButtonColumn
+            {
+                Name = "colAction",
+                HeaderText = "操作",
+                Width = 60,
+                Resizable = DataGridViewTriState.False,
+                UseColumnTextForButtonValue = false   // 使用每格的 Value 作為按鈕文字
             });
         }
 
@@ -106,17 +126,18 @@ namespace YTDownloader
                 return (int)dGV_DownloadList.Invoke(new Func<int>(() => AddDownloadItem(title, mediaType)));
 
             int rowIndex = dGV_DownloadList.Rows.Add(
-                dGV_DownloadList.Rows.Count + 1,
-                title,
-                mediaType,
-                "0.0 %",
-                "等待中"
+                dGV_DownloadList.Rows.Count + 1,  // colIndex
+                title,                             // colTitle
+                mediaType,                         // colMediaType
+                0.0,                               // colProgress（double，ProgressBarCell 讀取）
+                "等待中",                           // colStatus
+                "暫停"                              // colAction 按鈕文字
             );
             return rowIndex;
         }
 
         /// <summary>
-        /// 更新指定 Row 的進度與狀態欄位。
+        /// 更新指定 Row 的進度條與狀態欄位，並同步更新控制器的 LastPercent。
         /// 執行緒安全（可從非 UI 執行緒呼叫）。
         /// </summary>
         public void UpdateDownloadProgress(int rowIndex, double percent, string status)
@@ -131,17 +152,88 @@ namespace YTDownloader
                 return;
 
             var row = dGV_DownloadList.Rows[rowIndex];
-            row.Cells["colProgress"].Value = $"{percent:F1} %";
-            row.Cells["colStatus"].Value   = status;
+            row.Cells["colProgress"].Value = percent;   // double → DataGridViewProgressBarCell
+            row.Cells["colStatus"].Value = status;
 
-            // 依狀態換色
+            // 同步控制器的最後進度（供「繼續」時顯示）
+            if (_downloadControllers.TryGetValue(rowIndex, out var ctrl))
+                ctrl.LastPercent = percent;
+
+            // 依狀態設定列底色
             row.DefaultCellStyle.BackColor = status switch
             {
-                "完成" => Color.FromArgb(200, 240, 200),
-                "失敗" => Color.FromArgb(255, 200, 200),
-                "下載中" => Color.FromArgb(230, 240, 255),
-                _     => dGV_DownloadList.DefaultCellStyle.BackColor
+                "完成" => Color.FromArgb(200, 240, 200),   // 淡綠
+                "失敗" => Color.FromArgb(255, 200, 200),   // 淡紅
+                "下載中" => Color.FromArgb(230, 240, 255),   // 淡藍
+                "已暫停" => Color.FromArgb(255, 248, 220),   // 淡黃
+                _ => dGV_DownloadList.DefaultCellStyle.BackColor
             };
+        }
+
+        /// <summary>
+        /// 向 Main 登錄一筆下載任務的控制器（含重啟 Action），回傳可操控該任務的 controller。
+        /// </summary>
+        public DownloadTaskController RegisterDownload(int rowIndex, Func<CancellationToken, Task> restartAction)
+        {
+            var controller = new DownloadTaskController { RestartAction = restartAction };
+            _downloadControllers[rowIndex] = controller;
+            return controller;
+        }
+
+        /// <summary>
+        /// 設定指定 Row 的操作按鈕文字。執行緒安全（可從非 UI 執行緒呼叫）。
+        /// </summary>
+        public void SetActionButton(int rowIndex, string text)
+        {
+            if (dGV_DownloadList.InvokeRequired)
+            {
+                dGV_DownloadList.Invoke(new Action(() => SetActionButton(rowIndex, text)));
+                return;
+            }
+
+            if (rowIndex >= 0 && rowIndex < dGV_DownloadList.Rows.Count)
+                dGV_DownloadList.Rows[rowIndex].Cells["colAction"].Value = text;
+        }
+
+        /// <summary>
+        /// 處理下載清單的操作按鈕點擊（暫停 / 繼續 / 重試）。
+        /// </summary>
+        private void OnDownloadListCellContentClick(object sender, DataGridViewCellEventArgs e)
+        {
+            if (e.RowIndex < 0) return;
+            if (dGV_DownloadList.Columns[e.ColumnIndex].Name != "colAction") return;
+
+            var row = dGV_DownloadList.Rows[e.RowIndex];
+            var btnText = row.Cells["colAction"].Value?.ToString() ?? "";
+
+            if (!_downloadControllers.TryGetValue(e.RowIndex, out var controller)) return;
+
+            switch (btnText)
+            {
+                // ── 暫停 ─────────────────────────────────────────
+                case "暫停":
+                    controller.Cts.Cancel();
+                    controller.IsPaused = true;
+                    row.Cells["colAction"].Value = "繼續";
+                    row.Cells["colStatus"].Value = "已暫停";
+                    row.DefaultCellStyle.BackColor = Color.FromArgb(255, 248, 220);
+                    break;
+
+                // ── 繼續 / 重試 ──────────────────────────────────
+                case "繼續":
+                case "重試":
+                    controller.Cts = new CancellationTokenSource();
+                    controller.IsPaused = false;
+                    row.Cells["colAction"].Value = "暫停";
+                    UpdateDownloadProgress(e.RowIndex, controller.LastPercent, "下載中");
+                    var cts = controller.Cts;
+                    _ = Task.Run(async () => await controller.RestartAction(cts.Token));
+                    break;
+
+                // ── 已完成 / 其他（不動作）───────────────────────
+                default:
+                    break;
+            }
         }
 
         #region Init
@@ -175,8 +267,9 @@ namespace YTDownloader
             }
 
             // 以安全方式讀取設定 (支援 appsettings.json 的 "yt-dlp"/"ffmpeg" 與原本預期的 "ytDlpPath"/"ffmpegPath")
-            var ytDlpRel = config["Path:yt-dlp"] ;
-            var ffmpegRel = config["Path:ffmpeg"] ;
+            var ytDlpRel = config["Path:yt-dlp"];
+            var ffmpegRel = config["Path:ffmpeg"];
+            var downloadFolder = config["Path:DownLoadDir"];
 
             if (string.IsNullOrWhiteSpace(ytDlpRel))
             {
@@ -205,6 +298,21 @@ namespace YTDownloader
                 {
                     logger.LogError("ffmpeg executable not found at path: {Path}", ffmpegPath);
                     MessageBox.Show($"ffmpeg 可執行檔未找到，請確認路徑：{ffmpegPath}", "配置錯誤", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
+
+            if (string.IsNullOrWhiteSpace(downloadFolder))
+            {
+                logger.LogError("downloadFolder path is not configured (Path:DownLoadDir or Path:ffmpegPath).");
+                MessageBox.Show("DownLoadDir 路徑未在設定中指定。", "配置錯誤", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            else
+            {
+                DownloadFolder = Path.Combine(Environment.CurrentDirectory, downloadFolder.Trim());
+                if (!Directory.Exists(DownloadFolder))
+                {
+                    logger.LogError("Download folder not found at path: {Path}", DownloadFolder);
+                    MessageBox.Show($"下載資料夾未找到，請確認路徑：{DownloadFolder}", "配置錯誤", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
             }
         }
@@ -241,7 +349,7 @@ namespace YTDownloader
                 switch (SourceType.ResourceType)
                 {
                     case UrlResourceType.SingleVideo:
-                       logger.LogInformation ($"檢測到單一影片：{SourceType.Title}", "資源檢測", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        logger.LogInformation($"檢測到單一影片：{SourceType.Title}", "資源檢測", MessageBoxButtons.OK, MessageBoxIcon.Information);
                         break;
                     case UrlResourceType.Playlist:
                         logger.LogInformation($"檢測到播放清單：{SourceType.PlaylistTitle}，共 {SourceType.PlaylistCount} 部影片", "資源檢測", MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -256,7 +364,7 @@ namespace YTDownloader
                         {
                             logger.LogInformation($"獲取播放清單資訊失敗：{msg}");
                         }
-                      
+
                         playlistHandlerForm.Location = new Point(700, 0);
                         playlistHandlerForm.Disposed += new EventHandler(playlistHandlerForm_Disposed);
 
@@ -276,6 +384,12 @@ namespace YTDownloader
         private void playlistHandlerForm_Disposed(object? sender, EventArgs e)
         {
             playlistHandlerForm = null;
+        }
+
+        private void btn_OpenDownloadForder_Click(object sender, EventArgs e)
+        {
+            var DownLoadForderPath = Path.Combine( Environment.CurrentDirectory,DownloadFolder);
+            Process.Start("explorer.exe", DownLoadForderPath);
         }
     }
 }
