@@ -282,9 +282,11 @@ namespace YTDownloader
                     case UrlResourceType.SingleVideo:
                         logger.LogInformation($"檢測到單一影片：{SourceType.Title}", "資源檢測", MessageBoxButtons.OK, MessageBoxIcon.Information);
                         var mediaType = ParseMediaType(SelectedMediaType);
+                        var playlist = await YTDownloadService.GetPlaylistVideosAsync(URL);
+                        var video =  playlist.Videos.FirstOrDefault() ?? throw new Exception("無法取得影片資訊");
                         var request = new DownloadRequest
                         {
-                            Title            = SourceType.Title ?? "未知標題",
+                            Title            = video.Title ?? "未知標題",
                             WebpageUrl       = URL,
                             MediaType        = mediaType,
                             MediaTypeDisplay = GetMediaTypeDisplay(mediaType),

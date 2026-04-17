@@ -171,7 +171,6 @@
             tB_URL.Name = "tB_URL";
             tB_URL.Size = new Size(606, 23);
             tB_URL.TabIndex = 0;
-            tB_URL.Text = "https://www.youtube.com/playlist?list=PLrEnWoR732-BHrPp_Pm8_VleD68f9s14-";
             // 
             // groupBox1
             // 
