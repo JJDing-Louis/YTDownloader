@@ -98,14 +98,19 @@ namespace YTDownloader.Service
                     downloadThumbnail: downloadThumbnail,
                     embedMetadata: embedMetadata);
 
-                AttachEvents(ytdlp, onProgress);
+                bool   ytSuccess = true;
+                string ytErrors  = string.Empty;
+                AttachEvents(ytdlp, onProgress, (ok, err) => { ytSuccess = ok; ytErrors = err; });
 
+                logger.LogInformation("開始下載影片：{Url} → {Folder}", url, outputFolder);
                 await ytdlp.DownloadAsync(url, cancellationToken);
 
-                return DownloadResult.Success(
-                    url: url,
-                    outputFolder: outputFolder,
-                    message: "影片下載完成");
+                return ytSuccess
+                    ? DownloadResult.Success(url, outputFolder, "影片下載完成")
+                    : DownloadResult.Fail(url,
+                        string.IsNullOrWhiteSpace(ytErrors)
+                            ? "yt-dlp 回報下載失敗（未知原因）"
+                            : $"yt-dlp 下載失敗：{ytErrors}");
             }
             catch (OperationCanceledException)
             {
@@ -113,8 +118,8 @@ namespace YTDownloader.Service
             }
             catch (Exception ex)
             {
-               logger.LogError($"DownloadVideoAsync 失敗: {ex}");
-                return DownloadResult.Fail(url, $"影片下載失敗: {ex.Message}");
+                logger.LogError(ex, "DownloadVideoAsync 失敗");
+                return DownloadResult.Fail(url, $"影片下載失敗：{ex.Message}");
             }
         }
 
@@ -180,14 +185,19 @@ namespace YTDownloader.Service
                     embedMetadata: embedMetadata,
                     embedThumbnail: embedThumbnail);
 
-                AttachEvents(ytdlp, onProgress);
+                bool   ytSuccess = true;
+                string ytErrors  = string.Empty;
+                AttachEvents(ytdlp, onProgress, (ok, err) => { ytSuccess = ok; ytErrors = err; });
 
+                logger.LogInformation("開始下載音訊：{Url} → {Folder}", url, outputFolder);
                 await ytdlp.DownloadAsync(url, cancellationToken);
 
-                return DownloadResult.Success(
-                    url: url,
-                    outputFolder: outputFolder,
-                    message: $"音訊下載完成，格式: {audioFormat}");
+                return ytSuccess
+                    ? DownloadResult.Success(url, outputFolder, $"音訊下載完成，格式：{audioFormat}")
+                    : DownloadResult.Fail(url,
+                        string.IsNullOrWhiteSpace(ytErrors)
+                            ? "yt-dlp 回報下載失敗（未知原因）"
+                            : $"yt-dlp 下載失敗：{ytErrors}");
             }
             catch (OperationCanceledException)
             {
@@ -195,8 +205,8 @@ namespace YTDownloader.Service
             }
             catch (Exception ex)
             {
-               logger.LogError($"DownloadAudioAsync 失敗: {ex}");
-                return DownloadResult.Fail(url, $"音訊下載失敗: {ex.Message}");
+                logger.LogError(ex, "DownloadAudioAsync 失敗");
+                return DownloadResult.Fail(url, $"音訊下載失敗：{ex.Message}");
             }
         }
 
@@ -696,11 +706,12 @@ namespace YTDownloader.Service
                 process.Start();
                 process.BeginErrorReadLine();
 
-                var videos        = new List<PlaylistVideoItem>();
-                string? playlistTitle = null;
-                string? playlistId    = null;
-                int declaredCount     = 0;   // playlist_count（yt-dlp 宣告的總數）
-                int index             = 0;
+                var videos             = new List<PlaylistVideoItem>();
+                var unavailableEntries = new List<string>();   // 不可播放條目描述
+                string? playlistTitle  = null;
+                string? playlistId     = null;
+                int declaredCount      = 0;   // playlist_count（yt-dlp 宣告的總數）
+                int index              = 0;
 
                 // 逐行讀取：每行是一個獨立 JSON 物件（代表一部影片）
                 while (true)
@@ -754,6 +765,22 @@ namespace YTDownloader.Service
                         }
 
                         var title = GetJsonString(root, "title");
+
+                        // 取播放清單中的原始位置（供提示訊息顯示）
+                        int playlistIndex = index + 1;
+                        if (root.TryGetProperty("playlist_index", out var piProp)
+                            && piProp.ValueKind == JsonValueKind.Number)
+                            playlistIndex = piProp.GetInt32();
+
+                        // 過濾不可播放的佔位條目（[Deleted video]、[Private video] 等）
+                        if (IsUnavailableTitle(title))
+                        {
+                            unavailableEntries.Add($"#{playlistIndex}：{title}");
+                            logger.LogInformation("跳過不可播放條目 #{Index}：{Title}", playlistIndex, title);
+                            continue;
+                        }
+
+                        index++;
                         progress?.Report((index, 0, title));
 
                         videos.Add(new PlaylistVideoItem
@@ -791,7 +818,8 @@ namespace YTDownloader.Service
                     playlistTitle, videos.Count, declaredCount);
 
                 var result = PlaylistFetchResult.Success(playlistId, playlistTitle, videos);
-                result.DeclaredCount = declaredCount;
+                result.DeclaredCount      = declaredCount;
+                result.UnavailableEntries = unavailableEntries;
                 return result;
             }
             catch (OperationCanceledException)
@@ -814,6 +842,28 @@ namespace YTDownloader.Service
                    && prop.ValueKind == JsonValueKind.String
                 ? prop.GetString()
                 : null;
+        }
+
+        /// <summary>
+        /// yt-dlp 在 flat-playlist 模式下，對無法存取的影片會輸出佔位標題，
+        /// 格式為 "[Xxx video]"。此方法用來偵測這類條目。
+        /// </summary>
+        private static readonly HashSet<string> _unavailableTitles =
+            new(StringComparer.OrdinalIgnoreCase)
+            {
+                "[Deleted video]",
+                "[Private video]",
+                "[Unavailable video]",
+                "[Removed video]",
+            };
+
+        internal static bool IsUnavailableTitle(string? title)
+        {
+            if (string.IsNullOrWhiteSpace(title)) return false;
+            // 精確比對已知佔位標題
+            if (_unavailableTitles.Contains(title)) return true;
+            // 通用防禦：格式為 "[Xxx video]" 或 "[Xxx]" 的佔位標題
+            return title.StartsWith('[') && title.EndsWith(']');
         }
 
         private Ytdlp CreateBaseClient()
@@ -922,48 +972,42 @@ namespace YTDownloader.Service
             };
         }
 
-        private void AttachEvents(Ytdlp ytdlp, Action<double>? onProgress = null)
+        /// <param name="onProgress">每次進度更新觸發，回傳 0–100 的百分比。</param>
+        /// <param name="onCompleted">
+        /// yt-dlp 程序結束時觸發：<br/>
+        /// 第一個參數 = 是否成功（exit code 0）；<br/>
+        /// 第二個參數 = 彙整的 stderr 錯誤訊息（成功時為空字串）。
+        /// </param>
+        private void AttachEvents(
+            Ytdlp ytdlp,
+            Action<double>?        onProgress  = null,
+            Action<bool, string>?  onCompleted = null)
         {
             ytdlp.OnProgressDownload += (_, e) =>
             {
                 logger.LogInformation(
-                    $"[Download] {e.Percent:F2}% | Speed={e.Speed} | ETA={e.ETA}");
+                    "[Download] {Percent:F2}% | Speed={Speed} | ETA={ETA}",
+                    e.Percent, e.Speed, e.ETA);
                 onProgress?.Invoke((double)e.Percent);
             };
 
-            ytdlp.OnProgressMessage += (_, msg) =>
-            {
-                logger.LogInformation($"[Progress] {msg}");
-            };
+            ytdlp.OnProgressMessage   += (_, msg) => logger.LogInformation("[Progress] {Msg}", msg);
+            ytdlp.OnCompleteDownload  += (_, msg) => logger.LogInformation("[Complete] {Msg}", msg);
+            ytdlp.OnPostProcessingStart    += (_, msg) => logger.LogInformation("[PostStart] {Msg}", msg);
+            ytdlp.OnPostProcessingComplete += (_, msg) => logger.LogInformation("[PostComplete] {Msg}", msg);
+            ytdlp.OnOutputMessage     += (_, msg) => logger.LogInformation("[Output] {Msg}", msg);
 
-            ytdlp.OnCompleteDownload += (_, msg) =>
-            {
-                logger.LogInformation($"[Complete] {msg}");
-            };
-
-            ytdlp.OnPostProcessingStart += (_, msg) =>
-            {
-                logger.LogInformation($"[PostStart] {msg}");
-            };
-
-            ytdlp.OnPostProcessingComplete += (_, msg) =>
-            {
-                logger.LogInformation($"[PostComplete] {msg}");
-            };
-
-            ytdlp.OnOutputMessage += (_, msg) =>
-            {
-                logger.LogInformation($"[Output] {msg}");
-            };
-
+            var errorSb = new StringBuilder();
             ytdlp.OnErrorMessage += (_, err) =>
             {
-               logger.LogError($"[Error] {err}");
+                logger.LogError("[yt-dlp Error] {Err}", err);
+                errorSb.AppendLine(err);
             };
 
             ytdlp.OnCommandCompleted += (_, e) =>
             {
-                logger.LogInformation($"[CommandCompleted] {e.Success}");
+                logger.LogInformation("[CommandCompleted] Success={Success}", e.Success);
+                onCompleted?.Invoke(e.Success, errorSb.ToString().Trim());
             };
         }
 

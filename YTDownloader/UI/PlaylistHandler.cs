@@ -251,7 +251,10 @@ namespace YTDownloader
         {
             try
             {
-                var YTDownloadService = new YtDlpDownloadService(ytDlpPath, ffmpegPath);
+                var ffmpegDir = File.Exists(ffmpegPath)
+                    ? Path.GetDirectoryName(ffmpegPath)!
+                    : ffmpegPath;
+                var YTDownloadService = new YtDlpDownloadService(ytDlpPath, ffmpegDir);
                 var playlist = await YTDownloadService.GetPlaylistVideosAsync(playlistUrl);
                 dGV_PlayList.Rows.Clear();
                 if (playlist.Videos != null && playlist.Videos.Count > 0)
@@ -276,10 +279,19 @@ namespace YTDownloader
                 // 若有不可播放的影片（私人 / 刪除 / 地區限制），跳出一次性提示
                 if (playlist.IsSuccess && playlist.SkippedCount > 0)
                 {
+                    int privateCount = playlist.UnavailableEntries
+                        .Count(e => e.Contains("[Private video]", StringComparison.OrdinalIgnoreCase));
+                    int deletedCount = playlist.UnavailableEntries
+                        .Count(e => e.Contains("[Deleted video]", StringComparison.OrdinalIgnoreCase));
+                    int otherCount   = playlist.SkippedCount - privateCount - deletedCount;
+
+                    var lines = new System.Text.StringBuilder();
+                    if (privateCount > 0) lines.AppendLine($"私人影片：{privateCount} 部");
+                    if (deletedCount > 0) lines.AppendLine($"刪除影片：{deletedCount} 部");
+                    if (otherCount   > 0) lines.AppendLine($"其他無法存取：{otherCount} 部");
+
                     MessageBox.Show(
-                        $"播放清單共 {playlist.DeclaredCount} 部影片，\n" +
-                        $"其中 {playlist.SkippedCount} 部因私人、刪除或地區限制而無法存取，已自動略過。\n\n" +
-                        $"實際可下載：{playlist.TotalCount} 部。",
+                        $"{lines}\n可下載：{playlist.TotalCount} 部",
                         "部分影片無法存取",
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Information);

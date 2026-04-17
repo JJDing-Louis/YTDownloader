@@ -126,11 +126,11 @@ namespace YTDownloader
             {
                 Name = "colStatus",
                 HeaderText = "狀態",
-                Width = 75,
+                Width = 200,
                 ReadOnly = true,
-                Resizable = DataGridViewTriState.False,
+                Resizable = DataGridViewTriState.True,
                 DefaultCellStyle = new DataGridViewCellStyle
-                { Alignment = DataGridViewContentAlignment.MiddleCenter }
+                { Alignment = DataGridViewContentAlignment.MiddleLeft }
             });
 
             // 操作按鈕（暫停 / 繼續 / 重試 / —）
@@ -274,7 +274,10 @@ namespace YTDownloader
                     return;
                 }
 
-                var YTDownloadService = new YtDlpDownloadService(ytDlpPath, ffmpegPath);
+                var ffmpegDir = File.Exists(ffmpegPath)
+                    ? Path.GetDirectoryName(ffmpegPath)!
+                    : ffmpegPath;
+                var YTDownloadService = new YtDlpDownloadService(ytDlpPath, ffmpegDir);
 
                 var SourceType = await YTDownloadService.DetectResourceAsync(URL);
                 switch (SourceType.ResourceType)
@@ -531,13 +534,35 @@ namespace YTDownloader
         }
 
         /// <summary>
+        /// 將錯誤訊息設為狀態欄的 ToolTip，讓使用者滑鼠停留時可看到失敗原因。
+        /// 執行緒安全（可從非 UI 執行緒呼叫）。
+        /// </summary>
+        private void SetStatusTooltip(int taskId, string message)
+        {
+            if (dGV_DownloadList.InvokeRequired)
+            {
+                dGV_DownloadList.Invoke(new Action(() => SetStatusTooltip(taskId, message)));
+                return;
+            }
+
+            var row = FindRowByTaskId(taskId);
+            if (row != null)
+                row.Cells["colStatus"].ToolTipText = message;
+        }
+
+        /// <summary>
         /// 接收來自 PlaylistHandler（或其他來源）的下載請求，
         /// 加入清單並立即以背景工作排入佇列執行。
         /// 可在視窗已關閉後安全呼叫（執行緒安全）。
         /// </summary>
         public void EnqueueDownloads(IEnumerable<DownloadRequest> requests)
         {
-            _downloadService ??= new YtDlpDownloadService(ytDlpPath, ffmpegPath);
+            // ffmpegPath 指向可執行檔；YtDlpDownloadService 的第二參數需要「資料夾」路徑
+            var ffmpegDir = File.Exists(ffmpegPath)
+                ? Path.GetDirectoryName(ffmpegPath)!
+                : ffmpegPath;
+
+            _downloadService ??= new YtDlpDownloadService(ytDlpPath, ffmpegDir);
 
             foreach (var req in requests)
             {
@@ -580,8 +605,14 @@ namespace YTDownloader
                     }
                     else
                     {
-                        UpdateDownloadProgress(taskId, 0, "失敗");
+                        // 取第一行作為簡短狀態文字，完整訊息放 Tooltip
+                        var firstLine = (result.Message ?? "未知錯誤")
+                            .Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)
+                            .FirstOrDefault() ?? "未知錯誤";
+
+                        UpdateDownloadProgress(taskId, 0, $"失敗：{firstLine}");
                         SetActionButton(taskId, "重試");
+                        SetStatusTooltip(taskId, result.Message ?? "未知錯誤");
                         logger.LogError("下載失敗 [{Title}]：{Message}", capturedReq.Title, result.Message);
                     }
                 };

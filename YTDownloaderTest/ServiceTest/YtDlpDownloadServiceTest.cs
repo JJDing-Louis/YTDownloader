@@ -1,6 +1,7 @@
 using YTDownloader;
 using YTDownloader.Model;
 using YTDownloader.Service;
+using System.IO;
 
 namespace YTDownloaderTest.ServiceTest
 {
@@ -429,6 +430,165 @@ namespace YTDownloaderTest.ServiceTest
                 Assert.That(result.TotalCount, Is.EqualTo(1));
                 Assert.That(result.Videos,     Has.Count.EqualTo(1));
             });
+        }
+
+        // =====================================================================
+        // URL 型別快速偵測 — DetectResourceAsync 快速路徑（不呼叫 yt-dlp）
+        // =====================================================================
+        // 快速路徑（TryDetectFromUrlPattern）純解析 URL，不啟動 yt-dlp 行程，
+        // 因此即使 FakeYtDlpPath 指向不存在的檔案，這些測試也能正常執行。
+
+        [Test]
+        [TestCase(
+            "https://www.youtube.com/playlist?list=PLEKDwEUpZdpN1Ho1W5nQB368PnN53llE3",
+            UrlResourceType.Playlist,
+            Description = "playlist?list= 格式（150 首夜店歌曲清單）應判斷為 Playlist")]
+        [TestCase(
+            "https://www.youtube.com/watch?v=uEJuoEs1UxY&list=PLEKDwEUpZdpN1Ho1W5nQB368PnN53llE3",
+            UrlResourceType.Playlist,
+            Description = "watch?v=&list= 同時帶有 list 參數應判斷為 Playlist")]
+        [TestCase(
+            "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+            UrlResourceType.SingleVideo,
+            Description = "watch?v= 無 list 參數應判斷為 SingleVideo")]
+        [TestCase(
+            "https://youtu.be/dQw4w9WgXcQ",
+            UrlResourceType.SingleVideo,
+            Description = "youtu.be 短網址無 list 參數應判斷為 SingleVideo")]
+        [TestCase(
+            "https://www.youtube.com/@SomeChannel/videos",
+            UrlResourceType.Playlist,
+            Description = "@ 頻道網址應判斷為 Playlist")]
+        [TestCase(
+            "https://www.youtube.com/channel/UCxxxxxxxxxxxxxxxxxxxxxx",
+            UrlResourceType.Playlist,
+            Description = "/channel/ 網址應判斷為 Playlist")]
+        [TestCase(
+            "https://www.youtube.com/user/SomeLegacyUser",
+            UrlResourceType.Playlist,
+            Description = "/user/ 舊式頻道網址應判斷為 Playlist")]
+        public async Task DetectResourceAsync_QuickPath_ReturnsCorrectResourceType(
+            string url, UrlResourceType expectedType)
+        {
+            var result = await _service.DetectResourceAsync(url);
+
+            Assert.That(result.ResourceType, Is.EqualTo(expectedType),
+                $"URL [{url}] 預期 {expectedType}，實際為 {result.ResourceType}（訊息：{result.Message}）");
+        }
+
+        // =====================================================================
+        // IsUnavailableTitle — 不可播放條目標題過濾器
+        // =====================================================================
+
+        [Test]
+        [TestCase("[Deleted video]",                         true,  Description = "已刪除影片應被標記為不可播放")]
+        [TestCase("[Private video]",                         true,  Description = "私人影片應被標記為不可播放")]
+        [TestCase("[Unavailable video]",                     true,  Description = "不可用影片應被標記為不可播放")]
+        [TestCase("[Removed video]",                         true,  Description = "已移除影片應被標記為不可播放")]
+        [TestCase("[Some Future Placeholder]",               true,  Description = "通用 [...] 格式應被通用規則標記為不可播放")]
+        [TestCase("正常影片標題",                              false, Description = "正常中文標題不應被誤判")]
+        [TestCase("Rick Astley - Never Gonna Give You Up",  false, Description = "正常英文標題不應被誤判")]
+        [TestCase("[Brackets in Title] 但後面有文字",          false, Description = "開頭有 [ 但非獨立 [...] 結尾的標題不應被誤判")]
+        [TestCase("",                                        false, Description = "空字串不應被標記為不可播放")]
+        [TestCase(null,                                      false, Description = "null 不應被標記為不可播放")]
+        [TestCase("   ",                                     false, Description = "純空白不應被標記為不可播放")]
+        public void IsUnavailableTitle_VariousTitles_ReturnsExpected(string? title, bool expected)
+        {
+            bool actual = YtDlpDownloadService.IsUnavailableTitle(title);
+
+            Assert.That(actual, Is.EqualTo(expected),
+                $"標題 [{title ?? "(null)"}] 預期 IsUnavailable={expected}，實際={actual}");
+        }
+
+        // =====================================================================
+        // PlaylistFetchResult — UnavailableEntries 與 SkippedCount
+        // =====================================================================
+
+        [Test]
+        [Description("加入不可播放條目後 SkippedCount 應等於 UnavailableEntries 的數量")]
+        public void PlaylistFetchResult_SkippedCount_ReflectsUnavailableEntriesCount()
+        {
+            var result = PlaylistFetchResult.Success(null, null, new List<PlaylistVideoItem>());
+            result.UnavailableEntries.Add("#113：[Deleted video]");
+            result.UnavailableEntries.Add("#116：[Private video]");
+
+            Assert.That(result.SkippedCount, Is.EqualTo(2));
+        }
+
+        [Test]
+        [Description("沒有不可播放條目時 SkippedCount 應為 0")]
+        public void PlaylistFetchResult_SkippedCount_EmptyEntries_IsZero()
+        {
+            var result = PlaylistFetchResult.Success(null, null, new List<PlaylistVideoItem>());
+            Assert.That(result.SkippedCount, Is.EqualTo(0));
+        }
+
+        [Test]
+        [Description("UnavailableEntries 的條目描述應包含播放清單位置與原始佔位標題")]
+        public void PlaylistFetchResult_UnavailableEntries_ContainsExpectedDescriptions()
+        {
+            var result = new PlaylistFetchResult();
+            result.UnavailableEntries.Add("#113：[Deleted video]");
+            result.UnavailableEntries.Add("#116：[Private video]");
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(result.UnavailableEntries, Has.Count.EqualTo(2));
+                Assert.That(result.UnavailableEntries[0], Does.Contain("[Deleted video]"));
+                Assert.That(result.UnavailableEntries[1], Does.Contain("[Private video]"));
+            });
+        }
+
+        [Test]
+        [Description("IsSuccess=true 的結果仍可帶有不可播放條目（部分可用清單）")]
+        public void PlaylistFetchResult_Success_CanHaveUnavailableEntries()
+        {
+            var videos = new List<PlaylistVideoItem>
+            {
+                new() { Id = "vid1", Title = "正常影片" }
+            };
+            var result = PlaylistFetchResult.Success("PLtest", "測試清單", videos);
+            result.UnavailableEntries.Add("#5：[Deleted video]");
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(result.IsSuccess,    Is.True);
+                Assert.That(result.TotalCount,   Is.EqualTo(1));
+                Assert.That(result.SkippedCount, Is.EqualTo(1));
+            });
+        }
+
+        // =====================================================================
+        // ffmpeg 路徑處理 — exe 路徑 → 資料夾路徑
+        // =====================================================================
+
+        [Test]
+        [Description("ffmpeg.exe 完整路徑透過 Path.GetDirectoryName 應回傳所在資料夾，不含檔名")]
+        public void FfmpegPath_GetDirectoryName_ReturnsParentFolder()
+        {
+            const string ffmpegExePath = @"C:\tools\ffmpeg\bin\ffmpeg.exe";
+            var dir = Path.GetDirectoryName(ffmpegExePath);
+
+            Assert.That(dir, Is.EqualTo(@"C:\tools\ffmpeg\bin"));
+        }
+
+        [Test]
+        [Description("傳入 ffmpeg.exe 路徑時，取得 Directory 後應與直接傳資料夾的結果相同")]
+        public void FfmpegPath_GetDirectoryName_MatchesFolderPath()
+        {
+            const string ffmpegExe  = @"D:\tools\ffmpeg.exe";
+            const string ffmpegDir  = @"D:\tools";
+
+            var derived = Path.GetDirectoryName(ffmpegExe);
+            Assert.That(derived, Is.EqualTo(ffmpegDir));
+        }
+
+        [Test]
+        [Description("建立 YtDlpDownloadService 時傳入資料夾路徑作為 ffmpegFolder，不應拋出例外")]
+        public void Constructor_WithFfmpegFolderPath_DoesNotThrow()
+        {
+            const string ffmpegDir = @"C:\tools\ffmpeg\bin";
+            Assert.DoesNotThrow(() => new YtDlpDownloadService(FakeYtDlpPath, ffmpegDir));
         }
 
         /// <summary>

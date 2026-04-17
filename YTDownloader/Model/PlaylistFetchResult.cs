@@ -33,9 +33,13 @@ namespace YTDownloader.Model
         public int TotalCount { get; set; }
 
         /// <summary>
-        /// 因不可播放（私人 / 刪除 / 地區限制）而跳過的數量。
+        /// 因不可播放（私人 / 刪除 / 地區限制）而跳過的條目描述，
+        /// 例如 ["#113：[Deleted video]", "#116：[Private video]"]。
         /// </summary>
-        public int SkippedCount => DeclaredCount > 0 ? DeclaredCount - TotalCount : 0;
+        public List<string> UnavailableEntries { get; set; } = new();
+
+        /// <summary>因不可播放而跳過的數量。</summary>
+        public int SkippedCount => UnavailableEntries.Count;
 
         /// <summary>
         /// 所有影片資訊清單（含 IsSelected 供 UI 勾選）
