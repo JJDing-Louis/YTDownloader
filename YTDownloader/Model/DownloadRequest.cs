@@ -14,8 +14,8 @@ namespace YTDownloader.Model
         /// <summary>顯示用媒體類型，如 "音訊" 或 "視訊"。</summary>
         public string MediaTypeDisplay { get; set; } = string.Empty;
 
-        /// <summary>true = 下載音訊，false = 下載視訊。</summary>
-        public bool IsAudio { get; set; }
+        /// <summary>下載的媒體類型。</summary>
+        public MediaType MediaType { get; set; }
 
         /// <summary>儲存目錄的完整路徑。</summary>
         public string DownloadDir { get; set; } = string.Empty;

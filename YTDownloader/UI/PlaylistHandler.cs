@@ -222,15 +222,13 @@ namespace YTDownloader
             }
 
             // ── 3. 組成 DownloadRequest 清單，交給 Main 執行 ─────────────────
-            string mediaTypeDisplay =mainForm.GetMediaTypeDisplay();
-
             var requests = selectedVideoItems.Select(item => new DownloadRequest
             {
-                Title = item.DisplayTitle,
-                WebpageUrl = item.WebpageUrl!,
-                MediaTypeDisplay = mediaTypeDisplay,
-                IsAudio = isAudio,
-                DownloadDir = downloadDir
+                Title            = item.DisplayTitle,
+                WebpageUrl       = item.WebpageUrl!,
+                MediaType        = mainForm.SelectedMediaType,
+                MediaTypeDisplay = mainForm.SelectedMediaTypeDisplay,
+                DownloadDir      = downloadDir
             });
 
             mainForm.EnqueueDownloads(requests);

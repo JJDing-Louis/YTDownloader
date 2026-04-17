@@ -41,6 +41,31 @@ namespace YTDownloader
             InitUI();
         }
 
+        #region MediaType helpers
+
+        /// <summary>
+        /// 將設定字串（來自 ComboBox Value）轉換為 MediaType enum。
+        /// 新增媒體類型時，在這裡加一個 case 即可。
+        /// </summary>
+        private static MediaType ParseMediaType(string value) => value switch
+        {
+            "Audio" => MediaType.Audio,
+            "Video" => MediaType.Video,
+            _       => throw new NotSupportedException($"未知的媒體類型值：{value}")
+        };
+
+        /// <summary>
+        /// 取得 MediaType 對應的中文顯示名稱（用於 UI 清單的「類型」欄）。
+        /// </summary>
+        private static string GetMediaTypeDisplay(MediaType mediaType) => mediaType switch
+        {
+            MediaType.Audio => "音訊",
+            MediaType.Video => "視訊",
+            _               => mediaType.ToString()
+        };
+
+        #endregion
+
         #region Init
 
         private void Init()
@@ -256,14 +281,16 @@ namespace YTDownloader
                 {
                     case UrlResourceType.SingleVideo:
                         logger.LogInformation($"檢測到單一影片：{SourceType.Title}", "資源檢測", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                        var resquest = new DownloadRequest
+                        var mediaType = ParseMediaType(SelectedMediaType);
+                        var request = new DownloadRequest
                         {
-                            Title = SourceType.Title ?? "未知標題",
-                            WebpageUrl = URL,
-                            IsAudio = SelectedMediaType.Equals("Audio", StringComparison.OrdinalIgnoreCase),
-                            DownloadDir = DownloadFolder
+                            Title            = SourceType.Title ?? "未知標題",
+                            WebpageUrl       = URL,
+                            MediaType        = mediaType,
+                            MediaTypeDisplay = GetMediaTypeDisplay(mediaType),
+                            DownloadDir      = DownloadFolder
                         };
-
+                        EnqueueDownloads(new[] { request });
                         break;
                     case UrlResourceType.Playlist:
                         logger.LogInformation($"檢測到播放清單：{SourceType.PlaylistTitle}，共 {SourceType.PlaylistCount} 部影片", "資源檢測", MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -403,11 +430,15 @@ namespace YTDownloader
         #endregion
 
         #region Public Methods
-        /// <summary>
-        /// 目前選取的媒體類型 Value（如 "Audio" / "Video"）
-        /// </summary>
+        /// <summary>目前選取的媒體類型原始 Value 字串（如 "Audio" / "Video"）。</summary>
         public string SelectedMediaTypeValue =>
             cB_ListMediaType.SelectedItem is KeyValuePair<string, string> kv ? kv.Value : string.Empty;
+
+        /// <summary>目前選取的媒體類型（enum）。</summary>
+        public MediaType SelectedMediaType => ParseMediaType(SelectedMediaTypeValue);
+
+        /// <summary>目前選取的媒體類型中文顯示名稱（用於 UI 清單）。</summary>
+        public string SelectedMediaTypeDisplay => GetMediaTypeDisplay(SelectedMediaType);
 
         /// <summary>
         /// 新增一筆下載項目至清單，回傳穩定的 Task ID（不受列刪除影響）。
@@ -515,17 +546,23 @@ namespace YTDownloader
                 {
                     UpdateDownloadProgress(taskId, 0, "下載中");
 
-                    DownloadResult result = capturedReq.IsAudio
-                        ? await svc.DownloadAudioAsync(
-                            url: capturedReq.WebpageUrl,
-                            outputFolder: capturedReq.DownloadDir,
-                            onProgress: pct => UpdateDownloadProgress(taskId, pct, "下載中"),
-                            cancellationToken: ct)
-                        : await svc.DownloadVideoAsync(
-                            url: capturedReq.WebpageUrl,
-                            outputFolder: capturedReq.DownloadDir,
-                            onProgress: pct => UpdateDownloadProgress(taskId, pct, "下載中"),
-                            cancellationToken: ct);
+                    DownloadResult result = capturedReq.MediaType switch
+                    {
+                        MediaType.Audio => await svc.DownloadAudioAsync(
+                            url:               capturedReq.WebpageUrl,
+                            outputFolder:      capturedReq.DownloadDir,
+                            onProgress:        pct => UpdateDownloadProgress(taskId, pct, "下載中"),
+                            cancellationToken: ct),
+
+                        MediaType.Video => await svc.DownloadVideoAsync(
+                            url:               capturedReq.WebpageUrl,
+                            outputFolder:      capturedReq.DownloadDir,
+                            onProgress:        pct => UpdateDownloadProgress(taskId, pct, "下載中"),
+                            cancellationToken: ct),
+
+                        _ => throw new NotSupportedException(
+                                 $"尚未支援的媒體類型：{capturedReq.MediaType}")
+                    };
 
                     // 被取消（暫停 / 取消按鈕）→ 不覆蓋狀態
                     if (ct.IsCancellationRequested) return;
@@ -554,13 +591,6 @@ namespace YTDownloader
                     finally { _downloadSemaphore.Release(); }
                 });
             }
-        }
-
-        public string GetMediaTypeDisplay() 
-        {
-            var mediaTypeValue = SelectedMediaTypeValue;
-            bool isAudio = mediaTypeValue.Equals("Audio", StringComparison.OrdinalIgnoreCase);
-            return isAudio ? "音訊" : "視訊";
         }
 
         #endregion
