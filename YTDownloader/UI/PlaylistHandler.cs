@@ -222,9 +222,7 @@ namespace YTDownloader
             }
 
             // ── 3. 組成 DownloadRequest 清單，交給 Main 執行 ─────────────────
-            var mediaTypeValue = mainForm.SelectedMediaTypeValue;
-            bool isAudio = mediaTypeValue.Equals("Audio", StringComparison.OrdinalIgnoreCase);
-            string mediaTypeDisplay = isAudio ? "音訊" : "視訊";
+            string mediaTypeDisplay =mainForm.GetMediaTypeDisplay();
 
             var requests = selectedVideoItems.Select(item => new DownloadRequest
             {

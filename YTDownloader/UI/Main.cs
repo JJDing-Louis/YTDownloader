@@ -1,11 +1,11 @@
 using Autofac;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using Microsoft.SqlServer.Management.SqlParser.SqlCodeDom;
 using System.Diagnostics;
 using YTDownloader.Controller;
 using YTDownloader.Model;
 using YTDownloader.Service;
+using YTDownloader.UI.CustomUI;
 
 namespace YTDownloader
 {
@@ -256,6 +256,14 @@ namespace YTDownloader
                 {
                     case UrlResourceType.SingleVideo:
                         logger.LogInformation($"檢測到單一影片：{SourceType.Title}", "資源檢測", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        var resquest = new DownloadRequest
+                        {
+                            Title = SourceType.Title ?? "未知標題",
+                            WebpageUrl = URL,
+                            IsAudio = SelectedMediaType.Equals("Audio", StringComparison.OrdinalIgnoreCase),
+                            DownloadDir = DownloadFolder
+                        };
+
                         break;
                     case UrlResourceType.Playlist:
                         logger.LogInformation($"檢測到播放清單：{SourceType.PlaylistTitle}，共 {SourceType.PlaylistCount} 部影片", "資源檢測", MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -535,6 +543,7 @@ namespace YTDownloader
                     }
                 };
 
+                //註冊至 Main，取得控制器以供暫停/繼續使用
                 var controller = RegisterDownload(taskId, downloadAction);
 
                 // 排入背景，受全域信號量並發控制
@@ -545,6 +554,13 @@ namespace YTDownloader
                     finally { _downloadSemaphore.Release(); }
                 });
             }
+        }
+
+        public string GetMediaTypeDisplay() 
+        {
+            var mediaTypeValue = SelectedMediaTypeValue;
+            bool isAudio = mediaTypeValue.Equals("Audio", StringComparison.OrdinalIgnoreCase);
+            return isAudio ? "音訊" : "視訊";
         }
 
         #endregion
