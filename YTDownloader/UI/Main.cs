@@ -570,8 +570,11 @@ namespace YTDownloader
                 || !Directory.Exists(req.DownloadDir))
                 return;
 
-            var safeTitle = SanitizeForFilename(req.Title);
-            if (string.IsNullOrWhiteSpace(safeTitle)) return;
+            // 對「標題」與「檔名」均做相同的正規化後再比對，
+            // 解決 yt-dlp 將受限字元替換為全形字元（如 / → ／）
+            // 而本端僅替換為底線所造成的前綴不吻合問題。
+            var normalizedTitle = NormalizeForFileMatch(req.Title);
+            if (string.IsNullOrWhiteSpace(normalizedTitle)) return;
 
             // yt-dlp 的「影片串流」暫存副檔名（轉音訊前的原始檔）
             var videoStreamExts = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
@@ -593,8 +596,8 @@ namespace YTDownloader
                 var ext      = Path.GetExtension(file);
                 var stem     = Path.GetFileNameWithoutExtension(file);
 
-                // 只處理「以消毒後標題為起頭」的檔案
-                if (!fileName.StartsWith(safeTitle, StringComparison.OrdinalIgnoreCase))
+                // 正規化後做前綴比對，容忍 yt-dlp 全形字元 vs. 底線的差異
+                if (!NormalizeForFileMatch(fileName).StartsWith(normalizedTitle, StringComparison.OrdinalIgnoreCase))
                     continue;
 
                 // ── 1. 刪除 .part 部分下載暫存檔 ─────────────────────────────
@@ -621,6 +624,10 @@ namespace YTDownloader
                 logger.LogInformation(
                     "重啟前清除 {Count} 個殘留暫存檔（標題：{Title}）",
                     deletedCount, req.Title);
+            else
+                logger.LogDebug(
+                    "重啟前未找到需清除的暫存檔（正規化標題：{NTitle}）",
+                    normalizedTitle);
         }
 
         private void TryDeleteTempFile(string path, ref int count)
@@ -638,15 +645,71 @@ namespace YTDownloader
         }
 
         /// <summary>
-        /// 簡易模擬 yt-dlp 的檔名消毒規則：將作業系統不允許的字元替換為底線，
-        /// 以便在輸出目錄中比對 yt-dlp 實際產生的檔名前綴。
+        /// 將字串正規化以便與 yt-dlp 產生的檔名做前綴比對。
+        /// <para>
+        /// yt-dlp 在 Windows 上對受限字元的處理方式因版本而異：
+        /// 可能替換為 <c>_</c>（底線）或對應的全形字元（如 <c>/</c> → <c>／</c> U+FF0F）。
+        /// 此方法將 ASCII 受限字元及其全形對應字元統一對應至 <c>_</c>，
+        /// 確保無論 yt-dlp 採用哪種替換策略，標題與檔名的前綴比對都能成立。
+        /// </para>
         /// </summary>
-        private static string SanitizeForFilename(string? title)
+        private static string NormalizeForFileMatch(string? s)
         {
-            if (string.IsNullOrWhiteSpace(title)) return string.Empty;
+            if (string.IsNullOrEmpty(s)) return string.Empty;
+            return new string(s.Select(c => c switch
+            {
+                '/' or '／'  => '_',   // SOLIDUS           / FULLWIDTH SOLIDUS
+                '\\' or '＼' => '_',   // REVERSE SOLIDUS   / FULLWIDTH REVERSE SOLIDUS
+                ':' or '：'  => '_',   // COLON             / FULLWIDTH COLON
+                '*' or '＊'  => '_',   // ASTERISK          / FULLWIDTH ASTERISK
+                '?' or '？'  => '_',   // QUESTION MARK     / FULLWIDTH QUESTION MARK
+                '"' or '＂'  => '_',   // QUOTATION MARK    / FULLWIDTH QUOTATION MARK
+                '<' or '＜'  => '_',   // LESS-THAN SIGN    / FULLWIDTH LESS-THAN SIGN
+                '>' or '＞'  => '_',   // GREATER-THAN SIGN / FULLWIDTH GREATER-THAN SIGN
+                '|' or '｜'  => '_',   // VERTICAL LINE     / FULLWIDTH VERTICAL LINE
+                _            => c
+            }).ToArray());
+        }
 
-            var invalid = new HashSet<char>(Path.GetInvalidFileNameChars());
-            return new string(title.Select(c => invalid.Contains(c) ? '_' : c).ToArray());
+        /// <summary>
+        /// 音訊下載成功完成後，清除 yt-dlp 或 ffmpeg 未自動刪除的中間影片串流暫存檔
+        /// （如 .mp4、.webm、.mkv 等），保持下載目錄乾淨。
+        /// <para>
+        /// 此情況的發生原因：yt-dlp 以 <c>--extract-audio</c> 下載時，正常流程應在
+        /// ffmpeg 轉檔後自動移除原始串流檔，但部分 yt-dlp / 包裝函式庫版本或特定格式
+        /// 組合下，原始串流檔會被保留。
+        /// </para>
+        /// </summary>
+        private void CleanVideoStreamsAfterAudioDownload(DownloadRequest req)
+        {
+            if (string.IsNullOrWhiteSpace(req.DownloadDir) || !Directory.Exists(req.DownloadDir))
+                return;
+
+            var normalizedTitle = NormalizeForFileMatch(req.Title);
+            if (string.IsNullOrWhiteSpace(normalizedTitle)) return;
+
+            // 確定是影片容器格式（不會是音訊下載的最終輸出）
+            var videoOnlyExts = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ".mp4", ".webm", ".mkv", ".flv", ".avi", ".ts", ".mov"
+            };
+
+            int deletedCount = 0;
+            foreach (var file in Directory.GetFiles(req.DownloadDir))
+            {
+                var fileName = Path.GetFileName(file);
+                var ext      = Path.GetExtension(file);
+
+                if (!NormalizeForFileMatch(fileName).StartsWith(normalizedTitle, StringComparison.OrdinalIgnoreCase)) continue;
+                if (!videoOnlyExts.Contains(ext)) continue;
+
+                TryDeleteTempFile(file, ref deletedCount);
+            }
+
+            if (deletedCount > 0)
+                logger.LogInformation(
+                    "音訊下載完成後清除 {Count} 個殘留串流暫存檔（標題：{Title}）",
+                    deletedCount, req.Title);
         }
 
         /// <summary>
@@ -701,6 +764,9 @@ namespace YTDownloader
                     {
                         UpdateDownloadProgress(taskId, 100, "完成");
                         SetActionButton(taskId, "—");
+                        // 音訊下載完成後，清除 yt-dlp/ffmpeg 未自動刪除的中間影片串流暫存檔
+                        if (capturedReq.MediaType == MediaType.Audio)
+                            CleanVideoStreamsAfterAudioDownload(capturedReq);
                     }
                     else
                     {
