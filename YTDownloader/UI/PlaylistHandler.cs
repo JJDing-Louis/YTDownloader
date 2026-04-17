@@ -273,6 +273,18 @@ namespace YTDownloader
                         );
                     }
                 }
+                // 若有不可播放的影片（私人 / 刪除 / 地區限制），跳出一次性提示
+                if (playlist.IsSuccess && playlist.SkippedCount > 0)
+                {
+                    MessageBox.Show(
+                        $"播放清單共 {playlist.DeclaredCount} 部影片，\n" +
+                        $"其中 {playlist.SkippedCount} 部因私人、刪除或地區限制而無法存取，已自動略過。\n\n" +
+                        $"實際可下載：{playlist.TotalCount} 部。",
+                        "部分影片無法存取",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information);
+                }
+
                 return (playlist.IsSuccess, playlist.Message);
             }
             catch (Exception ex)

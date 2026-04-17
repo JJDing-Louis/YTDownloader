@@ -1,6 +1,9 @@
 ﻿using Autofac;
 using ManuHub.Ytdlp.NET;
 using Microsoft.Extensions.Logging;
+using System.Diagnostics;
+using System.Text;
+using System.Text.Json;
 using YTDownloader.Model;
 using ILogger = Microsoft.Extensions.Logging.ILogger;
 
@@ -651,93 +654,145 @@ namespace YTDownloader.Service
         public async Task<PlaylistFetchResult> GetPlaylistVideosAsync(
             string url,
             IProgress<(int Current, int Total, string? CurrentTitle)>? progress = null,
-            int bufferKb = 8192,
+            int bufferKb = 32768,   // 保留簽章相容性，此實作不使用 bufferKb
             CancellationToken cancellationToken = default)
         {
             ValidateUrl(url);
 
             try
             {
-                await using var ytdlp = CreateBaseClient();
-
-                var raw = await ytdlp.GetMetadataAsync(url, cancellationToken, bufferKb: bufferKb);
-
-                if (raw == null)
-                    return PlaylistFetchResult.Fail("無法取得播放清單資料，請確認 URL 是否正確");
-
-                var videos = new List<PlaylistVideoItem>();
-
-                // ── 播放清單：逐一解析 Entries ────────────────────────────
-                bool hasEntries = false;
-                try { hasEntries = raw.Entries != null; } catch { }
-
-                if (hasEntries)
+                // ── 用 --flat-playlist 模式直接執行 yt-dlp ───────────────
+                // --flat-playlist : 只取基本資訊，不對每部影片發出完整 metadata 請求
+                // --dump-json     : 每個項目輸出一行 JSON（EOF 代表結束）
+                // --ignore-errors : 無法存取的影片（私人/刪除）跳過，不中斷整個清單
+                var psi = new ProcessStartInfo
                 {
-                    int total = 0;
-                    try { total = (int)raw.Entries.Count; } catch { }
+                    FileName                = _ytDlpPath,
+                    RedirectStandardOutput  = true,
+                    RedirectStandardError   = true,
+                    UseShellExecute         = false,
+                    CreateNoWindow          = true,
+                    StandardOutputEncoding  = Encoding.UTF8,
+                    StandardErrorEncoding   = Encoding.UTF8
+                };
 
-                    int index = 0;
-                    foreach (var entry in raw.Entries)
+                psi.ArgumentList.Add("--flat-playlist");
+                psi.ArgumentList.Add("--dump-json");
+                psi.ArgumentList.Add("--ignore-errors");
+                psi.ArgumentList.Add(url);
+
+                logger.LogInformation("啟動 yt-dlp flat-playlist，URL={Url}", url);
+
+                using var process = new Process { StartInfo = psi };
+                var stderrSb = new StringBuilder();
+
+                process.ErrorDataReceived += (_, e) =>
+                {
+                    if (e.Data == null) return;
+                    stderrSb.AppendLine(e.Data);
+                    logger.LogDebug("[yt-dlp] {Line}", e.Data);
+                };
+
+                process.Start();
+                process.BeginErrorReadLine();
+
+                var videos        = new List<PlaylistVideoItem>();
+                string? playlistTitle = null;
+                string? playlistId    = null;
+                int declaredCount     = 0;   // playlist_count（yt-dlp 宣告的總數）
+                int index             = 0;
+
+                // 逐行讀取：每行是一個獨立 JSON 物件（代表一部影片）
+                while (true)
+                {
+                    var line = await process.StandardOutput.ReadLineAsync(cancellationToken);
+                    if (line == null) break;                    // EOF
+                    if (string.IsNullOrWhiteSpace(line)) continue;
+
+                    try
                     {
-                        cancellationToken.ThrowIfCancellationRequested();
+                        using var doc  = JsonDocument.Parse(line);
+                        var       root = doc.RootElement;
+
+                        // 部分 yt-dlp 版本會先輸出一行 _type=playlist 的頭部資訊，跳過
+                        if (root.TryGetProperty("_type", out var typeProp)
+                            && typeProp.GetString() == "playlist")
+                            continue;
+
+                        // 從首筆 entry 讀取播放清單資訊
+                        if (playlistTitle == null)
+                            playlistTitle = GetJsonString(root, "playlist_title")
+                                         ?? GetJsonString(root, "playlist");
+                        if (playlistId == null)
+                            playlistId = GetJsonString(root, "playlist_id");
+                        if (declaredCount == 0
+                            && root.TryGetProperty("playlist_count", out var pc)
+                            && pc.ValueKind == JsonValueKind.Number)
+                            declaredCount = pc.GetInt32();
 
                         index++;
-                        string? title = TryGetString(() => entry.Title);
 
-                        progress?.Report((index, total, title));
+                        // 影片頁面網址：優先 webpage_url，退而求其次用 url
+                        var webpageUrl = GetJsonString(root, "webpage_url")
+                                      ?? GetJsonString(root, "url");
 
-                        // Entry.Url 就是影片頁面網址（Entry 沒有 WebpageUrl 屬性）
-                        string? videoUrl = TryGetString(() => entry.Url);
+                        // 時長（秒）
+                        int? duration = null;
+                        if (root.TryGetProperty("duration", out var durProp)
+                            && durProp.ValueKind == JsonValueKind.Number)
+                            duration = (int)durProp.GetDouble();
 
-                        // Entry.Thumbnails 是集合，取第一個的 Url 作為縮圖
-                        string? thumbnailUrl = null;
-                        try
+                        // 縮圖：先找 thumbnail 欄位，再找 thumbnails 陣列末項（通常最高解析度）
+                        var thumbnail = GetJsonString(root, "thumbnail");
+                        if (thumbnail == null
+                            && root.TryGetProperty("thumbnails", out var thumbs)
+                            && thumbs.ValueKind == JsonValueKind.Array
+                            && thumbs.GetArrayLength() > 0)
                         {
-                            if (entry.Thumbnails != null && entry.Thumbnails.Count > 0)
-                                thumbnailUrl = TryGetString(() => entry.Thumbnails[0].Url);
+                            thumbnail = thumbs[thumbs.GetArrayLength() - 1]
+                                .TryGetProperty("url", out var tu) ? tu.GetString() : null;
                         }
-                        catch { }
+
+                        var title = GetJsonString(root, "title");
+                        progress?.Report((index, 0, title));
 
                         videos.Add(new PlaylistVideoItem
                         {
                             Index      = index,
-                            Id         = TryGetString(() => entry.Id),
+                            Id         = GetJsonString(root, "id"),
                             Title      = title,
-                            Uploader   = TryGetString(() => entry.Uploader),
-                            Duration   = TryGetNullableInt(() => entry.Duration),
-                            Thumbnail  = thumbnailUrl,
-                            WebpageUrl = videoUrl,
+                            Uploader   = GetJsonString(root, "uploader")
+                                      ?? GetJsonString(root, "channel"),
+                            Duration   = duration,
+                            Thumbnail  = thumbnail,
+                            WebpageUrl = webpageUrl,
                             IsSelected = false
                         });
                     }
-
-                    return PlaylistFetchResult.Success(
-                        playlistId:    TryGetString(() => raw.Id),
-                        playlistTitle: TryGetString(() => raw.Title),
-                        videos:        videos);
+                    catch (JsonException ex)
+                    {
+                        logger.LogWarning("跳過無法解析的 JSON 行：{Message}", ex.Message);
+                    }
                 }
 
-                // ── 單一影片：包成單項清單回傳 ────────────────────────────
-                var single = new PlaylistVideoItem
+                await process.WaitForExitAsync(cancellationToken);
+
+                if (videos.Count == 0)
                 {
-                    Index      = 1,
-                    Id         = TryGetString(() => raw.Id),
-                    Title      = TryGetString(() => raw.Title),
-                    Uploader   = TryGetString(() => raw.Uploader),
-                    Duration   = TryGetNullableInt(() => raw.Duration),
-                    Thumbnail  = TryGetString(() => raw.Thumbnail),
-                    WebpageUrl = TryGetString(() => raw.WebpageUrl),
-                    IsSelected = false
-                };
-                videos.Add(single);
+                    var stderr = stderrSb.ToString();
+                    logger.LogError("播放清單解析完畢但無影片。stderr={Stderr}", stderr);
+                    return PlaylistFetchResult.Fail(
+                        "播放清單為空，或所有影片均無法存取（私人 / 已刪除）。\n\n" +
+                        $"yt-dlp 訊息：{(stderr.Length > 400 ? stderr[..400] + "…" : stderr)}");
+                }
 
-                progress?.Report((1, 1, single.Title));
+                logger.LogInformation(
+                    "成功解析播放清單 [{Title}]，解析={Parsed} / 宣告={Declared}",
+                    playlistTitle, videos.Count, declaredCount);
 
-                return PlaylistFetchResult.Success(
-                    playlistId:    null,
-                    playlistTitle: single.Title,
-                    videos:        videos,
-                    message:       "URL 為單一影片，已轉為單項清單");
+                var result = PlaylistFetchResult.Success(playlistId, playlistTitle, videos);
+                result.DeclaredCount = declaredCount;
+                return result;
             }
             catch (OperationCanceledException)
             {
@@ -745,9 +800,20 @@ namespace YTDownloader.Service
             }
             catch (Exception ex)
             {
-                logger.LogError($"GetPlaylistVideosAsync 失敗: {ex}");
-                return PlaylistFetchResult.Fail($"播放清單載入失敗: {ex.Message}");
+                logger.LogError(ex, "GetPlaylistVideosAsync 失敗");
+                return PlaylistFetchResult.Fail($"播放清單載入失敗：{ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// 從 <see cref="JsonElement"/> 安全地讀取字串屬性，找不到或型別不符時回傳 null。
+        /// </summary>
+        private static string? GetJsonString(JsonElement element, string propertyName)
+        {
+            return element.TryGetProperty(propertyName, out var prop)
+                   && prop.ValueKind == JsonValueKind.String
+                ? prop.GetString()
+                : null;
         }
 
         private Ytdlp CreateBaseClient()

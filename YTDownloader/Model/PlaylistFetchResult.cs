@@ -23,9 +23,19 @@ namespace YTDownloader.Model
         public string? PlaylistTitle { get; set; }
 
         /// <summary>
-        /// 清單中的影片總數
+        /// 播放清單宣告的影片總數（來自 yt-dlp 的 playlist_count 欄位）。
+        /// </summary>
+        public int DeclaredCount { get; set; }
+
+        /// <summary>
+        /// 實際成功解析的影片數量。
         /// </summary>
         public int TotalCount { get; set; }
+
+        /// <summary>
+        /// 因不可播放（私人 / 刪除 / 地區限制）而跳過的數量。
+        /// </summary>
+        public int SkippedCount => DeclaredCount > 0 ? DeclaredCount - TotalCount : 0;
 
         /// <summary>
         /// 所有影片資訊清單（含 IsSelected 供 UI 勾選）

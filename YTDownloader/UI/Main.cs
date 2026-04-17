@@ -295,22 +295,26 @@ namespace YTDownloader
                         EnqueueDownloads(new[] { request });
                         break;
                     case UrlResourceType.Playlist:
-                        logger.LogInformation($"檢測到播放清單：{SourceType.PlaylistTitle}，共 {SourceType.PlaylistCount} 部影片", "資源檢測", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        logger.LogInformation($"檢測到播放清單：{SourceType.PlaylistTitle}，共 {SourceType.PlaylistCount} 部影片");
                         playlistHandlerForm = new PlaylistHandler(URL, this);
                         var (isSuccess, msg) = await playlistHandlerForm.GetPlaylistInfoAsync();
                         if (isSuccess)
                         {
                             logger.LogInformation($"成功獲取播放清單資訊：{msg}");
+                            playlistHandlerForm.Location = new Point(700, 0);
+                            playlistHandlerForm.Disposed += new EventHandler(playlistHandlerForm_Disposed);
                             playlistHandlerForm.Show();
                         }
                         else
                         {
-                            logger.LogInformation($"獲取播放清單資訊失敗：{msg}");
+                            logger.LogError($"獲取播放清單資訊失敗：{msg}");
+                            playlistHandlerForm.Dispose();
+                            MessageBox.Show(
+                                $"無法載入播放清單，請確認連結是否正確。\n\n原因：{msg}",
+                                "播放清單載入失敗",
+                                MessageBoxButtons.OK,
+                                MessageBoxIcon.Error);
                         }
-
-                        playlistHandlerForm.Location = new Point(700, 0);
-                        playlistHandlerForm.Disposed += new EventHandler(playlistHandlerForm_Disposed);
-
                         break;
                     default:
                         MessageBox.Show("無法識別的 URL 類型。", "資源檢測", MessageBoxButtons.OK, MessageBoxIcon.Warning);
