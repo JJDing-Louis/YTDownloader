@@ -1,4 +1,4 @@
-namespace YTDownloader
+namespace YTDownloader.UI.CustomUI
 {
     /// <summary>
     /// 在 DataGridView 儲存格內繪製進度條的自訂儲存格。

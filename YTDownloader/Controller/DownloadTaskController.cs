@@ -1,4 +1,4 @@
-namespace YTDownloader
+namespace YTDownloader.Controller
 {
     /// <summary>
     /// 管理單一下載任務的生命週期：取消 / 暫停 / 繼續。

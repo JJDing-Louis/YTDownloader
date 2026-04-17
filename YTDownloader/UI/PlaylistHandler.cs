@@ -28,7 +28,6 @@ namespace YTDownloader
         private Main mainForm;
         private List<PlaylistVideoItem> playlistVideos = new();
 
-
         public PlaylistHandler()
         {
             InitializeComponent();
@@ -44,10 +43,10 @@ namespace YTDownloader
             InitUI();
         }
 
+        #region Init
         private void Init()
         {
             InitConfig();
-
         }
 
         private void InitUI()
@@ -58,7 +57,7 @@ namespace YTDownloader
         private void InitDataGridView()
         {
             dGV_PlayList.Columns.Clear();
-            dGV_PlayList.AllowUserToAddRows    = false;   // 禁止自動產生空白新增列
+            dGV_PlayList.AllowUserToAddRows = false;   // 禁止自動產生空白新增列
             dGV_PlayList.AllowUserToDeleteRows = false;   // 禁止使用者刪除列
 
             // 勾選欄
@@ -127,8 +126,6 @@ namespace YTDownloader
                 Visible = false // 隱藏 URL 欄位，僅供內部使用
             });
         }
-
-
         private void InitConfig()
         {
             logger.LogInformation("Initializing configuration...");
@@ -180,46 +177,9 @@ namespace YTDownloader
                 ? Path.Combine(Environment.CurrentDirectory, "Downloads")
                 : Path.Combine(Environment.CurrentDirectory, downloadDirRel.Trim());
         }
+        #endregion
 
-        /// <summary>
-        /// 非同步取得播放清單資訊，並填入 DataGridView。
-        /// 避免在 UI Thread 上使用 .Result/.GetAwaiter().GetResult()，防止 async deadlock。
-        /// </summary>
-        /// <returns>(IsSuccess, Message)</returns>
-        public async Task<(bool IsSuccess, string Message)> GetPlaylistInfoAsync()
-        {
-            try
-            {
-                var YTDownloadService = new YtDlpDownloadService(ytDlpPath, ffmpegPath);
-                var playlist = await YTDownloadService.GetPlaylistVideosAsync(playlistUrl);
-                dGV_PlayList.Rows.Clear();
-                if (playlist.Videos != null && playlist.Videos.Count > 0)
-                {
-                    //暫存目前取得的播放清單媒體資訊
-                    playlistVideos = playlist.Videos.DeepClone();
-
-                    //UI顯示
-                    foreach (var video in playlist.Videos)
-                    {
-                        dGV_PlayList.Rows.Add(
-                            video.IsSelected,       // CheckBox 欄
-                            video.Index,            // #
-                            video.Id,                   //Id（隱藏欄位）
-                            video.DisplayTitle,     // 標題（自動 fallback 到 ID）
-                            video.Uploader,         // 頻道
-                            video.DurationString,    // 時長（mm:ss / hh:mm:ss）
-                            video.WebpageUrl        // 連結（隱藏欄位）
-                        );
-                    }
-                }
-                return (playlist.IsSuccess, playlist.Message);
-            }
-            catch (Exception ex)
-            {
-                return (false, $"獲取播放列表資訊時發生錯誤: {ex.Message}");
-            }
-        }
-
+        #region UI Functions
         private void cB_SelectedAll_CheckStateChanged(object sender, EventArgs e)
         {
             if (dGV_PlayList.RowCount > 0)
@@ -262,17 +222,17 @@ namespace YTDownloader
             }
 
             // ── 3. 組成 DownloadRequest 清單，交給 Main 執行 ─────────────────
-            var mediaTypeValue   = mainForm.SelectedMediaTypeValue;
-            bool   isAudio       = mediaTypeValue.Equals("Audio", StringComparison.OrdinalIgnoreCase);
+            var mediaTypeValue = mainForm.SelectedMediaTypeValue;
+            bool isAudio = mediaTypeValue.Equals("Audio", StringComparison.OrdinalIgnoreCase);
             string mediaTypeDisplay = isAudio ? "音訊" : "視訊";
 
             var requests = selectedVideoItems.Select(item => new DownloadRequest
             {
-                Title            = item.DisplayTitle,
-                WebpageUrl       = item.WebpageUrl!,
+                Title = item.DisplayTitle,
+                WebpageUrl = item.WebpageUrl!,
                 MediaTypeDisplay = mediaTypeDisplay,
-                IsAudio          = isAudio,
-                DownloadDir      = downloadDir
+                IsAudio = isAudio,
+                DownloadDir = downloadDir
             });
 
             mainForm.EnqueueDownloads(requests);
@@ -283,6 +243,47 @@ namespace YTDownloader
         }
 
         private void btn_Cancel_Click(object sender, EventArgs e) => this.Close();
+        #endregion
 
+        #region  Public Methods
+        /// <summary>
+        /// 非同步取得播放清單資訊，並填入 DataGridView。
+        /// 避免在 UI Thread 上使用 .Result/.GetAwaiter().GetResult()，防止 async deadlock。
+        /// </summary>
+        /// <returns>(IsSuccess, Message)</returns>
+        public async Task<(bool IsSuccess, string Message)> GetPlaylistInfoAsync()
+        {
+            try
+            {
+                var YTDownloadService = new YtDlpDownloadService(ytDlpPath, ffmpegPath);
+                var playlist = await YTDownloadService.GetPlaylistVideosAsync(playlistUrl);
+                dGV_PlayList.Rows.Clear();
+                if (playlist.Videos != null && playlist.Videos.Count > 0)
+                {
+                    //暫存目前取得的播放清單媒體資訊
+                    playlistVideos = playlist.Videos.DeepClone();
+
+                    //UI顯示
+                    foreach (var video in playlist.Videos)
+                    {
+                        dGV_PlayList.Rows.Add(
+                            video.IsSelected,           // CheckBox 欄
+                            video.Index,                    // #
+                            video.Id,                        //Id（隱藏欄位）
+                            video.DisplayTitle,         // 標題（自動 fallback 到 ID）
+                            video.Uploader,             // 頻道
+                            video.DurationString,    // 時長（mm:ss / hh:mm:ss）
+                            video.WebpageUrl        // 連結（隱藏欄位）
+                        );
+                    }
+                }
+                return (playlist.IsSuccess, playlist.Message);
+            }
+            catch (Exception ex)
+            {
+                return (false, $"獲取播放列表資訊時發生錯誤: {ex.Message}");
+            }
+        }
+        #endregion
     }
 }
