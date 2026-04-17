@@ -1,3 +1,5 @@
+using YTDownloader.Model;
+
 namespace YTDownloader.Controller
 {
     /// <summary>
@@ -23,5 +25,11 @@ namespace YTDownloader.Controller
         /// 由 PlaylistHandler 在發起下載時傳入，Main 在「繼續」時呼叫。
         /// </summary>
         public Func<CancellationToken, Task> RestartAction { get; set; } = null!;
+
+        /// <summary>
+        /// 原始下載請求資訊（標題、輸出目錄、媒體類型）。
+        /// 供「繼續 / 重試」前清除暫存檔使用。
+        /// </summary>
+        public DownloadRequest? OriginalRequest { get; set; }
     }
 }

@@ -398,6 +398,8 @@ namespace YTDownloader
                 case "重試":
                     controller.Cts = new CancellationTokenSource();
                     controller.IsPaused = false;
+                    // 重啟前先清理：避免不完整輸出或殘留串流檔干擾 yt-dlp 判斷
+                    CleanTempFilesBeforeRestart(controller);
                     row.Cells["colAction"].Value = "暫停";
                     UpdateDownloadProgress(taskId, controller.LastPercent, "下載中");
                     var cts = controller.Cts;
@@ -551,6 +553,103 @@ namespace YTDownloader
         }
 
         /// <summary>
+        /// 重啟下載前，清除可能使 yt-dlp 誤判「已完成」的殘留檔案：
+        /// <list type="bullet">
+        ///   <item><b>.part</b> 部分下載暫存檔 — 允許 yt-dlp 重新下載（不嘗試 resume）。</item>
+        ///   <item><b>不完整的最終音訊輸出</b>（如 .mp3）— 若同一 stem 仍有原始串流檔（如 .webm），
+        ///         代表 ffmpeg 轉檔未完成；刪除後 yt-dlp 重啟時可利用現有串流檔直接重新轉檔，
+        ///         不需重新下載串流。</item>
+        /// </list>
+        /// 僅對音訊任務執行；視訊任務不清除中間串流，避免誤刪最終輸出。
+        /// </summary>
+        private void CleanTempFilesBeforeRestart(DownloadTaskController controller)
+        {
+            var req = controller.OriginalRequest;
+            if (req == null
+                || string.IsNullOrWhiteSpace(req.DownloadDir)
+                || !Directory.Exists(req.DownloadDir))
+                return;
+
+            var safeTitle = SanitizeForFilename(req.Title);
+            if (string.IsNullOrWhiteSpace(safeTitle)) return;
+
+            // yt-dlp 的「影片串流」暫存副檔名（轉音訊前的原始檔）
+            var videoStreamExts = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ".webm", ".mkv", ".mp4", ".m4a", ".ogg", ".opus", ".flv", ".avi"
+            };
+
+            // ffmpeg 轉出的最終音訊副檔名
+            var audioOutputExts = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ".mp3", ".m4a", ".flac", ".wav", ".opus", ".aac"
+            };
+
+            int deletedCount = 0;
+
+            foreach (var file in Directory.GetFiles(req.DownloadDir))
+            {
+                var fileName = Path.GetFileName(file);
+                var ext      = Path.GetExtension(file);
+                var stem     = Path.GetFileNameWithoutExtension(file);
+
+                // 只處理「以消毒後標題為起頭」的檔案
+                if (!fileName.StartsWith(safeTitle, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                // ── 1. 刪除 .part 部分下載暫存檔 ─────────────────────────────
+                if (ext.Equals(".part", StringComparison.OrdinalIgnoreCase))
+                {
+                    TryDeleteTempFile(file, ref deletedCount);
+                    continue;
+                }
+
+                // ── 2. 音訊任務：偵測並刪除不完整的最終音訊輸出 ──────────────
+                //    判定條件：最終音訊檔（.mp3 等）與原始串流檔（.webm 等）同時存在
+                //    → ffmpeg 轉檔被中斷，音訊輸出不完整，需強制重新轉檔
+                if (req.MediaType == MediaType.Audio && audioOutputExts.Contains(ext))
+                {
+                    bool videoStreamExists = videoStreamExts.Any(ve =>
+                        File.Exists(Path.Combine(req.DownloadDir, stem + ve)));
+
+                    if (videoStreamExists)
+                        TryDeleteTempFile(file, ref deletedCount);
+                }
+            }
+
+            if (deletedCount > 0)
+                logger.LogInformation(
+                    "重啟前清除 {Count} 個殘留暫存檔（標題：{Title}）",
+                    deletedCount, req.Title);
+        }
+
+        private void TryDeleteTempFile(string path, ref int count)
+        {
+            try
+            {
+                File.Delete(path);
+                count++;
+                logger.LogInformation("已刪除暫存檔：{File}", Path.GetFileName(path));
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning("無法刪除暫存檔 [{File}]：{Msg}", Path.GetFileName(path), ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// 簡易模擬 yt-dlp 的檔名消毒規則：將作業系統不允許的字元替換為底線，
+        /// 以便在輸出目錄中比對 yt-dlp 實際產生的檔名前綴。
+        /// </summary>
+        private static string SanitizeForFilename(string? title)
+        {
+            if (string.IsNullOrWhiteSpace(title)) return string.Empty;
+
+            var invalid = new HashSet<char>(Path.GetInvalidFileNameChars());
+            return new string(title.Select(c => invalid.Contains(c) ? '_' : c).ToArray());
+        }
+
+        /// <summary>
         /// 接收來自 PlaylistHandler（或其他來源）的下載請求，
         /// 加入清單並立即以背景工作排入佇列執行。
         /// 可在視窗已關閉後安全呼叫（執行緒安全）。
@@ -619,6 +718,7 @@ namespace YTDownloader
 
                 //註冊至 Main，取得控制器以供暫停/繼續使用
                 var controller = RegisterDownload(taskId, downloadAction);
+                controller.OriginalRequest = capturedReq;   // 供重啟前清除暫存檔使用
 
                 // 排入背景，受全域信號量並發控制
                 _ = Task.Run(async () =>
