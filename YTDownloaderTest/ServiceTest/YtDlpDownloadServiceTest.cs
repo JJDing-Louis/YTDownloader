@@ -1,4 +1,4 @@
-using YTDownloader;
+using Microsoft.Extensions.Logging.Abstractions;
 using YTDownloader.Model;
 using YTDownloader.Service;
 using System.IO;
@@ -20,16 +20,12 @@ namespace YTDownloaderTest.ServiceTest
 
         // ── Setup / Teardown ──────────────────────────────────────────────────
 
-        [OneTimeSetUp]
-        public static void OneTimeSetup()
-        {
-            Program.Startup.Run();
-        }
-
         [SetUp]
         public void Setup()
         {
-            _service = new YtDlpDownloadService(FakeYtDlpPath);
+            _service = new YtDlpDownloadService(
+                FakeYtDlpPath,
+                logger: NullLogger<YtDlpDownloadService>.Instance);
         }
 
         // =====================================================================
@@ -121,52 +117,6 @@ namespace YTDownloaderTest.ServiceTest
         }
 
         // =====================================================================
-        // DownloadVideosAsync — 輸入驗證
-        // =====================================================================
-
-        [Test]
-        [Description("null 的 URL 清單應拋出 ArgumentNullException")]
-        public void DownloadVideosAsync_NullUrls_ThrowsArgumentNullException()
-        {
-            Assert.ThrowsAsync<ArgumentNullException>(() =>
-                _service.DownloadVideosAsync(null!, FakeOutputFolder));
-        }
-
-        [Test]
-        [Description("空的 URL 清單應拋出 ArgumentException")]
-        public void DownloadVideosAsync_EmptyList_ThrowsArgumentException()
-        {
-            Assert.ThrowsAsync<ArgumentException>(() =>
-                _service.DownloadVideosAsync(new List<string>(), FakeOutputFolder));
-        }
-
-        [Test]
-        [Description("全部都是空白的 URL 清單，Distinct + Where 後為空，應拋出 ArgumentException")]
-        public void DownloadVideosAsync_AllBlankUrls_ThrowsArgumentException()
-        {
-            Assert.ThrowsAsync<ArgumentException>(() =>
-                _service.DownloadVideosAsync(new[] { "", "   ", "" }, FakeOutputFolder));
-        }
-
-        // =====================================================================
-        // GetMetadataAsync — 輸入驗證
-        // =====================================================================
-
-        [Test]
-        [Description("空白 URL 應拋出 ArgumentException")]
-        public void GetMetadataAsync_EmptyUrl_ThrowsArgumentException()
-        {
-            Assert.ThrowsAsync<ArgumentException>(() => _service.GetMetadataAsync(""));
-        }
-
-        [Test]
-        [Description("格式不正確的 URL 應拋出 ArgumentException")]
-        public void GetMetadataAsync_InvalidUrl_ThrowsArgumentException()
-        {
-            Assert.ThrowsAsync<ArgumentException>(() => _service.GetMetadataAsync(InvalidUrl));
-        }
-
-        // =====================================================================
         // DetectResourceAsync — 輸入驗證
         // =====================================================================
 
@@ -185,24 +135,6 @@ namespace YTDownloaderTest.ServiceTest
         }
 
         // =====================================================================
-        // GetFormatsAsync — 輸入驗證
-        // =====================================================================
-
-        [Test]
-        [Description("空白 URL 應拋出 ArgumentException")]
-        public void GetFormatsAsync_EmptyUrl_ThrowsArgumentException()
-        {
-            Assert.ThrowsAsync<ArgumentException>(() => _service.GetFormatsAsync(""));
-        }
-
-        [Test]
-        [Description("格式不正確的 URL 應拋出 ArgumentException")]
-        public void GetFormatsAsync_InvalidUrl_ThrowsArgumentException()
-        {
-            Assert.ThrowsAsync<ArgumentException>(() => _service.GetFormatsAsync(InvalidUrl));
-        }
-
-        // =====================================================================
         // GetPlaylistVideosAsync — 輸入驗證
         // =====================================================================
 
@@ -218,26 +150,6 @@ namespace YTDownloaderTest.ServiceTest
         public void GetPlaylistVideosAsync_InvalidUrl_ThrowsArgumentException()
         {
             Assert.ThrowsAsync<ArgumentException>(() => _service.GetPlaylistVideosAsync(InvalidUrl));
-        }
-
-        // =====================================================================
-        // DownloadBestMuxedVideoAsync — 輸入驗證
-        // =====================================================================
-
-        [Test]
-        [Description("空白 URL 應拋出 ArgumentException")]
-        public void DownloadBestMuxedVideoAsync_EmptyUrl_ThrowsArgumentException()
-        {
-            Assert.ThrowsAsync<ArgumentException>(() =>
-                _service.DownloadBestMuxedVideoAsync("", FakeOutputFolder));
-        }
-
-        [Test]
-        [Description("空白輸出資料夾應拋出 ArgumentException")]
-        public void DownloadBestMuxedVideoAsync_EmptyOutputFolder_ThrowsArgumentException()
-        {
-            Assert.ThrowsAsync<ArgumentException>(() =>
-                _service.DownloadBestMuxedVideoAsync(ValidVideoUrl, ""));
         }
 
         // =====================================================================
@@ -379,24 +291,13 @@ namespace YTDownloaderTest.ServiceTest
 
         [Test]
         [Category("Integration")]
-        [Ignore("需要實際 yt-dlp 執行檔，請手動執行整合測試")]
-        [Description("對真實 YouTube URL 取得 metadata，驗證基本欄位不為空")]
-        public async Task GetMetadataAsync_RealUrl_ReturnsMetadata()
-        {
-            var service = new YtDlpDownloadService(GetRealYtDlpPath());
-            var result = await service.GetMetadataAsync(ValidVideoUrl);
-
-            Assert.That(result, Is.Not.Null);
-            Assert.That(result!.Title, Is.Not.Null.And.Not.Empty);
-        }
-
-        [Test]
-        [Category("Integration")]
-        //[Ignore("需要實際 yt-dlp 執行檔，請手動執行整合測試")]
+        [Ignore("需要實際 yt-dlp 執行檔與網路連線，請手動執行整合測試")]
         [Description("播放清單 URL 應回傳多筆影片資訊，且每筆 URL 不為空")]
         public async Task GetPlaylistVideosAsync_RealPlaylistUrl_ReturnsMultipleVideos()
         {
-            var service = new YtDlpDownloadService(GetRealYtDlpPath());
+            var service = new YtDlpDownloadService(
+                GetRealYtDlpPath(),
+                logger: NullLogger<YtDlpDownloadService>.Instance);
 
             var progressLog = new List<(int, int, string?)>();
             var progress = new Progress<(int Current, int Total, string? CurrentTitle)>(p =>
@@ -417,11 +318,13 @@ namespace YTDownloaderTest.ServiceTest
 
         [Test]
         [Category("Integration")]
-        //[Ignore("需要實際 yt-dlp 執行檔，請手動執行整合測試")]
+        [Ignore("需要實際 yt-dlp 執行檔與網路連線，請手動執行整合測試")]
         [Description("單一影片 URL 傳入 GetPlaylistVideosAsync 應包成 1 筆清單回傳")]
         public async Task GetPlaylistVideosAsync_SingleVideoUrl_ReturnsOneItem()
         {
-            var service = new YtDlpDownloadService(GetRealYtDlpPath());
+            var service = new YtDlpDownloadService(
+                GetRealYtDlpPath(),
+                logger: NullLogger<YtDlpDownloadService>.Instance);
             var result  = await service.GetPlaylistVideosAsync(ValidVideoUrl);
 
             Assert.Multiple(() =>

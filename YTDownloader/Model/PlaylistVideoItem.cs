@@ -43,9 +43,9 @@ namespace YTDownloader.Model
         public string? WebpageUrl { get; set; }
 
         /// <summary>
-        /// UI 勾選狀態，預設為未勾選
+        /// UI 勾選狀態，預設為已勾選
         /// </summary>
-        public bool IsSelected { get; set; } = false;
+        public bool IsSelected { get; set; } = true;
 
         /// <summary>
         /// 格式化後的時間長度字串（mm:ss 或 hh:mm:ss），供 UI 顯示用

@@ -1,11 +1,11 @@
 ﻿using Autofac;
 using ManuHub.Ytdlp.NET;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using YTDownloader.Model;
-using ILogger = Microsoft.Extensions.Logging.ILogger;
 
 namespace YTDownloader.Service
 {
@@ -16,7 +16,7 @@ namespace YTDownloader.Service
     {
         private readonly string _ytDlpPath;
         private readonly string? _ffmpegFolder;
-        private readonly ILogger logger = Program.Startup.Container.Resolve<ILogger<YtDlpDownloadService>>();
+        private readonly ILogger<YtDlpDownloadService> logger;
 
         /// <summary>
         /// 初始化 <see cref="YtDlpDownloadService"/>。
@@ -31,13 +31,15 @@ namespace YTDownloader.Service
         /// <exception cref="ArgumentException"><paramref name="ytDlpPath"/> 為空白時拋出。</exception>
         public YtDlpDownloadService(
             string ytDlpPath,
-            string? ffmpegFolder = null)
+            string? ffmpegFolder = null,
+            ILogger<YtDlpDownloadService>? logger = null)
         {
             if (string.IsNullOrWhiteSpace(ytDlpPath))
                 throw new ArgumentException("yt-dlp 路徑不可為空", nameof(ytDlpPath));
 
             _ytDlpPath = ytDlpPath;
             _ffmpegFolder = ffmpegFolder;
+            this.logger = logger ?? ResolveLogger();
         }
 
         /// <summary>
@@ -86,41 +88,22 @@ namespace YTDownloader.Service
             Action<double>? onProgress = null,
             CancellationToken cancellationToken = default)
         {
-            ValidateUrl(url);
-            EnsureDirectory(outputFolder);
-
-            try
-            {
-                await using var ytdlp = BuildVideoDownloader(
-                    outputFolder: outputFolder,
-                    format: format,
-                    outputTemplate: outputTemplate,
-                    downloadThumbnail: downloadThumbnail,
-                    embedMetadata: embedMetadata);
-
-                bool   ytSuccess = true;
-                string ytErrors  = string.Empty;
-                AttachEvents(ytdlp, onProgress, (ok, err) => { ytSuccess = ok; ytErrors = err; });
-
-                logger.LogInformation("開始下載影片：{Url} → {Folder}", url, outputFolder);
-                await ytdlp.DownloadAsync(url, cancellationToken);
-
-                return ytSuccess
-                    ? DownloadResult.Success(url, outputFolder, "影片下載完成")
-                    : DownloadResult.Fail(url,
-                        string.IsNullOrWhiteSpace(ytErrors)
-                            ? "yt-dlp 回報下載失敗（未知原因）"
-                            : $"yt-dlp 下載失敗：{ytErrors}");
-            }
-            catch (OperationCanceledException)
-            {
-                return DownloadResult.Fail(url, "影片下載已取消");
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "DownloadVideoAsync 失敗");
-                return DownloadResult.Fail(url, $"影片下載失敗：{ex.Message}");
-            }
+            return await ExecuteDownloadAsync(
+                new DownloadExecutionRequest(
+                    Url: url,
+                    OutputFolder: outputFolder,
+                    StartLogMessage: "開始下載影片：{Url} → {Folder}",
+                    SuccessMessage: "影片下載完成",
+                    CanceledMessage: "影片下載已取消",
+                    FailurePrefix: "影片下載失敗"),
+                () => BuildVideoDownloader(
+                    outputFolder,
+                    format,
+                    outputTemplate,
+                    downloadThumbnail,
+                    embedMetadata),
+                onProgress,
+                cancellationToken);
         }
 
         /// <summary>
@@ -172,138 +155,23 @@ namespace YTDownloader.Service
             Action<double>? onProgress = null,
             CancellationToken cancellationToken = default)
         {
-            ValidateUrl(url);
-            EnsureDirectory(outputFolder);
-
-            try
-            {
-                await using var ytdlp = BuildAudioDownloader(
-                    outputFolder: outputFolder,
-                    audioFormat: audioFormat,
-                    audioQuality: audioQuality,
-                    outputTemplate: outputTemplate,
-                    embedMetadata: embedMetadata,
-                    embedThumbnail: embedThumbnail);
-
-                bool   ytSuccess = true;
-                string ytErrors  = string.Empty;
-                AttachEvents(ytdlp, onProgress, (ok, err) => { ytSuccess = ok; ytErrors = err; });
-
-                logger.LogInformation("開始下載音訊：{Url} → {Folder}", url, outputFolder);
-                await ytdlp.DownloadAsync(url, cancellationToken);
-
-                return ytSuccess
-                    ? DownloadResult.Success(url, outputFolder, $"音訊下載完成，格式：{audioFormat}")
-                    : DownloadResult.Fail(url,
-                        string.IsNullOrWhiteSpace(ytErrors)
-                            ? "yt-dlp 回報下載失敗（未知原因）"
-                            : $"yt-dlp 下載失敗：{ytErrors}");
-            }
-            catch (OperationCanceledException)
-            {
-                return DownloadResult.Fail(url, "音訊下載已取消");
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "DownloadAudioAsync 失敗");
-                return DownloadResult.Fail(url, $"音訊下載失敗：{ex.Message}");
-            }
-        }
-
-        /// <summary>
-        /// 批次下載多個 URL，支援並發控制。
-        /// 空白及重複的 URL 會在執行前自動過濾。
-        /// </summary>
-        /// <param name="urls">
-        /// 要下載的影片 URL 清單。空白項目會自動略過，重複項目會自動去除。
-        /// </param>
-        /// <param name="outputFolder">
-        /// 下載檔案的儲存資料夾路徑；若資料夾不存在，會自動建立。
-        /// </param>
-        /// <param name="format">
-        /// yt-dlp 格式選擇字串，預設為 <c>"best"</c>。
-        /// </param>
-        /// <param name="maxConcurrency">
-        /// 同時進行下載的最大數量，預設為 <c>3</c>。
-        /// </param>
-        /// <param name="cancellationToken">用於取消非同步操作的權杖。</param>
-        /// <returns>
-        /// <see cref="BatchDownloadResult"/>，包含：
-        /// <list type="bullet">
-        ///   <item><see cref="BatchDownloadResult.IsSuccess"/> — 是否全部下載成功。</item>
-        ///   <item><see cref="BatchDownloadResult.TotalCount"/> — 實際執行下載的 URL 數量（過濾後）。</item>
-        ///   <item><see cref="BatchDownloadResult.OutputFolder"/> — 儲存路徑。</item>
-        ///   <item><see cref="BatchDownloadResult.Message"/> — 成功說明或錯誤原因。</item>
-        /// </list>
-        /// 取消操作或執行期間發生錯誤時，回傳 <c>IsSuccess = false</c>，不拋出例外。
-        /// </returns>
-        /// <exception cref="ArgumentNullException"><paramref name="urls"/> 為 <c>null</c> 時拋出。</exception>
-        /// <exception cref="ArgumentException">
-        /// <paramref name="urls"/> 過濾後為空，或 <paramref name="outputFolder"/> 為空白時拋出。
-        /// </exception>
-        public async Task<BatchDownloadResult> DownloadVideosAsync(
-            IEnumerable<string> urls,
-            string outputFolder,
-            string format = "best",
-            int maxConcurrency = 3,
-            CancellationToken cancellationToken = default)
-        {
-            if (urls == null)
-                throw new ArgumentNullException(nameof(urls));
-
-            var urlList = urls
-                .Where(x => !string.IsNullOrWhiteSpace(x))
-                .Distinct()
-                .ToList();
-
-            if (urlList.Count == 0)
-                throw new ArgumentException("urls 不可為空", nameof(urls));
-
-            EnsureDirectory(outputFolder);
-
-            try
-            {
-                await using var ytdlp = BuildVideoDownloader(
-                    outputFolder: outputFolder,
-                    format: format,
-                    outputTemplate: "%(title)s.%(ext)s",
-                    downloadThumbnail: false,
-                    embedMetadata: false);
-
-                AttachEvents(ytdlp);
-
-                await ytdlp.DownloadBatchAsync(urlList, maxConcurrency, cancellationToken);
-
-                return new BatchDownloadResult
-                {
-                    IsSuccess = true,
-                    OutputFolder = outputFolder,
-                    TotalCount = urlList.Count,
-                    Message = "批次下載完成"
-                };
-            }
-            catch (OperationCanceledException)
-            {
-                return new BatchDownloadResult
-                {
-                    IsSuccess = false,
-                    OutputFolder = outputFolder,
-                    TotalCount = urlList.Count,
-                    Message = "批次下載已取消"
-                };
-            }
-            catch (Exception ex)
-            {
-               logger.LogError($"DownloadVideosAsync 失敗: {ex}");
-
-                return new BatchDownloadResult
-                {
-                    IsSuccess = false,
-                    OutputFolder = outputFolder,
-                    TotalCount = urlList.Count,
-                    Message = $"批次下載失敗: {ex.Message}"
-                };
-            }
+            return await ExecuteDownloadAsync(
+                new DownloadExecutionRequest(
+                    Url: url,
+                    OutputFolder: outputFolder,
+                    StartLogMessage: "開始下載音訊：{Url} → {Folder}",
+                    SuccessMessage: $"音訊下載完成，格式：{audioFormat}",
+                    CanceledMessage: "音訊下載已取消",
+                    FailurePrefix: "音訊下載失敗"),
+                () => BuildAudioDownloader(
+                    outputFolder,
+                    audioFormat,
+                    audioQuality,
+                    outputTemplate,
+                    embedMetadata,
+                    embedThumbnail),
+                onProgress,
+                cancellationToken);
         }
 
         /// <summary>
@@ -324,7 +192,7 @@ namespace YTDownloader.Service
         /// <exception cref="ArgumentException">
         /// <paramref name="url"/> 為空白或格式不正確時拋出。
         /// </exception>
-        public async Task<YtDlpMetadata?> GetMetadataAsync(
+        private async Task<YtDlpMetadata?> GetMetadataAsync(
             string url,
             int bufferKb = 1024,
             CancellationToken cancellationToken = default)
@@ -437,192 +305,6 @@ namespace YTDownloader.Service
                     Message = $"判斷失敗: {ex.Message}"
                 };
             }
-        }
-
-        /// <summary>
-        /// 取得指定 URL 所有可用的影音格式清單。
-        /// 適合讓使用者手動選擇格式 ID 後，再傳入 <see cref="DownloadVideoAsync"/> 的 <c>format</c> 參數。
-        /// </summary>
-        /// <param name="url">
-        /// 影片的 URL，必須為絕對 URI 格式。
-        /// </param>
-        /// <param name="bufferKb">
-        /// 讀取格式資訊時的輸出緩衝大小（KB），預設為 <c>1024</c>。
-        /// </param>
-        /// <param name="cancellationToken">用於取消非同步操作的權杖。</param>
-        /// <returns>
-        /// 可用格式的清單，每筆 <see cref="VideoFormatDto"/> 包含格式 ID、副檔名、解析度、影音編碼等資訊。
-        /// 發生錯誤時回傳空清單，不拋出例外。
-        /// </returns>
-        /// <exception cref="ArgumentException">
-        /// <paramref name="url"/> 為空白或格式不正確時拋出。
-        /// </exception>
-        public async Task<List<VideoFormatDto>> GetFormatsAsync(
-            string url,
-            int bufferKb = 1024,
-            CancellationToken cancellationToken = default)
-        {
-            ValidateUrl(url);
-
-            try
-            {
-                await using var ytdlp = CreateBaseClient();
-
-                var formats = await ytdlp.GetFormatsAsync(url, cancellationToken, bufferKb: bufferKb);
-
-                return formats.Select(item => new VideoFormatDto
-                {
-                    Id = item.Id,
-                    Extension = item.Extension,
-                    Resolution = item.Resolution,
-                    VCodec = item.VideoCodec,
-                    ACodec = item.AudioCodec,
-                    FormatNote = item.Note
-                }).ToList();
-            }
-            catch (Exception ex)
-            {
-               logger.LogError($"GetFormatsAsync 失敗: {ex}");
-                return new List<VideoFormatDto>();
-            }
-        }
-
-        /// <summary>
-        /// 自動查詢最佳影像與音訊格式 ID，以 <c>{bestVideo}+{bestAudio}/best</c> 合併後下載。
-        /// 適合不想手動選擇格式、追求最高品質的場景。
-        /// </summary>
-        /// <remarks>
-        /// 此方法會呼叫兩次 yt-dlp（先查格式、再下載），需提供 ffmpeg 路徑以執行影音合併。
-        /// </remarks>
-        /// <param name="url">
-        /// 影片的 URL，必須為絕對 URI 格式。
-        /// </param>
-        /// <param name="outputFolder">
-        /// 下載檔案的儲存資料夾路徑；若資料夾不存在，會自動建立。
-        /// </param>
-        /// <param name="maxHeight">
-        /// 影像解析度上限（像素高度），預設為 <c>1080</c>。
-        /// 例如指定 <c>720</c> 則選取不超過 720p 的最佳格式。
-        /// </param>
-        /// <param name="cancellationToken">用於取消非同步操作的權杖。</param>
-        /// <returns>
-        /// <see cref="DownloadResult"/>，包含：
-        /// <list type="bullet">
-        ///   <item><see cref="DownloadResult.IsSuccess"/> — 是否下載成功。</item>
-        ///   <item><see cref="DownloadResult.OutputFolder"/> — 儲存路徑。</item>
-        ///   <item><see cref="DownloadResult.Message"/> — 成功時包含最終使用的格式字串，失敗時為錯誤原因。</item>
-        /// </list>
-        /// 執行期間發生錯誤時，回傳 <c>IsSuccess = false</c>，不拋出例外。
-        /// </returns>
-        /// <exception cref="ArgumentException">
-        /// <paramref name="url"/> 為空白或格式不正確，或 <paramref name="outputFolder"/> 為空白時拋出。
-        /// </exception>
-        public async Task<DownloadResult> DownloadBestMuxedVideoAsync(
-            string url,
-            string outputFolder,
-            int maxHeight = 1080,
-            CancellationToken cancellationToken = default)
-        {
-            ValidateUrl(url);
-            EnsureDirectory(outputFolder);
-
-            try
-            {
-                await using var probe = CreateBaseClient();
-
-                string bestVideo = await probe.GetBestVideoFormatIdAsync(
-                    url,
-                    maxHeight,
-                    cancellationToken,
-                    bufferKb: 1024);
-
-                string bestAudio = await probe.GetBestAudioFormatIdAsync(
-                    url,
-                    cancellationToken,
-                    bufferKb: 1024);
-
-                string finalFormat = $"{bestVideo}+{bestAudio}/best";
-
-                await using var ytdlp = BuildVideoDownloader(
-                    outputFolder,
-                    finalFormat,
-                    "%(title)s.%(ext)s",
-                    downloadThumbnail: false,
-                    embedMetadata: true);
-
-                AttachEvents(ytdlp);
-
-                await ytdlp.DownloadAsync(url, cancellationToken);
-
-                return DownloadResult.Success(url, outputFolder, $"影片下載完成，格式: {finalFormat}");
-            }
-            catch (Exception ex)
-            {
-               logger.LogError($"DownloadBestMuxedVideoAsync 失敗: {ex}");
-                return DownloadResult.Fail(url, $"影片下載失敗: {ex.Message}");
-            }
-        }
-
-        /// <summary>
-        /// 先偵測 URL 類型，再自動分流下載。
-        /// <list type="bullet">
-        ///   <item><see cref="UrlResourceType.Playlist"/> — 下載整個播放清單。</item>
-        ///   <item><see cref="UrlResourceType.SingleVideo"/> — 下載單一影片。</item>
-        ///   <item><see cref="UrlResourceType.Unknown"/> — 直接回傳失敗，不進行下載。</item>
-        /// </list>
-        /// </summary>
-        /// <param name="url">
-        /// 影片或播放清單的 URL，必須為絕對 URI 格式。
-        /// </param>
-        /// <param name="outputFolder">
-        /// 下載檔案的儲存資料夾路徑；若資料夾不存在，會自動建立。
-        /// </param>
-        /// <param name="format">
-        /// yt-dlp 格式選擇字串，預設為 <c>"best"</c>。
-        /// </param>
-        /// <param name="outputTemplate">
-        /// 輸出檔名模板，使用 yt-dlp 的 <c>%(field)s</c> 語法，預設為 <c>"%(title)s.%(ext)s"</c>。
-        /// </param>
-        /// <param name="downloadThumbnail">
-        /// 是否一併下載縮圖，預設為 <c>false</c>。
-        /// </param>
-        /// <param name="embedMetadata">
-        /// 是否將 metadata 嵌入檔案，預設為 <c>false</c>。
-        /// </param>
-        /// <param name="cancellationToken">用於取消非同步操作的權杖。</param>
-        /// <returns>
-        /// <see cref="DownloadResult"/>，包含：
-        /// <list type="bullet">
-        ///   <item><see cref="DownloadResult.IsSuccess"/> — 是否下載成功。</item>
-        ///   <item><see cref="DownloadResult.OutputFolder"/> — 儲存路徑。</item>
-        ///   <item><see cref="DownloadResult.Message"/> — 成功說明或錯誤原因。</item>
-        /// </list>
-        /// URL 類型無法判斷時，立即回傳 <c>IsSuccess = false</c>，不拋出例外。
-        /// </returns>
-        public async Task<DownloadResult> DownloadByDetectedTypeAsync(
-            string url,
-            string outputFolder,
-            string format = "best",
-            string? outputTemplate = "%(title)s.%(ext)s",
-            bool downloadThumbnail = false,
-            bool embedMetadata = false,
-            CancellationToken cancellationToken = default)
-        {
-            var detected = await DetectResourceAsync(url, 1024, cancellationToken);
-
-            if (detected.ResourceType == UrlResourceType.Unknown)
-            {
-                return DownloadResult.Fail(url, $"無法判斷資源類型: {detected.Message}");
-            }
-
-            return await DownloadVideoAsync(
-                url: url,
-                outputFolder: outputFolder,
-                format: format,
-                outputTemplate: outputTemplate,
-                downloadThumbnail: downloadThumbnail,
-                embedMetadata: embedMetadata,
-                cancellationToken: cancellationToken);
         }
 
         /// <summary>
@@ -741,8 +423,6 @@ namespace YTDownloader.Service
                             && pc.ValueKind == JsonValueKind.Number)
                             declaredCount = pc.GetInt32();
 
-                        index++;
-
                         // 影片頁面網址：優先 webpage_url，退而求其次用 url
                         var webpageUrl = GetJsonString(root, "webpage_url")
                                       ?? GetJsonString(root, "url");
@@ -767,7 +447,7 @@ namespace YTDownloader.Service
                         var title = GetJsonString(root, "title");
 
                         // 取播放清單中的原始位置（供提示訊息顯示）
-                        int playlistIndex = index + 1;
+                        int playlistIndex = videos.Count + unavailableEntries.Count + 1;
                         if (root.TryGetProperty("playlist_index", out var piProp)
                             && piProp.ValueKind == JsonValueKind.Number)
                             playlistIndex = piProp.GetInt32();
@@ -793,7 +473,7 @@ namespace YTDownloader.Service
                             Duration   = duration,
                             Thumbnail  = thumbnail,
                             WebpageUrl = webpageUrl,
-                            IsSelected = false
+                            IsSelected = true
                         });
                     }
                     catch (JsonException ex)
@@ -864,6 +544,60 @@ namespace YTDownloader.Service
             if (_unavailableTitles.Contains(title)) return true;
             // 通用防禦：格式為 "[Xxx video]" 或 "[Xxx]" 的佔位標題
             return title.StartsWith('[') && title.EndsWith(']');
+        }
+
+        private async Task<DownloadResult> ExecuteDownloadAsync(
+            DownloadExecutionRequest request,
+            Func<Ytdlp> createDownloader,
+            Action<double>? onProgress,
+            CancellationToken cancellationToken)
+        {
+            ValidateUrl(request.Url);
+            EnsureDirectory(request.OutputFolder);
+
+            try
+            {
+                await using var ytdlp = createDownloader();
+
+                bool ytSuccess = true;
+                string ytErrors = string.Empty;
+                AttachEvents(ytdlp, onProgress, (ok, err) => { ytSuccess = ok; ytErrors = err; });
+
+                logger.LogInformation(request.StartLogMessage, request.Url, request.OutputFolder);
+                await ytdlp.DownloadAsync(request.Url, cancellationToken);
+
+                return ytSuccess
+                    ? DownloadResult.Success(request.Url, request.OutputFolder, request.SuccessMessage)
+                    : DownloadResult.Fail(request.Url, BuildYtDlpFailureMessage(ytErrors));
+            }
+            catch (OperationCanceledException)
+            {
+                return DownloadResult.Fail(request.Url, request.CanceledMessage);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "{Operation} 失敗", request.FailurePrefix);
+                return DownloadResult.Fail(request.Url, $"{request.FailurePrefix}：{ex.Message}");
+            }
+        }
+
+        private static string BuildYtDlpFailureMessage(string ytErrors)
+        {
+            return string.IsNullOrWhiteSpace(ytErrors)
+                ? "yt-dlp 回報下載失敗（未知原因）"
+                : $"yt-dlp 下載失敗：{ytErrors}";
+        }
+
+        private static ILogger<YtDlpDownloadService> ResolveLogger()
+        {
+            try
+            {
+                return Program.Startup.Container.Resolve<ILogger<YtDlpDownloadService>>();
+            }
+            catch
+            {
+                return NullLogger<YtDlpDownloadService>.Instance;
+            }
         }
 
         private Ytdlp CreateBaseClient()
@@ -1139,7 +873,14 @@ namespace YTDownloader.Service
                 Directory.CreateDirectory(folderPath);
             }
         }
-    
+
+        private sealed record DownloadExecutionRequest(
+            string Url,
+            string OutputFolder,
+            string StartLogMessage,
+            string SuccessMessage,
+            string CanceledMessage,
+            string FailurePrefix);
 
     }
 }
