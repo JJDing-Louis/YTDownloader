@@ -1,4 +1,5 @@
 using YTDownloader.Startup;
+using YTDownloader.Tool;
 
 [assembly: System.Runtime.CompilerServices.InternalsVisibleTo("YTDownloaderTest")]
 
@@ -14,9 +15,10 @@ namespace YTDownloader
         [STAThread]
         static void Main()
         {
-            ApplicationConfiguration.Initialize();
-            Startup.Run();
-            Application.Run(new Main());
+            DBTool.InitDB();
+            //ApplicationConfiguration.Initialize();
+            //Startup.Run();
+            //Application.Run(new Main());
         }
     }
 }

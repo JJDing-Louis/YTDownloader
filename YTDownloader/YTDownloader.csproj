@@ -15,15 +15,14 @@
   <ItemGroup>
     <PackageReference Include="Autofac" Version="9.1.0" />
     <PackageReference Include="Autofac.Extensions.DependencyInjection" Version="11.0.0" />
-    <PackageReference Include="Dapper" Version="2.1.72" />
     <PackageReference Include="EastAsiaNumericFormatter" Version="1.0.0" />
     <PackageReference Include="JJNET.DataAccess" Version="0.0.2" />
     <PackageReference Include="JsonDiffPatch.Net" Version="2.5.0" />
     <PackageReference Include="Microsoft.Data.SqlClient" Version="7.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Configuration" Version="10.0.6" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.6" />
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.6" />
-    <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.6" />
+    <PackageReference Include="Microsoft.Extensions.Configuration" Version="10.0.7" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.7" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.7" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.7" />
     <PackageReference Include="Microsoft.SqlServer.Management.SqlParser" Version="173.8.0" />
     <PackageReference Include="Microsoft.SqlServer.TransactSql.ScriptDom" Version="180.6.0" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
@@ -32,7 +31,6 @@
     <PackageReference Include="Serilog.Settings.Configuration" Version="10.0.0" />
     <PackageReference Include="Serilog.Sinks.Console" Version="6.1.1" />
     <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
-    <PackageReference Include="SqlKata" Version="4.0.1" />
     <PackageReference Include="SqlKata.Execution" Version="4.0.1" />
     <PackageReference Include="System.Data.SQLite" Version="2.0.3" />
     <PackageReference Include="System.Data.SQLite.Core" Version="1.0.119" />
