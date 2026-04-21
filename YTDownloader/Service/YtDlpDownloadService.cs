@@ -65,6 +65,12 @@ namespace YTDownloader.Service
         /// <param name="embedMetadata">
         /// 是否將 metadata（標題、作者等）嵌入影片檔案，預設為 <c>false</c>。
         /// </param>
+        /// <param name="knownTitle">
+        /// 已知的影片標題（通常來自播放清單 metadata）。若提供，會觸發同名檔案偵測：
+        /// 目標資料夾若已存在同名影片檔（mp4/mkv/webm/... 等常見影片容器），
+        /// 會自動在輸出檔名後加上 <c>(1)</c>、<c>(2)</c> … 等序號避免覆蓋。
+        /// 留 <c>null</c> 則保留 yt-dlp 原生行為。
+        /// </param>
         /// <param name="cancellationToken">用於取消非同步操作的權杖。</param>
         /// <returns>
         /// <see cref="DownloadResult"/>，包含：
@@ -85,6 +91,7 @@ namespace YTDownloader.Service
             string? outputTemplate = "%(title)s.%(ext)s",
             bool downloadThumbnail = false,
             bool embedMetadata = false,
+            string? knownTitle = null,
             Action<double>? onProgress = null,
             CancellationToken cancellationToken = default)
         {
@@ -101,7 +108,8 @@ namespace YTDownloader.Service
                     format,
                     outputTemplate,
                     downloadThumbnail,
-                    embedMetadata),
+                    embedMetadata,
+                    knownTitle),
                 onProgress,
                 cancellationToken);
         }
@@ -131,6 +139,12 @@ namespace YTDownloader.Service
         /// <param name="embedThumbnail">
         /// 是否將縮圖嵌入音訊檔案作為封面，預設為 <c>false</c>。
         /// </param>
+        /// <param name="knownTitle">
+        /// 已知的影片標題（通常來自播放清單 metadata）。若提供，會觸發同名檔案偵測：
+        /// 目標資料夾若已存在同名音訊檔（mp3/m4a/flac/... 等常見音訊格式），
+        /// 會自動在輸出檔名後加上 <c>(1)</c>、<c>(2)</c> … 等序號避免覆蓋。
+        /// 留 <c>null</c> 則保留 yt-dlp 原生行為。
+        /// </param>
         /// <param name="cancellationToken">用於取消非同步操作的權杖。</param>
         /// <returns>
         /// <see cref="DownloadResult"/>，包含：
@@ -152,6 +166,7 @@ namespace YTDownloader.Service
             string? outputTemplate = "%(title)s.%(ext)s",
             bool embedMetadata = true,
             bool embedThumbnail = false,
+            string? knownTitle = null,
             Action<double>? onProgress = null,
             CancellationToken cancellationToken = default)
         {
@@ -169,7 +184,8 @@ namespace YTDownloader.Service
                     audioQuality,
                     outputTemplate,
                     embedMetadata,
-                    embedThumbnail),
+                    embedThumbnail,
+                    knownTitle),
                 onProgress,
                 cancellationToken);
         }
@@ -617,15 +633,19 @@ namespace YTDownloader.Service
             string format,
             string? outputTemplate,
             bool downloadThumbnail,
-            bool embedMetadata)
+            bool embedMetadata,
+            string? knownTitle)
         {
+            var resolvedTemplate = ResolveUniqueOutputTemplate(
+                outputFolder, outputTemplate, knownTitle, _videoCandidateExtensions);
+
             var ytdlp = CreateBaseClient()
                 .WithFormat(format)
                 .WithOutputFolder(outputFolder);
 
-            if (!string.IsNullOrWhiteSpace(outputTemplate))
+            if (!string.IsNullOrWhiteSpace(resolvedTemplate))
             {
-                ytdlp = ytdlp.WithOutputTemplate(outputTemplate);
+                ytdlp = ytdlp.WithOutputTemplate(resolvedTemplate);
             }
 
             if (downloadThumbnail)
@@ -647,15 +667,19 @@ namespace YTDownloader.Service
             int audioQuality,
             string? outputTemplate,
             bool embedMetadata,
-            bool embedThumbnail)
+            bool embedThumbnail,
+            string? knownTitle)
         {
+            var resolvedTemplate = ResolveUniqueOutputTemplate(
+                outputFolder, outputTemplate, knownTitle, _audioCandidateExtensions);
+
             var ytdlp = CreateBaseClient()
                 .WithExtractAudio(audioFormat, audioQuality)
                 .WithOutputFolder(outputFolder);
 
-            if (!string.IsNullOrWhiteSpace(outputTemplate))
+            if (!string.IsNullOrWhiteSpace(resolvedTemplate))
             {
-                ytdlp = ytdlp.WithOutputTemplate(outputTemplate);
+                ytdlp = ytdlp.WithOutputTemplate(resolvedTemplate);
             }
 
             if (embedMetadata)
@@ -669,6 +693,157 @@ namespace YTDownloader.Service
             }
 
             return ytdlp;
+        }
+
+        // ─── 同名檔案偵測與序號命名 ──────────────────────────────────────────
+        // 目的：若 outputFolder 中已存在同名檔，將 %(title)s 替換為安全化後的
+        //       標題並附加 (N) 序號，避免被 yt-dlp 覆蓋或跳過。
+        //       為讓檔名完全可預測，最終 outputTemplate 會以字面字串取代
+        //       %(title)s；%(ext)s 仍交給 yt-dlp 依實際輸出格式填入。
+
+        /// <summary>影片下載時視為「同名衝突」的常見影片容器副檔名（不含點號）。</summary>
+        private static readonly IReadOnlyCollection<string> _videoCandidateExtensions = new[]
+        {
+            "mp4", "mkv", "webm", "mov", "avi", "flv", "ts", "m4v"
+        };
+
+        /// <summary>音訊下載時視為「同名衝突」的常見音訊格式副檔名（不含點號）。</summary>
+        private static readonly IReadOnlyCollection<string> _audioCandidateExtensions = new[]
+        {
+            "mp3", "m4a", "aac", "flac", "wav", "opus", "ogg"
+        };
+
+        /// <summary>
+        /// 在下載前計算不會覆蓋既有檔案的 outputTemplate。
+        /// <para>
+        /// 當 <paramref name="knownTitle"/> 有值且 <paramref name="outputTemplate"/>
+        /// 包含 <c>%(title)s</c> 時，會：
+        /// <list type="number">
+        ///   <item>將 <paramref name="knownTitle"/> 做 Windows 檔名安全化。</item>
+        ///   <item>在 <paramref name="outputFolder"/> 檢查 <paramref name="candidateExtensions"/>
+        ///         中任何副檔名是否已存在同名檔。</item>
+        ///   <item>若存在則逐一嘗試 <c>Title(1)</c>、<c>Title(2)</c> … 直到找到可用名稱。</item>
+        ///   <item>以找到的名稱字面替換 <c>%(title)s</c> 後回傳新 template。</item>
+        /// </list>
+        /// 其他情況（無 knownTitle、template 不含 %(title)s、資料夾不存在等）則回傳原 template。
+        /// </para>
+        /// </summary>
+        private string ResolveUniqueOutputTemplate(
+            string outputFolder,
+            string? outputTemplate,
+            string? knownTitle,
+            IReadOnlyCollection<string> candidateExtensions)
+        {
+            var template = string.IsNullOrWhiteSpace(outputTemplate)
+                ? "%(title)s.%(ext)s"
+                : outputTemplate!;
+
+            // 沒有 knownTitle 或 template 不含 %(title)s 佔位符 → 交回 yt-dlp 原生行為
+            if (string.IsNullOrWhiteSpace(knownTitle))
+                return template;
+            if (!template.Contains("%(title)s", StringComparison.Ordinal))
+                return template;
+
+            var safeTitle = SanitizeForWindowsFileName(knownTitle!);
+            if (string.IsNullOrWhiteSpace(safeTitle))
+                return template;
+
+            // 資料夾不存在則一定沒有衝突，直接把 %(title)s 字面化為安全化後的標題
+            if (!Directory.Exists(outputFolder))
+                return template.Replace("%(title)s", safeTitle);
+
+            var candidateTitle = safeTitle;
+            var seq = 0;
+            const int maxSeq = 9999;
+            while (HasFileCollision(outputFolder, template, candidateTitle, candidateExtensions))
+            {
+                seq++;
+                if (seq > maxSeq)
+                {
+                    logger.LogWarning(
+                        "同名檔名序號已超過 {MaxSeq}，放棄加序號以避免無限迴圈（標題：{Title}）",
+                        maxSeq, safeTitle);
+                    break;
+                }
+                candidateTitle = $"{safeTitle}({seq})";
+            }
+
+            if (seq > 0)
+            {
+                logger.LogInformation(
+                    "偵測到同名檔案，輸出檔名改為：{FinalTitle}（原：{OriginalTitle}）",
+                    candidateTitle, safeTitle);
+            }
+
+            return template.Replace("%(title)s", candidateTitle);
+        }
+
+        /// <summary>
+        /// 將指定 title 代入 template 後，逐一比對 candidateExtensions 中的副檔名，
+        /// 檢查 outputFolder 內是否已存在對應檔案。
+        /// </summary>
+        private static bool HasFileCollision(
+            string outputFolder,
+            string template,
+            string titleSubstitution,
+            IReadOnlyCollection<string> candidateExtensions)
+        {
+            var baseTemplate = template.Replace("%(title)s", titleSubstitution);
+
+            foreach (var ext in candidateExtensions)
+            {
+                var normalizedExt = ext.StartsWith('.') ? ext[1..] : ext;
+                var candidatePath = Path.Combine(
+                    outputFolder,
+                    baseTemplate.Replace("%(ext)s", normalizedExt));
+
+                if (File.Exists(candidatePath))
+                    return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// 將字串轉為 Windows 合法檔名：
+        /// <list type="bullet">
+        ///   <item>ASCII 受限字元（<c>\ / : * ? " &lt; &gt; |</c>）與其全形對應字元替換為 <c>_</c>。</item>
+        ///   <item>控制字元（U+0000–U+001F、U+007F）替換為 <c>_</c>。</item>
+        ///   <item>修剪尾端的空白與點號，避免 Windows 檔案系統拒絕。</item>
+        /// </list>
+        /// 若整體為空則回傳 <c>"_"</c>，保證回傳值可作為檔名使用。
+        /// </summary>
+        private static string SanitizeForWindowsFileName(string title)
+        {
+            if (string.IsNullOrEmpty(title)) return string.Empty;
+
+            var sb = new StringBuilder(title.Length);
+            foreach (var c in title)
+            {
+                if (c < 0x20 || c == 0x7F)
+                {
+                    sb.Append('_');
+                    continue;
+                }
+
+                var replaced = c switch
+                {
+                    '/' or '／' => '_',
+                    '\\' or '＼' => '_',
+                    ':' or '：' => '_',
+                    '*' or '＊' => '_',
+                    '?' or '？' => '_',
+                    '"' or '＂' => '_',
+                    '<' or '＜' => '_',
+                    '>' or '＞' => '_',
+                    '|' or '｜' => '_',
+                    _ => c
+                };
+                sb.Append(replaced);
+            }
+
+            var result = sb.ToString().TrimEnd(' ', '.');
+            return result.Length == 0 ? "_" : result;
         }
 
         /// <summary>

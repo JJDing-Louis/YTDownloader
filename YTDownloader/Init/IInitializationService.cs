@@ -1,6 +1,6 @@
 ﻿using Microsoft.Extensions.Configuration;
 
-namespace YTDownloader.Service
+namespace YTDownloader.Init
 {
     public interface IInitializationService
     {

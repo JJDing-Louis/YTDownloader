@@ -1,7 +1,7 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Utility.Tools;
 
-namespace YTDownloader.Service
+namespace YTDownloader.Init
 {
     public class MainInitializationService : IInitializationService
     {

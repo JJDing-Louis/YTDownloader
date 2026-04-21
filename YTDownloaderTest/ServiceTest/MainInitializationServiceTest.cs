@@ -2,7 +2,7 @@ using Autofac;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Configuration;
 using YTDownloader;
-using YTDownloader.Service;
+using YTDownloader.Init;
 
 namespace YTDownloaderTest.ServiceTest
 {

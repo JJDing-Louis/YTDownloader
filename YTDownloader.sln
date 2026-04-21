@@ -1,15 +1,13 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 17
-VisualStudioVersion = 17.14.37111.16
+# Visual Studio Version 18
+VisualStudioVersion = 18.5.11709.299 stable
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YTDownloader", "YTDownloader\YTDownloader.csproj", "{6AEE713E-D8EA-4D97-9C04-E23EA046AD48}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Utility", "Utility\Utility.csproj", "{F3B64B7C-3F86-40B4-80B2-25D40C52D15D}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UtilityTest", "UtilityTest\UtilityTest.csproj", "{926B99A1-8E2A-4652-A575-E8A944842B20}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DataAccess", "DataAccess\DataAccess.csproj", "{6B2FCAEB-D961-490B-833F-F2A4212B97CF}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YTDownloaderTest", "YTDownloaderTest\YTDownloaderTest.csproj", "{E9943DD7-E810-4261-BAA2-3E158191D4C1}"
 EndProject
@@ -31,10 +29,6 @@ Global
 		{926B99A1-8E2A-4652-A575-E8A944842B20}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{926B99A1-8E2A-4652-A575-E8A944842B20}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{926B99A1-8E2A-4652-A575-E8A944842B20}.Release|Any CPU.Build.0 = Release|Any CPU
-		{6B2FCAEB-D961-490B-833F-F2A4212B97CF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{6B2FCAEB-D961-490B-833F-F2A4212B97CF}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{6B2FCAEB-D961-490B-833F-F2A4212B97CF}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{6B2FCAEB-D961-490B-833F-F2A4212B97CF}.Release|Any CPU.Build.0 = Release|Any CPU
 		{E9943DD7-E810-4261-BAA2-3E158191D4C1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{E9943DD7-E810-4261-BAA2-3E158191D4C1}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{E9943DD7-E810-4261-BAA2-3E158191D4C1}.Release|Any CPU.ActiveCfg = Release|Any CPU

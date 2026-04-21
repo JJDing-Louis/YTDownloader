@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using System.Diagnostics;
 using YTDownloader.Controller;
+using YTDownloader.Init;
 using YTDownloader.Model;
 using YTDownloader.Service;
 using YTDownloader.UI.CustomUI;
@@ -744,12 +745,14 @@ namespace YTDownloader
                         MediaType.Audio => await svc.DownloadAudioAsync(
                             url:               capturedReq.WebpageUrl,
                             outputFolder:      capturedReq.DownloadDir,
+                            knownTitle:        capturedReq.Title,
                             onProgress:        pct => UpdateDownloadProgress(taskId, pct, "下載中"),
                             cancellationToken: ct),
 
                         MediaType.Video => await svc.DownloadVideoAsync(
                             url:               capturedReq.WebpageUrl,
                             outputFolder:      capturedReq.DownloadDir,
+                            knownTitle:        capturedReq.Title,
                             onProgress:        pct => UpdateDownloadProgress(taskId, pct, "下載中"),
                             cancellationToken: ct),
 

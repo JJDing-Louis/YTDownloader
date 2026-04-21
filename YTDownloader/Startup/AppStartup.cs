@@ -5,7 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Serilog;
 using YTDownloader.Data;
-using YTDownloader.Service;
+using YTDownloader.Init;
 
 namespace YTDownloader.Startup
 {
