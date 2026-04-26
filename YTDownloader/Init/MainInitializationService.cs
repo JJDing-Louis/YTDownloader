@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Configuration;
-using Utility.Tools;
+using JJNET.DataAccess;
+using JJNET.Utility.Tools;
 
 namespace YTDownloader.Init
 {
@@ -19,7 +20,7 @@ namespace YTDownloader.Init
 
         public IConfiguration GetConfig()
         {
-            var config = ParameterTool.GetConfiguration();
+            var config =ParameterTool.GetConfiguration();
             return config;
         }
 

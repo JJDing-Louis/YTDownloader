@@ -1,12 +1,8 @@
-﻿using JJNET.DataAccess.Entity;
+﻿
+
+using JJNET.DataAccess.Entity;
 using JJNET.Utility.Tools;
-using System;
-using System.Collections.Generic;
 using System.Data.Common;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using JJNET.DataAccess;
 
 namespace YTDownloader.Tool
 {
@@ -17,8 +13,11 @@ namespace YTDownloader.Tool
         public static void InitDB() 
         {
             var Entities = new List<string>();
+            DbConnectionStringBuilder ConnectionStringBuilder = new();
+
             using (var conn = ConnectionTool.GetConnection()) 
             {
+                ConnectionStringBuilder.ConnectionString = conn.ConnectionString;
                 var sqlcmd = """
                                      SELECT 
                                          MasterEntity 
@@ -33,7 +32,7 @@ namespace YTDownloader.Tool
                 {
                     foreach (var entity in Entities)
                     {
-                        var migrator = new EntityTableCreator(conn);
+                        var migrator = new EntityTableCreator(ConnectionStringBuilder);
                         migrator.UpdateTableSchema(entity);
                     }
                 }

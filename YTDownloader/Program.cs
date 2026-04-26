@@ -15,10 +15,10 @@ namespace YTDownloader
         [STAThread]
         static void Main()
         {
+            ApplicationConfiguration.Initialize();
+            Startup.Run();
             DBTool.InitDB();
-            //ApplicationConfiguration.Initialize();
-            //Startup.Run();
-            //Application.Run(new Main());
+            Application.Run(new Main());
         }
     }
 }

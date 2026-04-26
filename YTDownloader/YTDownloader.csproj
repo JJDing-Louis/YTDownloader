@@ -9,14 +9,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Utility\Utility.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
     <PackageReference Include="Autofac" Version="9.1.0" />
     <PackageReference Include="Autofac.Extensions.DependencyInjection" Version="11.0.0" />
     <PackageReference Include="EastAsiaNumericFormatter" Version="1.0.0" />
-    <PackageReference Include="JJNET.DataAccess" Version="0.0.2" />
+    <PackageReference Include="JJNET.DataAccess" Version="0.0.2-Beta" />
+    <PackageReference Include="JJNET.Utility" Version="0.0.5" />
     <PackageReference Include="JsonDiffPatch.Net" Version="2.5.0" />
     <PackageReference Include="Microsoft.Data.SqlClient" Version="7.0.0" />
     <PackageReference Include="Microsoft.Extensions.Configuration" Version="10.0.7" />
@@ -46,7 +43,7 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="JJNET.db">
-      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="yt-dlp.exe">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
