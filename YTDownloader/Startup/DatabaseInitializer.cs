@@ -2,7 +2,6 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using System.Data.SQLite;
 using YTDownloader.Startup;
-using YTDownloader.Tool;
 
 namespace YTDownloader.Data
 {
@@ -23,7 +22,9 @@ namespace YTDownloader.Data
                 ?? throw new InvalidOperationException("Connection string 'Default' not found.");
 
             EnsureDatabase(connectionString);
-            EnsureSchema(connectionString);
+            EnsureTables(connectionString);
+            EnsureStaticData(connectionString);
+
         }
 
         private void EnsureDatabase(string connectionString)
@@ -34,16 +35,82 @@ namespace YTDownloader.Data
             _logger.LogInformation("Database ready.");
         }
 
-        private void EnsureSchema(string connectionString)
+        private void EnsureTables(string connectionString)
         {
-            _logger.LogInformation("Ensuring database schema...");
+            _logger.LogInformation("Ensuring tables...");
+
+            var commands = new[]
+            {
+                """
+                CREATE TABLE IF NOT EXISTS DownloadHistory (
+                    ID                INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                    FileName    TEXT    NOT NULL,  -- 下載的檔案名稱
+                    URL             TEXT    NOT NULL,  -- 來源網址
+                    Type            TEXT,             -- 檔案類型，例如 video / audio
+                    Path             TEXT,             -- 本地儲存路徑
+                    DownloadDateTime TEXT,             -- 開始下載時間 (ISO 8601)
+                    CompleteDateTime TEXT,              -- 完成下載時間 (ISO 8601)
+                    Resulr          TEXT           -- 下載結果，例如 Success / Failed
+                );
+                """,
+                """
+                CREATE TABLE  IF NOT EXISTS ListMediaType
+                (
+                    Name TEXT not null,
+                    Desc TEXT not null,
+                    constraint ListMediaType_pk
+                        primary key (Desc, Name)
+                );
+                """,
+                """
+                CREATE TABLE  IF NOT EXISTS ListSourceType
+                (
+                    Name TEXT not null,
+                    Desc TEXT  not null,
+                    constraint ListSourceType_pk
+                        primary key (Desc, Name)
+                );
+                """,
+            };
 
             using var conn = new SQLiteConnection(connectionString);
             conn.Open();
 
-            DownloadRecordSchema.EnsureInitialized(conn, _logger);
+            foreach (var sql in commands)
+            {
+                using var cmd = new SQLiteCommand(sql, conn);
+                cmd.ExecuteNonQuery();
+            }
 
-            _logger.LogInformation("Database schema ready.");
+            _logger.LogInformation("Tables ready.");
+        }
+
+        private void EnsureStaticData(string connectionString) 
+        {
+            _logger.LogInformation("Ensuring Static Data...");
+
+            var commands = new[]
+            {
+                """
+                INSERT OR IGNORE INTO ListMediaType (Name, "Desc") VALUES ('Audio', '音訊');
+                INSERT OR IGNORE INTO ListMediaType (Name, "Desc") VALUES ('Video', '視訊');
+                """,
+                """
+                INSERT OR IGNORE INTO ListSourceType (Name, Desc) VALUES ('VideoOnly', '單一影片');
+                INSERT OR IGNORE INTO ListSourceType (Name, Desc) VALUES ('PlayList', '播放清單');
+                """
+            };
+
+            using var conn = new SQLiteConnection(connectionString);
+            conn.Open();
+
+            foreach (var sql in commands)
+            {
+                using var cmd = new SQLiteCommand(sql, conn);
+                cmd.ExecuteNonQuery();
+            }
+
+            _logger.LogInformation("Static Data.");
         }
     }
 }
