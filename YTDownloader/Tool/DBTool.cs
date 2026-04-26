@@ -3,6 +3,7 @@
 using JJNET.DataAccess.Entity;
 using JJNET.Utility.Tools;
 using System.Data.Common;
+using YTDownloader.Model;
 
 namespace YTDownloader.Tool
 {
@@ -39,8 +40,20 @@ namespace YTDownloader.Tool
             }
         }
 
-        public static void WriteDownloadHistory() 
+        public static void UpsertDownloadHistory(DownloadHistory downloadHistory)
         {
+            using (var conn = ConnectionTool.GetConnection())
+            {
+                conn.InsertOrUpdate("DownloadHistory",downloadHistory);
+            }
+        }
+
+        public static void UpsertDownloadTask(DownloadTask downloadTask)
+        {
+            using (var conn = ConnectionTool.GetConnection())
+            {
+                conn.InsertOrUpdate("DownloadTask", downloadTask);
+            }
         }
     }
 }

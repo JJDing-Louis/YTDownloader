@@ -10,9 +10,9 @@ using System.Windows.Forms;
 
 namespace YTDownloader
 {
-    public partial class DownloadHistory : Form
+    public partial class DownloadHistoryForm : Form
     {
-        public DownloadHistory()
+        public DownloadHistoryForm()
         {
             InitializeComponent();
         }

@@ -1,6 +1,6 @@
 ﻿namespace YTDownloader
 {
-    partial class DownloadHistory
+    partial class DownloadHistoryForm
     {
         /// <summary>
         /// Required designer variable.
