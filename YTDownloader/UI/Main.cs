@@ -13,7 +13,7 @@ namespace YTDownloader
     public partial class Main : Form
     {
         private ILogger logger = Program.Startup.Container.Resolve<ILogger<Main>>();
-        private MainInitializationService initializationService = Program.Startup.Container.Resolve<MainInitializationService>();
+        private IInitializationService initializationService = Program.Startup.Container.Resolve<MainInitializationService>();
         private Dictionary<string, List<KeyValuePair<string, string>>> options;
         private IConfiguration config;
         private string DownloadFolder;
