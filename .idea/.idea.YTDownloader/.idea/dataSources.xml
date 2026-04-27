@@ -1,18 +1,18 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="DataSourceManagerImpl" format="xml" multifile-model="true">
-    <data-source source="LOCAL" name="JJNET" uuid="aab9fe93-96f5-47e9-a494-667100941636">
-      <driver-ref>sqlite.xerial</driver-ref>
-      <synchronize>true</synchronize>
-      <jdbc-driver>org.sqlite.JDBC</jdbc-driver>
-      <jdbc-url>jdbc:sqlite:$PROJECT_DIR$/YTDownloader/bin/Debug/net8.0-windows/JJNET.db</jdbc-url>
-      <working-dir>$ProjectFileDir$</working-dir>
-    </data-source>
-    <data-source source="LOCAL" name="JJNET [2]" uuid="ac8365bc-4eda-48dd-9466-58f4ecae24ee">
+    <data-source source="LOCAL" name="JJNET" uuid="c33c4164-6552-4d80-b660-577552763aea">
       <driver-ref>sqlite.xerial</driver-ref>
       <synchronize>true</synchronize>
       <jdbc-driver>org.sqlite.JDBC</jdbc-driver>
       <jdbc-url>jdbc:sqlite:$PROJECT_DIR$/YTDownloader/JJNET.db</jdbc-url>
+      <working-dir>$ProjectFileDir$</working-dir>
+    </data-source>
+    <data-source source="LOCAL" name="JJNET [2]" uuid="a561d984-20f0-4be2-a15d-6f343d34909f">
+      <driver-ref>sqlite.xerial</driver-ref>
+      <synchronize>true</synchronize>
+      <jdbc-driver>org.sqlite.JDBC</jdbc-driver>
+      <jdbc-url>jdbc:sqlite:$PROJECT_DIR$/YTDownloader/bin/Debug/net8.0-windows/JJNET.db</jdbc-url>
       <working-dir>$ProjectFileDir$</working-dir>
     </data-source>
   </component>
