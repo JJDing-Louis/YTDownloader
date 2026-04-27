@@ -75,6 +75,16 @@ namespace YTDownloader.Data
                         primary key (Desc, Name)
                 );
                 """,
+                """
+                CREATE TABLE  IF NOT EXISTS ListDownloadStatus
+                (
+                    Name TEXT not null,
+                    Desc TEXT not null,
+                    RID TEXT,
+                    constraint ListDownloadStatus_pk
+                        primary key (Name, Desc)
+                );
+                """,
             };
 
             using var conn = new SQLiteConnection(connectionString);
@@ -102,6 +112,13 @@ namespace YTDownloader.Data
                 """
                 INSERT OR IGNORE INTO ListSourceType (Name, Desc) VALUES ('VideoOnly', '單一影片');
                 INSERT OR IGNORE INTO ListSourceType (Name, Desc) VALUES ('PlayList', '播放清單');
+                """,
+                """
+                INSERT OR IGNORE INTO ListDownloadStatus (Name, Desc) VALUES ('Waiting', '等待中');
+                INSERT OR IGNORE INTO ListDownloadStatus (Name, Desc) VALUES ('InProgress', '下載中');
+                INSERT OR IGNORE INTO ListDownloadStatus (Name, Desc) VALUES ('Complete', '完成');
+                INSERT OR IGNORE INTO ListDownloadStatus (Name, Desc) VALUES ('Fail', '失敗');
+                INSERT OR IGNORE INTO ListDownloadStatus (Name, Desc) VALUES ('Pause', '已暫停');
                 """
             };
 

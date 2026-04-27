@@ -15,6 +15,7 @@ namespace YTDownloader.Init
             var options = new Dictionary<string, List<KeyValuePair<string, string>>>();
             options.Add("ListMediaType", GetListMediaType());
             options.Add("ListSourceType", GetListSourceType());
+            options.Add("ListDownloadStatus", GetListDownloadStatus());
             return options;
         }
 
@@ -65,6 +66,35 @@ namespace YTDownloader.Init
                         options.Add(new KeyValuePair<string, string>(reader["Desc"].ToString()!, reader["Name"].ToString()!));
                     }
                 }
+            }
+            return options;
+        }
+
+        public List<KeyValuePair<string, string>> GetListDownloadStatus()
+        {
+            var options = new List<KeyValuePair<string, string>>();
+            try
+            {
+                using (var con = ConnectionTool.GetConnection())
+                {
+                    var cmd = con.CreateCommand();
+                    cmd.CommandText = """
+                        SELECT
+                            *
+                        FROM ListDownloadStatus
+                        """;
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            options.Add(new KeyValuePair<string, string>(reader["Desc"].ToString()!, reader["Name"].ToString()!));
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                // 外部配置表缺漏時回傳空集合，Main 會使用內建 fallback 狀態。
             }
             return options;
         }

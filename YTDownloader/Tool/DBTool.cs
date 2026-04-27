@@ -1,67 +1,61 @@
-﻿
-
+﻿using System.Data.Common;
 using JJNET.DataAccess.Entity;
 using JJNET.Utility.Tools;
-using System.Data.Common;
 using YTDownloader.Model;
 
-namespace YTDownloader.Tool
+namespace YTDownloader.Tool;
+
+public class DBTool
 {
-    public class DBTool
+    public static void InitDB()
     {
-        public DBTool() { }
+        var Entities = new List<string>();
+        DbConnectionStringBuilder ConnectionStringBuilder = new();
 
-        public static void InitDB() 
+        using (var conn = ConnectionTool.GetConnection())
         {
-            var Entities = new List<string>();
-            DbConnectionStringBuilder ConnectionStringBuilder = new();
+            ConnectionStringBuilder.ConnectionString = conn.ConnectionString;
+            var sqlcmd = """
+                         SELECT 
+                             MasterEntity 
+                         FROM TEntity
+                         WHERE SubEntity = ''
+                         """;
+            var result = conn.Query<string>(sqlcmd);
+            if (result != null)
+                Entities.AddRange(result);
 
-            using (var conn = ConnectionTool.GetConnection()) 
-            {
-                ConnectionStringBuilder.ConnectionString = conn.ConnectionString;
-                var sqlcmd = """
-                                     SELECT 
-                                         MasterEntity 
-                                     FROM TEntity
-                                     WHERE SubEntity = ''
-                                     """;
-                var result = DapperSqlMapperExt.Query<string>(conn, sqlcmd);
-                if (result != null) 
-                        Entities.AddRange(result);
-
-                if (Entities.Count > 0)
+            if (Entities.Count > 0)
+                foreach (var entity in Entities)
                 {
-                    foreach (var entity in Entities)
-                    {
-                        var migrator = new EntityTableCreator(ConnectionStringBuilder);
-                        migrator.UpdateTableSchema(entity);
-                    }
+                    var migrator = new EntityTableCreator(ConnectionStringBuilder);
+                    migrator.UpdateTableSchema(entity);
                 }
-            }
         }
+    }
 
-        public static void InsertDownloadHistory(DownloadHistory downloadHistory)
+    public static void InsertDownloadHistory(DownloadHistory downloadHistory)
+    {
+        using (var conn = ConnectionTool.GetConnection())
         {
-            using (var conn = ConnectionTool.GetConnection())
-            {
-                conn.InsertOrUpdate("DownloadHistory",downloadHistory);
-            }
+            conn.InsertOrUpdate("DownloadHistory", downloadHistory);
         }
-        
-        public static void UpdateDownloadProgress(long TaskID,int Progress,string Status,DateTime? CompleteDateTime=null)
+    }
+
+    public static void UpdateDownloadProgress(long TaskID, int Progress, string Status,
+        DateTime? CompleteDateTime = null)
+    {
+        using (var conn = ConnectionTool.GetConnection())
         {
-            using (var conn = ConnectionTool.GetConnection())
-            {
-                var sqlcmd = """
-                                     UPDATE DownloadHistory
-                                     SET Progress = @Progress, 
-                                         Status = @Status, 
-                                         CompleteDateTime = @CompleteDateTime
-                                     WHERE TaskID = @TaskID
-                                     """;
-                var param = new { Progress, Status, CompleteDateTime, TaskID };
-                DapperSqlMapperExt.Execute(conn, sqlcmd, param);
-            }
+            var sqlcmd = """
+                         UPDATE DownloadHistory
+                         SET Progress = @Progress, 
+                             Status = @Status, 
+                             CompleteDateTime = @CompleteDateTime
+                         WHERE TaskID = @TaskID
+                         """;
+            var param = new { Progress, Status, CompleteDateTime, TaskID };
+            conn.Execute(sqlcmd, param);
         }
     }
 }

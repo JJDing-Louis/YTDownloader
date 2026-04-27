@@ -21,6 +21,13 @@ namespace YTDownloader
         private string DownloadFolder;
         private string ytDlpPath;
         private string ffmpegPath;
+        private readonly Dictionary<string, string> downloadStatuses = new(StringComparer.OrdinalIgnoreCase);
+
+        private const string DownloadStatusKeyComplete = "Complete";
+        private const string DownloadStatusKeyFail = "Fail";
+        private const string DownloadStatusKeyInProgress = "InProgress";
+        private const string DownloadStatusKeyPause = "Pause";
+        private const string DownloadStatusKeyWaiting = "Waiting";
 
         /// <summary>以 Task ID 為 Key，記錄每筆下載任務的控制器。</summary>
         private readonly Dictionary<long, DownloadTaskController> _downloadControllers = new();
@@ -174,6 +181,7 @@ namespace YTDownloader
             {
                 options = initializationService.GetOptions();
                 BindComboBox(cB_ListMediaType, options, "ListMediaType");
+                InitDownloadStatuses(options);
             }
             catch (Exception ex)
             {
@@ -257,6 +265,29 @@ namespace YTDownloader
             comboBox.Items.AddRange(items.Cast<object>().ToArray());
             if (comboBox.Items.Count > 0) { comboBox.SelectedIndex = 0; }
         }
+
+        private void InitDownloadStatuses(Dictionary<string, List<KeyValuePair<string, string>>> options)
+        {
+            downloadStatuses.Clear();
+            if (!options.TryGetValue("ListDownloadStatus", out var items) || items == null)
+                return;
+
+            foreach (var item in items)
+                downloadStatuses[item.Value] = item.Key;
+        }
+
+        private string GetDownloadStatus(string name, string fallback)
+        {
+            return downloadStatuses.TryGetValue(name, out var status) && !string.IsNullOrWhiteSpace(status)
+                ? status
+                : fallback;
+        }
+
+        private string StatusComplete => GetDownloadStatus(DownloadStatusKeyComplete, "完成");
+        private string StatusFail => GetDownloadStatus(DownloadStatusKeyFail, "失敗");
+        private string StatusInProgress => GetDownloadStatus(DownloadStatusKeyInProgress, "下載中");
+        private string StatusPause => GetDownloadStatus(DownloadStatusKeyPause, "已暫停");
+        private string StatusWaiting => GetDownloadStatus(DownloadStatusKeyWaiting, "等待中");
 
         #endregion Init
 
@@ -391,8 +422,7 @@ namespace YTDownloader
                     controller.Cts.Cancel();
                     controller.IsPaused = true;
                     row.Cells["colAction"].Value = "繼續";
-                    row.Cells["colStatus"].Value = "已暫停";
-                    row.DefaultCellStyle.BackColor = Color.FromArgb(255, 248, 220);
+                    UpdateDownloadProgress(taskId, controller.LastPercent, StatusPause, DownloadStatusKeyPause);
                     break;
 
                 // ── 繼續 / 重試 ──────────────────────────────────
@@ -403,7 +433,7 @@ namespace YTDownloader
                     // 重啟前先清理：避免不完整輸出或殘留串流檔干擾 yt-dlp 判斷
                     CleanTempFilesBeforeRestart(controller);
                     row.Cells["colAction"].Value = "暫停";
-                    UpdateDownloadProgress(taskId, controller.LastPercent, "下載中");
+                    UpdateDownloadProgress(taskId, controller.LastPercent, StatusInProgress, DownloadStatusKeyInProgress);
                     var cts = controller.Cts;
                     _ = Task.Run(async () => await controller.RestartAction(cts.Token));
                     break;
@@ -470,7 +500,7 @@ namespace YTDownloader
                 title,                                                      // colTitle
                 mediaType,                                          // colMediaType
                 0.0,                                                       // colProgress（double，ProgressBarCell 讀取）
-                "等待中",                                              // colStatus
+                StatusWaiting,                                         // colStatus
                 "暫停",                                                 // colAction 按鈕文字
                 "取消",                                                 // colCancel 按鈕文字
                 taskId                                                  // colTaskId（隱藏）
@@ -482,15 +512,22 @@ namespace YTDownloader
         /// 更新指定任務的進度條與狀態欄位，並同步更新控制器的 LastPercent。
         /// 執行緒安全（可從非 UI 執行緒呼叫）。
         /// </summary>
-        public void UpdateDownloadProgress(long taskId, double percent, string status)
+        public void UpdateDownloadProgress(long taskId, double percent, string status, string? statusName = null)
         {
+            UpdateDownloadProgressInDatabase(taskId, percent, status, statusName);
+
             // 如果不是在 UI 執行緒，使用 Invoke 切換到 UI 執行緒執行，確保 DataGridView 操作安全。
             if (dGV_DownloadList.InvokeRequired)
             {
-                dGV_DownloadList.Invoke(new Action(() => UpdateDownloadProgress(taskId, percent, status)));
+                dGV_DownloadList.Invoke(new Action(() => UpdateDownloadProgressInGrid(taskId, percent, status)));
                 return;
             }
 
+            UpdateDownloadProgressInGrid(taskId, percent, status);
+        }
+
+        private void UpdateDownloadProgressInGrid(long taskId, double percent, string status)
+        {
             var row = FindRowByTaskId(taskId);
             if (row == null) return;
 
@@ -502,14 +539,52 @@ namespace YTDownloader
                 ctrl.LastPercent = percent;
 
             // 依狀態設定列底色
-            row.DefaultCellStyle.BackColor = status switch
+            row.DefaultCellStyle.BackColor = GetStatusBackColor(status);
+        }
+
+        private Color GetStatusBackColor(string status)
+        {
+            if (status == StatusComplete)
+                return Color.FromArgb(200, 240, 200);
+            if (status.StartsWith(StatusFail, StringComparison.Ordinal))
+                return Color.FromArgb(255, 200, 200);
+            if (status == StatusInProgress)
+                return Color.FromArgb(230, 240, 255);
+            if (status == StatusPause)
+                return Color.FromArgb(255, 248, 220);
+
+            return dGV_DownloadList.DefaultCellStyle.BackColor;
+        }
+
+        private void UpdateDownloadProgressInDatabase(long taskId, double percent, string status, string? statusName)
+        {
+            try
             {
-                "完成" => Color.FromArgb(200, 240, 200),   // 淡綠
-                "失敗" => Color.FromArgb(255, 200, 200),   // 淡紅
-                "下載中" => Color.FromArgb(230, 240, 255),   // 淡藍
-                "已暫停" => Color.FromArgb(255, 248, 220),   // 淡黃
-                _ => dGV_DownloadList.DefaultCellStyle.BackColor
-            };
+                var progress = Math.Clamp((int)Math.Round(percent, MidpointRounding.AwayFromZero), 0, 100);
+                var databaseStatus = statusName ?? ResolveDownloadStatusName(status);
+                DateTime? completeDateTime = databaseStatus == DownloadStatusKeyComplete ? DateTime.UtcNow : null;
+                DBTool.UpdateDownloadProgress(taskId, progress, databaseStatus, completeDateTime);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "更新 DownloadHistory 進度失敗。TaskID: {TaskID}, Progress: {Progress}, Status: {Status}", taskId, percent, status);
+            }
+        }
+
+        private string ResolveDownloadStatusName(string status)
+        {
+            if (status == StatusComplete)
+                return DownloadStatusKeyComplete;
+            if (status.StartsWith(StatusFail, StringComparison.Ordinal))
+                return DownloadStatusKeyFail;
+            if (status == StatusInProgress)
+                return DownloadStatusKeyInProgress;
+            if (status == StatusPause)
+                return DownloadStatusKeyPause;
+            if (status == StatusWaiting)
+                return DownloadStatusKeyWaiting;
+
+            return status;
         }
 
         /// <summary>
@@ -760,7 +835,7 @@ namespace YTDownloader
             {
                 // 建立 UI 下載項目時取號，讓 controller 與 DownloadHistory 共用同一組任務編號
                 long taskId = AddDownloadItem(req.Title, req.MediaTypeDisplay);
-                DBTool.InsertDownloadHistory(CreateDownloadHistory(taskId, req, "等待中", "0"));
+                DBTool.InsertDownloadHistory(CreateDownloadHistory(taskId, req, DownloadStatusKeyWaiting, "0"));
 
                 // 捕捉區域變數，避免 closure 捕捉迴圈變數
                 var capturedReq = req;
@@ -768,7 +843,7 @@ namespace YTDownloader
 
                 Func<CancellationToken, Task> downloadAction = async (ct) =>
                 {
-                    UpdateDownloadProgress(taskId, 0, "下載中");
+                    UpdateDownloadProgress(taskId, 0, StatusInProgress, DownloadStatusKeyInProgress);
 
                     DownloadResult result = capturedReq.MediaType switch
                     {
@@ -776,14 +851,14 @@ namespace YTDownloader
                             url:               capturedReq.WebpageUrl,
                             outputFolder:      capturedReq.DownloadDir,
                             knownTitle:        capturedReq.Title,
-                            onProgress:        pct => UpdateDownloadProgress(taskId, pct, "下載中"),
+                            onProgress:        pct => UpdateDownloadProgress(taskId, pct, StatusInProgress, DownloadStatusKeyInProgress),
                             cancellationToken: ct),
 
                         MediaType.Video => await svc.DownloadVideoAsync(
                             url:               capturedReq.WebpageUrl,
                             outputFolder:      capturedReq.DownloadDir,
                             knownTitle:        capturedReq.Title,
-                            onProgress:        pct => UpdateDownloadProgress(taskId, pct, "下載中"),
+                            onProgress:        pct => UpdateDownloadProgress(taskId, pct, StatusInProgress, DownloadStatusKeyInProgress),
                             cancellationToken: ct),
 
                         _ => throw new NotSupportedException(
@@ -795,7 +870,7 @@ namespace YTDownloader
 
                     if (result.IsSuccess)
                     {
-                        UpdateDownloadProgress(taskId, 100, "完成");
+                        UpdateDownloadProgress(taskId, 100, StatusComplete, DownloadStatusKeyComplete);
                         SetActionButton(taskId, "—");
                         // 音訊下載完成後，清除 yt-dlp/ffmpeg 未自動刪除的中間影片串流暫存檔
                         if (capturedReq.MediaType == MediaType.Audio)
@@ -808,7 +883,7 @@ namespace YTDownloader
                             .Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)
                             .FirstOrDefault() ?? "未知錯誤";
 
-                        UpdateDownloadProgress(taskId, 0, $"失敗：{firstLine}");
+                        UpdateDownloadProgress(taskId, 0, $"{StatusFail}：{firstLine}", DownloadStatusKeyFail);
                         SetActionButton(taskId, "重試");
                         SetStatusTooltip(taskId, result.Message ?? "未知錯誤");
                         logger.LogError("下載失敗 [{Title}]：{Message}", capturedReq.Title, result.Message);
