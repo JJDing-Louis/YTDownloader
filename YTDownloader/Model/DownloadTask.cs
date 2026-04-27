@@ -24,10 +24,10 @@ namespace YTDownloader.Model
         public string? RID { get; set; }
 
         /// <summary>完成時間（ISO 8601 UTC 格式）。</summary>
-        public string? CompleteDateTime { get; set; }
+        public DateTime? CompleteDateTime { get; set; }
 
         /// <summary>開始下載時間（ISO 8601 UTC 格式）。</summary>
-        public string? DownloadDateTime { get; set; }
+        public DateTime? DownloadDateTime { get; set; }
 
         /// <summary>下載輸出路徑。</summary>
         public string? Path { get; set; }
