@@ -10,21 +10,52 @@ namespace YTDownloaderTest.ToolTest
 {
     public class DBToolTest
     {
+        private string? originalCurrentDirectory;
+        private string? originalEnvironment;
+
+        [SetUp]
+        public void Setup()
+        {
+            originalCurrentDirectory = Environment.CurrentDirectory;
+            originalEnvironment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
+
+            var testDirectory = TestContext.CurrentContext.TestDirectory;
+            var seedDatabasePath = Path.GetFullPath(Path.Combine(testDirectory, "..", "..", "..", "JJNET.db"));
+            var testDatabasePath = Path.Combine(testDirectory, "JJNET.db");
+
+            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+            File.Copy(seedDatabasePath, testDatabasePath, overwrite: true);
+
+            Environment.SetEnvironmentVariable("ASPNETCORE_ENVIRONMENT", "YTDownloaderTest");
+            Environment.CurrentDirectory = testDirectory;
+        }
+
+        [TearDown]
+        public void TearDown()
+        {
+            if (originalCurrentDirectory != null)
+                Environment.CurrentDirectory = originalCurrentDirectory;
+
+            Environment.SetEnvironmentVariable("ASPNETCORE_ENVIRONMENT", originalEnvironment);
+        }
+
         [Test]
         public void UpsertDownloadHistoryTest()
         {
             var downloadHistory = new YTDownloader.Model.DownloadHistory
             {
-                ID = 1,
+                TaskID = 1,
+                Title = "test",
                 FileName = "test.mp4",
+                RID = "test-rid",
                 Type = "Video",
                 URL = "https://example.com/video",
                 CompleteDateTime = DateTime.UtcNow,
                 DownloadDateTime = DateTime.UtcNow,
                 Path = "/path/to/test.mp4",
-                Result = "Success"
+                Status = "Success"
             };
-            YTDownloader.Tool.DBTool.UpsertDownloadHistory(downloadHistory);
+            YTDownloader.Tool.DBTool.InsertDownloadHistory(downloadHistory);
             // 這裡可以加入查詢資料庫的程式碼來驗證資料是否正確插入或更新
             
             //驗證
@@ -34,28 +65,12 @@ namespace YTDownloaderTest.ToolTest
                              SELECT 
                                  * 
                              FROM DownloadHistory
-                             WHERE ID = 1
+                             WHERE TaskID = 1
                              """;
                 var result =  conn.QueryFirstOrDefault<YTDownloader.Model.DownloadHistory>(sqlcmd);
                 Assert.That(result, Is.Not.Null);
             }
         }
-
-        [Test]
-        public void UpsertDownloadTaskTest()
-        {
-            var downloadTask = new YTDownloader.Model.DownloadTask
-            {
-                ID = 1,
-                URL = "https://example.com/video",
-                Type = "Video",
-                Status = "Pending",
-                DownloadDateTime = DateTime.UtcNow,
-                CompleteDateTime = DateTime.UtcNow
-            };
-            YTDownloader.Tool.DBTool.UpsertDownloadTask(downloadTask);
-            // 這裡可以加入查詢資料庫的程式碼來驗證資料是否正確插入或更新
-
-        }
+        
     }
 }

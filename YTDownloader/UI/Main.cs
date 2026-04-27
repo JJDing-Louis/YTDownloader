@@ -1,4 +1,5 @@
 using Autofac;
+using JJNET.Utility.Tools;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using System.Diagnostics;
@@ -6,6 +7,7 @@ using YTDownloader.Controller;
 using YTDownloader.Init;
 using YTDownloader.Model;
 using YTDownloader.Service;
+using YTDownloader.Tool;
 using YTDownloader.UI.CustomUI;
 
 namespace YTDownloader
@@ -21,10 +23,7 @@ namespace YTDownloader
         private string ffmpegPath;
 
         /// <summary>以 Task ID 為 Key，記錄每筆下載任務的控制器。</summary>
-        private readonly Dictionary<int, DownloadTaskController> _downloadControllers = new();
-
-        /// <summary>自動遞增的任務 ID，確保行刪除後 Key 不衝突。</summary>
-        private int _nextTaskId = 0;
+        private readonly Dictionary<long, DownloadTaskController> _downloadControllers = new();
 
         /// <summary>跨批次共用的並發信號量，最多同時執行 3 個下載。</summary>
         private readonly SemaphoreSlim _downloadSemaphore = new(3, 3);
@@ -358,10 +357,12 @@ namespace YTDownloader
 
             // 取得此列的 Task ID（TextBox 儲存格可能回傳 int 或 string）
             var taskIdCell = row.Cells["colTaskId"].Value;
-            int taskId;
-            if (taskIdCell is int directId)
+            long taskId;
+            if (taskIdCell is long directLongId)
+                taskId = directLongId;
+            else if (taskIdCell is int directId)
                 taskId = directId;
-            else if (taskIdCell is string s && int.TryParse(s, out int parsedId))
+            else if (taskIdCell is string s && long.TryParse(s, out long parsedId))
                 taskId = parsedId;
             else
                 return;
@@ -419,14 +420,15 @@ namespace YTDownloader
         /// <summary>
         /// 依 Task ID 找出對應的 DataGridView 列（列刪除後仍穩定）。
         /// </summary>
-        private DataGridViewRow? FindRowByTaskId(int taskId)
+        private DataGridViewRow? FindRowByTaskId(long taskId)
         {
             foreach (DataGridViewRow row in dGV_DownloadList.Rows)
             {
                 var cellVal = row.Cells["colTaskId"].Value;
                 // DataGridViewTextBoxColumn 可能以 int 或 string 儲存
+                if (cellVal is long lid && lid == taskId) return row;
                 if (cellVal is int id && id == taskId) return row;
-                if (cellVal is string s && int.TryParse(s, out int sid) && sid == taskId) return row;
+                if (cellVal is string s && long.TryParse(s, out long sid) && sid == taskId) return row;
             }
             return null;
         }
@@ -456,13 +458,13 @@ namespace YTDownloader
         /// 新增一筆下載項目至清單，回傳穩定的 Task ID（不受列刪除影響）。
         /// 執行緒安全（可從非 UI 執行緒呼叫）。
         /// </summary>
-        public int AddDownloadItem(string title, string mediaType)
+        public long AddDownloadItem(string title, string mediaType)
         {
             // 如果不是在 UI 執行緒，使用 Invoke 切換到 UI 執行緒執行，確保 DataGridView 操作安全。
             if (dGV_DownloadList.InvokeRequired)
-                return (int)dGV_DownloadList.Invoke(new Func<int>(() => AddDownloadItem(title, mediaType)));
+                return (long)dGV_DownloadList.Invoke(new Func<long>(() => AddDownloadItem(title, mediaType)));
 
-            int taskId = _nextTaskId++;
+            long taskId = CreateTaskId();
             dGV_DownloadList.Rows.Add(
                 dGV_DownloadList.Rows.Count + 1,  // colIndex
                 title,                                                      // colTitle
@@ -480,7 +482,7 @@ namespace YTDownloader
         /// 更新指定任務的進度條與狀態欄位，並同步更新控制器的 LastPercent。
         /// 執行緒安全（可從非 UI 執行緒呼叫）。
         /// </summary>
-        public void UpdateDownloadProgress(int taskId, double percent, string status)
+        public void UpdateDownloadProgress(long taskId, double percent, string status)
         {
             // 如果不是在 UI 執行緒，使用 Invoke 切換到 UI 執行緒執行，確保 DataGridView 操作安全。
             if (dGV_DownloadList.InvokeRequired)
@@ -513,7 +515,7 @@ namespace YTDownloader
         /// <summary>
         /// 向 Main 登錄一筆下載任務的控制器（含重啟 Action），回傳可操控該任務的 controller。
         /// </summary>
-        public DownloadTaskController RegisterDownload(int taskId, Func<CancellationToken, Task> restartAction)
+        public DownloadTaskController RegisterDownload(long taskId, Func<CancellationToken, Task> restartAction)
         {
             var controller = new DownloadTaskController { RestartAction = restartAction };
             _downloadControllers[taskId] = controller;
@@ -523,7 +525,7 @@ namespace YTDownloader
         /// <summary>
         /// 設定指定任務的操作按鈕文字。執行緒安全（可從非 UI 執行緒呼叫）。
         /// </summary>
-        public void SetActionButton(int taskId, string text)
+        public void SetActionButton(long taskId, string text)
         {
             if (dGV_DownloadList.InvokeRequired)
             {
@@ -540,7 +542,7 @@ namespace YTDownloader
         /// 將錯誤訊息設為狀態欄的 ToolTip，讓使用者滑鼠停留時可看到失敗原因。
         /// 執行緒安全（可從非 UI 執行緒呼叫）。
         /// </summary>
-        private void SetStatusTooltip(int taskId, string message)
+        private void SetStatusTooltip(long taskId, string message)
         {
             if (dGV_DownloadList.InvokeRequired)
             {
@@ -713,6 +715,33 @@ namespace YTDownloader
                     deletedCount, req.Title);
         }
 
+        private static long CreateTaskId()
+        {
+            return new IDGenerator().GetID("TaskID", "任務編號");
+        }
+
+        private static DownloadHistory CreateDownloadHistory(
+            long taskId,
+            DownloadRequest req,
+            string status,
+            string? progress = null,
+            DateTime? completeDateTime = null)
+        {
+            return new DownloadHistory
+            {
+                TaskID = taskId,
+                URL = req.WebpageUrl,
+                Status = status,
+                Title = req.Title,
+                FileName = req.Title,
+                Path = req.DownloadDir,
+                Progress = progress,
+                Type = req.MediaType.ToString(),
+                DownloadDateTime = DateTime.UtcNow,
+                CompleteDateTime = completeDateTime
+            };
+        }
+
         /// <summary>
         /// 接收來自 PlaylistHandler（或其他來源）的下載請求，
         /// 加入清單並立即以背景工作排入佇列執行。
@@ -729,8 +758,9 @@ namespace YTDownloader
 
             foreach (var req in requests)
             {
-                // 先在 UI 清單加入一列，取得穩定 taskId
-                int taskId = AddDownloadItem(req.Title, req.MediaTypeDisplay);
+                // 建立 UI 下載項目時取號，讓 controller 與 DownloadHistory 共用同一組任務編號
+                long taskId = AddDownloadItem(req.Title, req.MediaTypeDisplay);
+                DBTool.InsertDownloadHistory(CreateDownloadHistory(taskId, req, "等待中", "0"));
 
                 // 捕捉區域變數，避免 closure 捕捉迴圈變數
                 var capturedReq = req;

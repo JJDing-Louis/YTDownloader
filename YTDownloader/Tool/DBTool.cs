@@ -40,19 +40,27 @@ namespace YTDownloader.Tool
             }
         }
 
-        public static void UpsertDownloadHistory(DownloadHistory downloadHistory)
+        public static void InsertDownloadHistory(DownloadHistory downloadHistory)
         {
             using (var conn = ConnectionTool.GetConnection())
             {
                 conn.InsertOrUpdate("DownloadHistory",downloadHistory);
             }
         }
-
-        public static void UpsertDownloadTask(DownloadTask downloadTask)
+        
+        public static void UpdateDownloadProgress(long TaskID,int Progress,string Status,DateTime? CompleteDateTime=null)
         {
             using (var conn = ConnectionTool.GetConnection())
             {
-                conn.InsertOrUpdate("DownloadTask", downloadTask);
+                var sqlcmd = """
+                                     UPDATE DownloadHistory
+                                     SET Progress = @Progress, 
+                                         Status = @Status, 
+                                         CompleteDateTime = @CompleteDateTime
+                                     WHERE TaskID = @TaskID
+                                     """;
+                var param = new { Progress, Status, CompleteDateTime, TaskID };
+                DapperSqlMapperExt.Execute(conn, sqlcmd, param);
             }
         }
     }
