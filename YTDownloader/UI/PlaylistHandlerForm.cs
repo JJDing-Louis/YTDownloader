@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using YTDownloader.Init;
 using YTDownloader.Model;
 using YTDownloader.Service;
+using YTDownloader.Tool;
 
 namespace YTDownloader
 {
@@ -23,7 +24,9 @@ namespace YTDownloader
 
         public PlaylistHandlerForm()
         {
+            GUITool.ApplyStartupFontFromConfig(this);
             InitializeComponent();
+            GUITool.ApplyFromConfig(this);
             logger.LogInformation("PlaylistHandlerForm form initialized.");
 
         }

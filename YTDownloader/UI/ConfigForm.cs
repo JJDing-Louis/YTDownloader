@@ -1,6 +1,7 @@
 using System.Drawing;
 using YTDownloader.Model;
 using YTDownloader.Service;
+using YTDownloader.Tool;
 
 namespace YTDownloader.UI
 {
@@ -38,9 +39,12 @@ namespace YTDownloader.UI
         public ConfigForm(ConfigSettingService configSettingService)
         {
             _configSettingService = configSettingService;
+            _settings = _configSettingService.Init();
+            GUITool.ApplyStartupFont(this, _settings);
             InitializeComponent();
             BuildLayout();
             LoadSettings();
+            GUITool.Apply(this, _settings);
         }
 
         private void BuildLayout()
@@ -62,7 +66,7 @@ namespace YTDownloader.UI
             root.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 160));
             root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
+            root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 
             _categoryList.Dock = DockStyle.Fill;
             _categoryList.IntegralHeight = false;
@@ -75,18 +79,25 @@ namespace YTDownloader.UI
             var buttonPanel = new FlowLayoutPanel
             {
                 Dock = DockStyle.Fill,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
                 FlowDirection = FlowDirection.RightToLeft,
                 WrapContents = false,
+                MinimumSize = new Size(0, Math.Max(58, Font.Height + 30)),
                 Padding = new Padding(0, 8, 0, 0)
             };
 
-            var saveButton = new Button { Text = "儲存並關閉", AutoSize = true };
+            var saveButton = CreateFooterButton("儲存並關閉");
             saveButton.Click += (_, _) => SaveAndClose();
 
-            var cancelButton = new Button { Text = "取消", AutoSize = true };
+            var applyButton = CreateFooterButton("套用");
+            applyButton.Click += (_, _) => ApplySettings();
+
+            var cancelButton = CreateFooterButton("取消");
             cancelButton.Click += (_, _) => Close();
 
             buttonPanel.Controls.Add(saveButton);
+            buttonPanel.Controls.Add(applyButton);
             buttonPanel.Controls.Add(cancelButton);
 
             BuildGeneralPanel();
@@ -109,6 +120,18 @@ namespace YTDownloader.UI
 
             _categoryList.SelectedIndex = 0;
             ResumeLayout(false);
+        }
+
+        private Button CreateFooterButton(string text)
+        {
+            return new Button
+            {
+                Text = text,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                MinimumSize = new Size(88, Math.Max(32, Font.Height + 14)),
+                Margin = new Padding(8, 0, 0, 0)
+            };
         }
 
         private void BuildGeneralPanel()
@@ -374,8 +397,26 @@ namespace YTDownloader.UI
 
         private void SaveAndClose()
         {
-            if (!TryValidateInputs())
+            if (!SaveCurrentSettings())
                 return;
+
+            DialogResult = DialogResult.OK;
+            Close();
+        }
+
+        private void ApplySettings()
+        {
+            if (!SaveCurrentSettings())
+                return;
+
+            foreach (Form form in Application.OpenForms)
+                GUITool.Apply(form, _settings);
+        }
+
+        private bool SaveCurrentSettings()
+        {
+            if (!TryValidateInputs())
+                return false;
 
             _settings.Appearance.IsDarkMode = _isDarkModeCheckBox.Checked;
             _settings.Appearance.BackColor = NormalizeColorText(_backColorTextBox.Text);
@@ -390,8 +431,7 @@ namespace YTDownloader.UI
             _settings.General.Language = _languageComboBox.SelectedItem?.ToString() ?? "zh-TW";
 
             _configSettingService.Save(_settings);
-            DialogResult = DialogResult.OK;
-            Close();
+            return true;
         }
 
         private bool TryValidateInputs()

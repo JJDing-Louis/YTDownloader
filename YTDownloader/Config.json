@@ -1,0 +1,19 @@
+{
+  "general": {
+    "language": "zh-TW"
+  },
+  "appearance": {
+    "isDarkMode": false,
+    "backColor": "#F0F0F0",
+    "backGroundImage": "",
+    "font": "",
+    "fontSize": 12
+  },
+  "thread": {
+    "initialCount": 3,
+    "maxCount": 3
+  },
+  "save": {
+    "downloadPath": "Download"
+  }
+}

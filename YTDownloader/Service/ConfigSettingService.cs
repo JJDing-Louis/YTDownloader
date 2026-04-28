@@ -14,7 +14,7 @@ public sealed class ConfigSettingService
     public ConfigSettingService(string? filePath = null)
     {
         _filePath = string.IsNullOrWhiteSpace(filePath)
-            ? Path.Combine(Environment.CurrentDirectory, "Config.json")
+            ? Path.Combine(AppContext.BaseDirectory, "Config.json")
             : filePath;
     }
 

@@ -7,6 +7,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using YTDownloader.Tool;
 
 namespace YTDownloader
 {
@@ -14,7 +15,9 @@ namespace YTDownloader
     {
         public DownloadHistoryForm()
         {
+            GUITool.ApplyStartupFontFromConfig(this);
             InitializeComponent();
+            GUITool.ApplyFromConfig(this);
         }
         
         public DownloadHistoryForm(MainForm main) : this()

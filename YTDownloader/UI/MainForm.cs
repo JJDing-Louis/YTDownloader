@@ -22,6 +22,7 @@ namespace YTDownloader
         private string DownloadFolder;
         private string ytDlpPath;
         private string ffmpegPath;
+        private ConfigModel _settings;
 
         private const string OptionListMediaType = "ListMediaType";
         private const string OptionListDownloadStatus = "ListDownloadStatus";
@@ -29,8 +30,8 @@ namespace YTDownloader
         /// <summary>以 Task ID 為 Key，記錄每筆下載任務的控制器。</summary>
         private readonly Dictionary<long, DownloadTaskController> _downloadControllers = new();
 
-        /// <summary>跨批次共用的並發信號量，最多同時執行 3 個下載。</summary>
-        private readonly SemaphoreSlim _downloadSemaphore = new(3, 3);
+        /// <summary>跨批次共用的並發信號量，最大同時下載數由 Config.json 控制。</summary>
+        private readonly SemaphoreSlim _downloadSemaphore;
 
         /// <summary>共用的下載服務實例（延遲建立，確保 ytDlpPath / ffmpegPath 已讀取完畢）。</summary>
         private YtDlpDownloadService? _downloadService;
@@ -41,9 +42,19 @@ namespace YTDownloader
         private DownloadHistoryForm _downloadHistoryForm;
         private ConfigForm? _configForm;
 
-        public MainForm()
+        public MainForm() : this(new ConfigSettingService().Init())
         {
+        }
+
+        public MainForm(ConfigModel settings)
+        {
+            _settings = settings;
+            _downloadSemaphore = CreateDownloadSemaphore(_settings);
+
+            GUITool.ApplyStartupFont(this, _settings);
             InitializeComponent();
+            LockWindowSize();
+            ApplyStartupSettings();
             logger.LogInformation("MainForm form initialized.");
             Init();
 
@@ -61,6 +72,35 @@ namespace YTDownloader
         private void InitUI()
         {
             InitDataGridView();
+        }
+
+        private void LockWindowSize()
+        {
+            FormBorderStyle = FormBorderStyle.FixedSingle;
+            MaximizeBox = false;
+            MinimumSize = Size;
+            MaximumSize = Size;
+        }
+
+        private void ApplyStartupSettings()
+        {
+            GUITool.Apply(this, _settings);
+            ApplyDownloadFolderSetting(_settings.Save);
+        }
+
+        private static SemaphoreSlim CreateDownloadSemaphore(ConfigModel settings)
+        {
+            var maxCount = Math.Clamp(settings.Thread.MaxCount, 1, 32);
+            return new SemaphoreSlim(maxCount, maxCount);
+        }
+
+        private void ApplyDownloadFolderSetting(SaveConfigModel save)
+        {
+            if (string.IsNullOrWhiteSpace(save.DownloadPath))
+                return;
+
+            DownloadFolder = GUITool.ResolveAppPath(save.DownloadPath.Trim());
+            Directory.CreateDirectory(DownloadFolder);
         }
 
         private void InitDataGridView()
@@ -213,7 +253,11 @@ namespace YTDownloader
                 }
             }
 
-            if (string.IsNullOrWhiteSpace(downloadFolder))
+            if (!string.IsNullOrWhiteSpace(DownloadFolder))
+            {
+                logger.LogInformation("Download folder loaded from Config.json: {Path}", DownloadFolder);
+            }
+            else if (string.IsNullOrWhiteSpace(downloadFolder))
             {
                 logger.LogError("downloadFolder path is not configured (Path:DownLoadDir or Path:ffmpegPath).");
                 MessageBox.Show("DownLoadDir 路徑未在設定中指定。", "配置錯誤", MessageBoxButtons.OK, MessageBoxIcon.Error);
@@ -386,8 +430,7 @@ namespace YTDownloader
 
         private void btn_OpenDownloadForder_Click(object sender, EventArgs e)
         {
-            var DownLoadForderPath = Path.Combine(Environment.CurrentDirectory, DownloadFolder);
-            Process.Start("explorer.exe", DownLoadForderPath);
+            Process.Start("explorer.exe", DownloadFolder);
         }
 
         /// <summary>
@@ -993,6 +1036,11 @@ namespace YTDownloader
 
             _configForm = new ConfigForm();
             _configForm.Location = new Point(700, 0);
+            _configForm.FormClosed += (_, _) =>
+            {
+                _settings = new ConfigSettingService().Init();
+                ApplyStartupSettings();
+            };
             _configForm.Disposed += (_, _) => _configForm = null;
             _configForm.Show(this);
         }
