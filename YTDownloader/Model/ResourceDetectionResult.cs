@@ -1,22 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace YTDownloader.Model
+﻿namespace YTDownloader.Model
 {
-
-    /// <summary>
-    /// 資源類型
-    /// </summary>
-    public enum UrlResourceType
-    {
-        Unknown = 0,
-        SingleVideo = 1,
-        Playlist = 2
-    }
-
+    
     /// <summary>
     /// 類型判斷結果
     /// </summary>
