@@ -12,11 +12,12 @@ namespace YTDownloader.Init
 
         public Dictionary<string, List<KeyValuePair<string, string>>> GetOptions()
         {
-            var options = new Dictionary<string, List<KeyValuePair<string, string>>>();
-            options.Add("ListMediaType", GetListMediaType());
-            options.Add("ListSourceType", GetListSourceType());
-            options.Add("ListDownloadStatus", GetListDownloadStatus());
-            return options;
+            return new Dictionary<string, List<KeyValuePair<string, string>>>
+            {
+                ["ListMediaType"] = GetListMediaType(),
+                ["ListSourceType"] = GetListSourceType(),
+                ["ListDownloadStatus"] = GetListDownloadStatus()
+            };
         }
 
         public IConfiguration GetConfig()
@@ -25,52 +26,22 @@ namespace YTDownloader.Init
             return config;
         }
 
-
         public List<KeyValuePair<string, string>> GetListMediaType()
         {
-            var options = new List<KeyValuePair<string, string>>();
-            using (var con = ConnectionTool.GetConnection())
-            {
-                var cmd = con.CreateCommand();
-                cmd.CommandText = """
-                    SELECT
-                        *
-                    FROM ListMediaType
-                    """;
-                using (var reader = cmd.ExecuteReader())
-                {
-                    while (reader.Read())
-                    {
-                        options.Add(new KeyValuePair<string, string>(reader["Desc"].ToString()!, reader["Name"].ToString()!));
-                    }
-                }
-            }
-            return options;
+            return GetListOptions("ListMediaType");
         }
 
         public List<KeyValuePair<string, string>> GetListSourceType()
         {
-            var options = new List<KeyValuePair<string, string>>();
-            using (var con = ConnectionTool.GetConnection())
-            {
-                var cmd = con.CreateCommand();
-                cmd.CommandText = """
-                    SELECT
-                        *
-                    FROM ListSourceType
-                    """;
-                using (var reader = cmd.ExecuteReader())
-                {
-                    while (reader.Read())
-                    {
-                        options.Add(new KeyValuePair<string, string>(reader["Desc"].ToString()!, reader["Name"].ToString()!));
-                    }
-                }
-            }
-            return options;
+            return GetListOptions("ListSourceType");
         }
 
         public List<KeyValuePair<string, string>> GetListDownloadStatus()
+        {
+            return GetListOptions("ListDownloadStatus", ignoreMissingTable: true);
+        }
+
+        private static List<KeyValuePair<string, string>> GetListOptions(string tableName, bool ignoreMissingTable = false)
         {
             var options = new List<KeyValuePair<string, string>>();
             try
@@ -78,10 +49,11 @@ namespace YTDownloader.Init
                 using (var con = ConnectionTool.GetConnection())
                 {
                     var cmd = con.CreateCommand();
-                    cmd.CommandText = """
+                    cmd.CommandText = $"""
                         SELECT
-                            *
-                        FROM ListDownloadStatus
+                            Name,
+                            Desc
+                        FROM {tableName}
                         """;
                     using (var reader = cmd.ExecuteReader())
                     {
@@ -94,7 +66,8 @@ namespace YTDownloader.Init
             }
             catch
             {
-                // 外部配置表缺漏時回傳空集合，Main 會使用內建 fallback 狀態。
+                if (!ignoreMissingTable)
+                    throw;
             }
             return options;
         }

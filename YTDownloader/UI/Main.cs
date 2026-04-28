@@ -16,18 +16,23 @@ namespace YTDownloader
     {
         private ILogger logger = Program.Startup.Container.Resolve<ILogger<Main>>();
         private IInitializationService initializationService = Program.Startup.Container.Resolve<MainInitializationService>();
-        private Dictionary<string, List<KeyValuePair<string, string>>> options;
         private IConfiguration config;
+        private Dictionary<string, List<KeyValuePair<string, string>>> options;
         private string DownloadFolder;
         private string ytDlpPath;
         private string ffmpegPath;
-        private readonly Dictionary<string, string> downloadStatuses = new(StringComparer.OrdinalIgnoreCase);
 
-        private const string DownloadStatusKeyComplete = "Complete";
-        private const string DownloadStatusKeyFail = "Fail";
-        private const string DownloadStatusKeyInProgress = "InProgress";
-        private const string DownloadStatusKeyPause = "Pause";
-        private const string DownloadStatusKeyWaiting = "Waiting";
+        private const string OptionListMediaType = "ListMediaType";
+        private const string OptionListDownloadStatus = "ListDownloadStatus";
+
+        private enum DownloadStatus
+        {
+            Complete,
+            Fail,
+            InProgress,
+            Pause,
+            Waiting
+        }
 
         /// <summary>以 Task ID 為 Key，記錄每筆下載任務的控制器。</summary>
         private readonly Dictionary<long, DownloadTaskController> _downloadControllers = new();
@@ -45,40 +50,16 @@ namespace YTDownloader
             InitializeComponent();
             logger.LogInformation("Main form initialized.");
             Init();
-            InitUI();
+
         }
-
-        #region MediaType helpers
-
-        /// <summary>
-        /// 將設定字串（來自 ComboBox Value）轉換為 MediaType enum。
-        /// 新增媒體類型時，在這裡加一個 case 即可。
-        /// </summary>
-        private static MediaType ParseMediaType(string value) => value switch
-        {
-            "Audio" => MediaType.Audio,
-            "Video" => MediaType.Video,
-            _       => throw new NotSupportedException($"未知的媒體類型值：{value}")
-        };
-
-        /// <summary>
-        /// 取得 MediaType 對應的中文顯示名稱（用於 UI 清單的「類型」欄）。
-        /// </summary>
-        private static string GetMediaTypeDisplay(MediaType mediaType) => mediaType switch
-        {
-            MediaType.Audio => "音訊",
-            MediaType.Video => "視訊",
-            _               => mediaType.ToString()
-        };
-
-        #endregion
-
+        
         #region Init
 
         private void Init()
         {
             InitConfig();
             InitOptions();
+            InitUI();
         }
 
         private void InitUI()
@@ -180,8 +161,7 @@ namespace YTDownloader
             try
             {
                 options = initializationService.GetOptions();
-                BindComboBox(cB_ListMediaType, options, "ListMediaType");
-                InitDownloadStatuses(options);
+                BindComboBox(cB_ListMediaType, OptionListMediaType);
             }
             catch (Exception ex)
             {
@@ -253,9 +233,10 @@ namespace YTDownloader
             }
         }
 
-        private void BindComboBox(ComboBox comboBox, Dictionary<string, List<KeyValuePair<string, string>>> options, string key)
+        private void BindComboBox(ComboBox comboBox, string key)
         {
-            if (!options.TryGetValue(key, out var items) || items == null || items.Count == 0)
+            var items = GetOptions(key);
+            if (items.Count == 0)
             {
                 logger.LogWarning("Options key '{Key}' is missing or empty.", key);
                 return;
@@ -266,30 +247,60 @@ namespace YTDownloader
             if (comboBox.Items.Count > 0) { comboBox.SelectedIndex = 0; }
         }
 
-        private void InitDownloadStatuses(Dictionary<string, List<KeyValuePair<string, string>>> options)
-        {
-            downloadStatuses.Clear();
-            if (!options.TryGetValue("ListDownloadStatus", out var items) || items == null)
-                return;
-
-            foreach (var item in items)
-                downloadStatuses[item.Value] = item.Key;
-        }
-
-        private string GetDownloadStatus(string name, string fallback)
-        {
-            return downloadStatuses.TryGetValue(name, out var status) && !string.IsNullOrWhiteSpace(status)
-                ? status
-                : fallback;
-        }
-
-        private string StatusComplete => GetDownloadStatus(DownloadStatusKeyComplete, "完成");
-        private string StatusFail => GetDownloadStatus(DownloadStatusKeyFail, "失敗");
-        private string StatusInProgress => GetDownloadStatus(DownloadStatusKeyInProgress, "下載中");
-        private string StatusPause => GetDownloadStatus(DownloadStatusKeyPause, "已暫停");
-        private string StatusWaiting => GetDownloadStatus(DownloadStatusKeyWaiting, "等待中");
-
         #endregion Init
+
+        #region Option helpers
+
+        /// <summary>
+        /// 取得指定外部選單的全部項目。Key 為 Desc（顯示文字），Value 為 Name（資料庫值）。
+        /// </summary>
+        private IReadOnlyList<KeyValuePair<string, string>> GetOptions(string listName)
+        {
+            return options != null && options.TryGetValue(listName, out var items) && items != null
+                ? items
+                : Array.Empty<KeyValuePair<string, string>>();
+        }
+
+        /// <summary>
+        /// 依 Name（資料庫值）取得 Desc（顯示文字）。
+        /// </summary>
+        private string GetOptionDesc(string listName, string name)
+        {
+            var desc = GetOptions(listName)
+                .FirstOrDefault(item => item.Value == name)
+                .Key;
+
+            return string.IsNullOrWhiteSpace(desc) ? name : desc;
+        }
+
+        /// <summary>
+        /// 依 Desc（顯示文字）取得 Name（資料庫值）。
+        /// </summary>
+        private string GetOptionName(string listName, string desc)
+        {
+            var name = GetOptions(listName)
+                .FirstOrDefault(item => item.Key == desc)
+                .Value;
+
+            return string.IsNullOrWhiteSpace(name) ? desc : name;
+        }
+
+        private static string GetSelectedOptionName(ComboBox comboBox)
+        {
+            return comboBox.SelectedItem is KeyValuePair<string, string> kv
+                ? kv.Value
+                : string.Empty;
+        }
+
+        private static string GetSelectedOptionDesc(ComboBox comboBox)
+        {
+            return comboBox.SelectedItem is KeyValuePair<string, string> kv
+                ? kv.Key
+                : string.Empty;
+        }
+
+        #endregion
+
 
         #region UI Functions
 
@@ -297,7 +308,6 @@ namespace YTDownloader
         {
             try
             {
-                var SelectedMediaType = ((KeyValuePair<string, string>)cB_ListMediaType.SelectedItem).Value;
                 var URL = tB_URL.Text;
                 if (string.IsNullOrWhiteSpace(URL))
                 {
@@ -315,15 +325,14 @@ namespace YTDownloader
                 {
                     case UrlResourceType.SingleVideo:
                         logger.LogInformation($"檢測到單一影片：{SourceType.Title}", "資源檢測", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                        var mediaType = ParseMediaType(SelectedMediaType);
                         var playlist = await YTDownloadService.GetPlaylistVideosAsync(URL);
                         var video =  playlist.Videos.FirstOrDefault() ?? throw new Exception("無法取得影片資訊");
                         var request = new DownloadRequest
                         {
                             Title            = video.Title ?? "未知標題",
                             WebpageUrl       = URL,
-                            MediaType        = mediaType,
-                            MediaTypeDisplay = GetMediaTypeDisplay(mediaType),
+                            MediaType        = SelectedMediaType,
+                            MediaTypeDisplay = SelectedMediaTypeDisplay,
                             DownloadDir      = DownloadFolder
                         };
                         EnqueueDownloads(new[] { request });
@@ -373,7 +382,6 @@ namespace YTDownloader
             Process.Start("explorer.exe", DownLoadForderPath);
         }
 
-
         /// <summary>
         /// 處理下載清單的按鈕點擊（暫停 / 繼續 / 重試 / 取消）。
         /// </summary>
@@ -422,7 +430,7 @@ namespace YTDownloader
                     controller.Cts.Cancel();
                     controller.IsPaused = true;
                     row.Cells["colAction"].Value = "繼續";
-                    UpdateDownloadProgress(taskId, controller.LastPercent, StatusPause, DownloadStatusKeyPause);
+                    UpdateDownloadProgress(taskId, controller.LastPercent, DownloadStatus.Pause);
                     break;
 
                 // ── 繼續 / 重試 ──────────────────────────────────
@@ -433,7 +441,7 @@ namespace YTDownloader
                     // 重啟前先清理：避免不完整輸出或殘留串流檔干擾 yt-dlp 判斷
                     CleanTempFilesBeforeRestart(controller);
                     row.Cells["colAction"].Value = "暫停";
-                    UpdateDownloadProgress(taskId, controller.LastPercent, StatusInProgress, DownloadStatusKeyInProgress);
+                    UpdateDownloadProgress(taskId, controller.LastPercent, DownloadStatus.InProgress);
                     var cts = controller.Cts;
                     _ = Task.Run(async () => await controller.RestartAction(cts.Token));
                     break;
@@ -474,15 +482,18 @@ namespace YTDownloader
         #endregion
 
         #region Public Methods
-        /// <summary>目前選取的媒體類型原始 Value 字串（如 "Audio" / "Video"）。</summary>
-        public string SelectedMediaTypeValue =>
-            cB_ListMediaType.SelectedItem is KeyValuePair<string, string> kv ? kv.Value : string.Empty;
+        /// <summary>目前選取的媒體類型 Name（如 "Audio" / "Video"）。</summary>
+        public string SelectedMediaTypeValue => GetSelectedOptionName(cB_ListMediaType);
 
         /// <summary>目前選取的媒體類型（enum）。</summary>
-        public MediaType SelectedMediaType => ParseMediaType(SelectedMediaTypeValue);
+        public MediaType SelectedMediaType =>
+            Enum.TryParse<MediaType>(SelectedMediaTypeValue, ignoreCase: false, out var mediaType)
+                ? mediaType
+                : throw new NotSupportedException($"未知的媒體類型值：{SelectedMediaTypeValue}");
 
         /// <summary>目前選取的媒體類型中文顯示名稱（用於 UI 清單）。</summary>
-        public string SelectedMediaTypeDisplay => GetMediaTypeDisplay(SelectedMediaType);
+        public string SelectedMediaTypeDisplay =>
+            GetSelectedOptionDesc(cB_ListMediaType);
 
         /// <summary>
         /// 新增一筆下載項目至清單，回傳穩定的 Task ID（不受列刪除影響）。
@@ -500,7 +511,7 @@ namespace YTDownloader
                 title,                                                      // colTitle
                 mediaType,                                          // colMediaType
                 0.0,                                                       // colProgress（double，ProgressBarCell 讀取）
-                StatusWaiting,                                         // colStatus
+                GetOptionDesc(OptionListDownloadStatus, DownloadStatus.Waiting.ToString()), // colStatus
                 "暫停",                                                 // colAction 按鈕文字
                 "取消",                                                 // colCancel 按鈕文字
                 taskId                                                  // colTaskId（隱藏）
@@ -526,6 +537,16 @@ namespace YTDownloader
             UpdateDownloadProgressInGrid(taskId, percent, status);
         }
 
+        private void UpdateDownloadProgress(long taskId, double percent, DownloadStatus status, string? detail = null)
+        {
+            var name = status.ToString();
+            var display = GetOptionDesc(OptionListDownloadStatus, name);
+            if (!string.IsNullOrWhiteSpace(detail))
+                display = $"{display}：{detail}";
+
+            UpdateDownloadProgress(taskId, percent, display, name);
+        }
+
         private void UpdateDownloadProgressInGrid(long taskId, double percent, string status)
         {
             var row = FindRowByTaskId(taskId);
@@ -544,16 +565,14 @@ namespace YTDownloader
 
         private Color GetStatusBackColor(string status)
         {
-            if (status == StatusComplete)
-                return Color.FromArgb(200, 240, 200);
-            if (status.StartsWith(StatusFail, StringComparison.Ordinal))
-                return Color.FromArgb(255, 200, 200);
-            if (status == StatusInProgress)
-                return Color.FromArgb(230, 240, 255);
-            if (status == StatusPause)
-                return Color.FromArgb(255, 248, 220);
-
-            return dGV_DownloadList.DefaultCellStyle.BackColor;
+            return ResolveDownloadStatus(status) switch
+            {
+                DownloadStatus.Complete   => Color.FromArgb(200, 240, 200),
+                DownloadStatus.Fail       => Color.FromArgb(255, 200, 200),
+                DownloadStatus.InProgress => Color.FromArgb(230, 240, 255),
+                DownloadStatus.Pause      => Color.FromArgb(255, 248, 220),
+                _                         => dGV_DownloadList.DefaultCellStyle.BackColor
+            };
         }
 
         private void UpdateDownloadProgressInDatabase(long taskId, double percent, string status, string? statusName)
@@ -562,7 +581,7 @@ namespace YTDownloader
             {
                 var progress = Math.Clamp((int)Math.Round(percent, MidpointRounding.AwayFromZero), 0, 100);
                 var databaseStatus = statusName ?? ResolveDownloadStatusName(status);
-                DateTime? completeDateTime = databaseStatus == DownloadStatusKeyComplete ? DateTime.UtcNow : null;
+                DateTime? completeDateTime = ResolveDownloadStatus(status) == DownloadStatus.Complete ? DateTime.UtcNow : null;
                 DBTool.UpdateDownloadProgress(taskId, progress, databaseStatus, completeDateTime);
             }
             catch (Exception ex)
@@ -573,18 +592,23 @@ namespace YTDownloader
 
         private string ResolveDownloadStatusName(string status)
         {
-            if (status == StatusComplete)
-                return DownloadStatusKeyComplete;
-            if (status.StartsWith(StatusFail, StringComparison.Ordinal))
-                return DownloadStatusKeyFail;
-            if (status == StatusInProgress)
-                return DownloadStatusKeyInProgress;
-            if (status == StatusPause)
-                return DownloadStatusKeyPause;
-            if (status == StatusWaiting)
-                return DownloadStatusKeyWaiting;
+            var resolvedStatus = ResolveDownloadStatus(status);
+            return resolvedStatus.HasValue ? resolvedStatus.Value.ToString() : status;
+        }
 
-            return status;
+        private DownloadStatus? ResolveDownloadStatus(string status)
+        {
+            var desc = GetOptions(OptionListDownloadStatus)
+                .FirstOrDefault(item =>
+                    status == item.Key
+                    || status.StartsWith($"{item.Key}：", StringComparison.Ordinal))
+                .Key;
+
+            var name = GetOptionName(OptionListDownloadStatus, desc);
+
+            return Enum.TryParse<DownloadStatus>(name, ignoreCase: false, out var resolvedStatus)
+                ? resolvedStatus
+                : null;
         }
 
         /// <summary>
@@ -835,7 +859,7 @@ namespace YTDownloader
             {
                 // 建立 UI 下載項目時取號，讓 controller 與 DownloadHistory 共用同一組任務編號
                 long taskId = AddDownloadItem(req.Title, req.MediaTypeDisplay);
-                DBTool.InsertDownloadHistory(CreateDownloadHistory(taskId, req, DownloadStatusKeyWaiting, "0"));
+                DBTool.InsertDownloadHistory(CreateDownloadHistory(taskId, req, DownloadStatus.Waiting.ToString(), "0"));
 
                 // 捕捉區域變數，避免 closure 捕捉迴圈變數
                 var capturedReq = req;
@@ -843,7 +867,7 @@ namespace YTDownloader
 
                 Func<CancellationToken, Task> downloadAction = async (ct) =>
                 {
-                    UpdateDownloadProgress(taskId, 0, StatusInProgress, DownloadStatusKeyInProgress);
+                    UpdateDownloadProgress(taskId, 0, DownloadStatus.InProgress);
 
                     DownloadResult result = capturedReq.MediaType switch
                     {
@@ -851,14 +875,14 @@ namespace YTDownloader
                             url:               capturedReq.WebpageUrl,
                             outputFolder:      capturedReq.DownloadDir,
                             knownTitle:        capturedReq.Title,
-                            onProgress:        pct => UpdateDownloadProgress(taskId, pct, StatusInProgress, DownloadStatusKeyInProgress),
+                            onProgress:        pct => UpdateDownloadProgress(taskId, pct, DownloadStatus.InProgress),
                             cancellationToken: ct),
 
                         MediaType.Video => await svc.DownloadVideoAsync(
                             url:               capturedReq.WebpageUrl,
                             outputFolder:      capturedReq.DownloadDir,
                             knownTitle:        capturedReq.Title,
-                            onProgress:        pct => UpdateDownloadProgress(taskId, pct, StatusInProgress, DownloadStatusKeyInProgress),
+                            onProgress:        pct => UpdateDownloadProgress(taskId, pct, DownloadStatus.InProgress),
                             cancellationToken: ct),
 
                         _ => throw new NotSupportedException(
@@ -870,7 +894,7 @@ namespace YTDownloader
 
                     if (result.IsSuccess)
                     {
-                        UpdateDownloadProgress(taskId, 100, StatusComplete, DownloadStatusKeyComplete);
+                        UpdateDownloadProgress(taskId, 100, DownloadStatus.Complete);
                         SetActionButton(taskId, "—");
                         // 音訊下載完成後，清除 yt-dlp/ffmpeg 未自動刪除的中間影片串流暫存檔
                         if (capturedReq.MediaType == MediaType.Audio)
@@ -883,7 +907,7 @@ namespace YTDownloader
                             .Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)
                             .FirstOrDefault() ?? "未知錯誤";
 
-                        UpdateDownloadProgress(taskId, 0, $"{StatusFail}：{firstLine}", DownloadStatusKeyFail);
+                        UpdateDownloadProgress(taskId, 0, DownloadStatus.Fail, firstLine);
                         SetActionButton(taskId, "重試");
                         SetStatusTooltip(taskId, result.Message ?? "未知錯誤");
                         logger.LogError("下載失敗 [{Title}]：{Message}", capturedReq.Title, result.Message);
