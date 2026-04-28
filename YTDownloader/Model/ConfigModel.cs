@@ -5,6 +5,11 @@ namespace YTDownloader.Model;
 public sealed class ConfigModel
 {
     /// <summary>
+    /// 一般設定
+    /// </summary>
+    public GeneralConfigModel General { get; set; } = new();
+
+    /// <summary>
     /// 外觀設定
     /// </summary>
     public AppearanceConfigModel Appearance { get; set; } = new();
@@ -18,7 +23,13 @@ public sealed class ConfigModel
     /// 儲存設定
     /// </summary>
     public SaveConfigModel Save { get; set; } = new();
-    
+}
+
+public sealed class GeneralConfigModel
+{
+    /// <summary>
+    /// UI 顯示語言
+    /// </summary>
     public string Language { get; set; } = "zh-TW";
 }
 
@@ -32,7 +43,7 @@ public sealed class AppearanceConfigModel
     /// <summary>
     /// 背景顏色
     /// </summary>
-    public string BackColor { get; set; } = ColorTranslator.ToHtml(SystemColors.Control);
+    public string BackColor { get; set; } = "#F0F0F0";
 
     [System.Text.Json.Serialization.JsonIgnore]
     [Newtonsoft.Json.JsonIgnore]

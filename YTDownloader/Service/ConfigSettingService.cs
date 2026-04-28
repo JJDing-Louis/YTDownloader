@@ -11,19 +11,22 @@ public sealed class ConfigSettingService
     /// </summary>
     private readonly string _filePath;
 
-    public ConfigSettingService(string filePath)
+    public ConfigSettingService(string? filePath = null)
     {
-        _filePath = Path.Combine(Environment.CurrentDirectory,"Config.json") ;
+        _filePath = string.IsNullOrWhiteSpace(filePath)
+            ? Path.Combine(Environment.CurrentDirectory, "Config.json")
+            : filePath;
     }
 
-    public void Init()
+    public ConfigModel Init()
     {
         if (!File.Exists(_filePath))
         {
             //直接建立一個預設設定檔
             Save(new ConfigModel());
         }
-        Load();
+
+        return Load();
     }
 
     public ConfigModel Load()

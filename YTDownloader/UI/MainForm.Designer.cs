@@ -68,6 +68,7 @@
             MSItem_Config.Name = "MSItem_Config";
             MSItem_Config.Size = new System.Drawing.Size(43, 20);
             MSItem_Config.Text = "設定";
+            MSItem_Config.Click += MSItem_Config_Click;
             // 
             // MSItem_DownloadHistory
             // 
@@ -263,7 +264,7 @@
         #endregion
 
         private MenuStrip menuStrip1;
-        private ToolStripMenuItem MSItem_Config;
+        private System.Windows.Forms.ToolStripMenuItem MSItem_Config;
         private System.Windows.Forms.ToolStripMenuItem MSItem_DownloadHistory;
         private TableLayoutPanel tableLayoutPanel1;
         private TableLayoutPanel tableLayoutPanel2;

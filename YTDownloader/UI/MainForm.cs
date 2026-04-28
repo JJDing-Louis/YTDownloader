@@ -8,6 +8,7 @@ using YTDownloader.Init;
 using YTDownloader.Model;
 using YTDownloader.Service;
 using YTDownloader.Tool;
+using YTDownloader.UI;
 using YTDownloader.UI.CustomUI;
 
 namespace YTDownloader
@@ -38,6 +39,7 @@ namespace YTDownloader
 
         private PlaylistHandlerForm _playlistHandlerForm;
         private DownloadHistoryForm _downloadHistoryForm;
+        private ConfigForm? _configForm;
 
         public MainForm()
         {
@@ -978,7 +980,21 @@ namespace YTDownloader
             _downloadHistoryForm = new DownloadHistoryForm();
             _downloadHistoryForm.Location = new Point(700, 0);
             _downloadHistoryForm.Disposed += new EventHandler(downloadHistoryForm_Disposed);
-            _playlistHandlerForm.Show();
+            _downloadHistoryForm.Show();
+        }
+
+        private void MSItem_Config_Click(object? sender, EventArgs e)
+        {
+            if (_configForm is { IsDisposed: false })
+            {
+                _configForm.Activate();
+                return;
+            }
+
+            _configForm = new ConfigForm();
+            _configForm.Location = new Point(700, 0);
+            _configForm.Disposed += (_, _) => _configForm = null;
+            _configForm.Show(this);
         }
     }
 }
