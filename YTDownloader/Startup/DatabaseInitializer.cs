@@ -5,6 +5,7 @@ using YTDownloader.Startup;
 
 namespace YTDownloader.Data
 {
+    //TODO: 待修改初始化流程
     internal class DatabaseInitializer : IAppInitializer
     {
         private readonly IConfiguration _config;
