@@ -16,5 +16,11 @@ namespace YTDownloader
         {
             InitializeComponent();
         }
+        
+        public DownloadHistoryForm(Main main) : this()
+        {
+            ///TODO:
+            ///讀歷史紀錄，並顯示
+        }
     }
 }

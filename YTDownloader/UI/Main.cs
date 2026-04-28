@@ -36,7 +36,8 @@ namespace YTDownloader
 
         private readonly Dictionary<string, HashSet<string>> _reservedDownloadFileNamesByFolder = new(StringComparer.OrdinalIgnoreCase);
 
-        private PlaylistHandler playlistHandlerForm;
+        private PlaylistHandler _playlistHandlerForm;
+        private DownloadHistoryForm _downloadHistoryForm;
 
         public Main()
         {
@@ -333,25 +334,25 @@ namespace YTDownloader
                         break;
                     case UrlResourceType.Playlist:
                         logger.LogInformation($"檢測到播放清單：{SourceType.PlaylistTitle}，共 {SourceType.PlaylistCount} 部影片");
-                        playlistHandlerForm = new PlaylistHandler(
+                        _playlistHandlerForm = new PlaylistHandler(
                             URL,
                             this,
                             Enum.TryParse<MediaType>(GetSelectedOptionName(cB_ListMediaType), ignoreCase: false, out var playlistMediaType)
                                 ? playlistMediaType
                                 : throw new NotSupportedException($"未知的媒體類型值：{GetSelectedOptionName(cB_ListMediaType)}"),
                             GetSelectedOptionDesc(cB_ListMediaType));
-                        var (isSuccess, msg) = await playlistHandlerForm.GetPlaylistInfoAsync();
+                        var (isSuccess, msg) = await _playlistHandlerForm.GetPlaylistInfoAsync();
                         if (isSuccess)
                         {
                             logger.LogInformation($"成功獲取播放清單資訊：{msg}");
-                            playlistHandlerForm.Location = new Point(700, 0);
-                            playlistHandlerForm.Disposed += new EventHandler(playlistHandlerForm_Disposed);
-                            playlistHandlerForm.Show();
+                            _playlistHandlerForm.Location = new Point(700, 0);
+                            _playlistHandlerForm.Disposed += new EventHandler(playlistHandlerForm_Disposed);
+                            _playlistHandlerForm.Show();
                         }
                         else
                         {
                             logger.LogError($"獲取播放清單資訊失敗：{msg}");
-                            playlistHandlerForm.Dispose();
+                            _playlistHandlerForm.Dispose();
                             MessageBox.Show(
                                 $"無法載入播放清單，請確認連結是否正確。\n\n原因：{msg}",
                                 "播放清單載入失敗",
@@ -373,7 +374,12 @@ namespace YTDownloader
 
         private void playlistHandlerForm_Disposed(object? sender, EventArgs e)
         {
-            playlistHandlerForm = null;
+            _playlistHandlerForm = null;
+        }
+        
+        private void downloadHistoryForm_Disposed(object? sender, EventArgs e)
+        {
+            _downloadHistoryForm = null;
         }
 
         private void btn_OpenDownloadForder_Click(object sender, EventArgs e)
@@ -967,5 +973,12 @@ namespace YTDownloader
 
         #endregion
 
+        private void MSItem_DownloadHistory_Click(object sender, EventArgs e)
+        {
+            _downloadHistoryForm = new DownloadHistoryForm();
+            _downloadHistoryForm.Location = new Point(700, 0);
+            _downloadHistoryForm.Disposed += new EventHandler(downloadHistoryForm_Disposed);
+            _playlistHandlerForm.Show();
+        }
     }
 }

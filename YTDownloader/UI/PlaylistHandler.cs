@@ -1,16 +1,6 @@
 ﻿using Autofac;
-using Autofac.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
-using System.Drawing;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows.Forms;
 using YTDownloader.Init;
 using YTDownloader.Model;
 using YTDownloader.Service;
