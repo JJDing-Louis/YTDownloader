@@ -34,6 +34,8 @@ namespace YTDownloader
         /// <summary>共用的下載服務實例（延遲建立，確保 ytDlpPath / ffmpegPath 已讀取完畢）。</summary>
         private YtDlpDownloadService? _downloadService;
 
+        private readonly Dictionary<string, HashSet<string>> _reservedDownloadFileNamesByFolder = new(StringComparer.OrdinalIgnoreCase);
+
         private PlaylistHandler playlistHandlerForm;
 
         public Main()
@@ -72,11 +74,11 @@ namespace YTDownloader
                 Resizable = DataGridViewTriState.False
             });
 
-            // 標題
+            // 檔名
             dGV_DownloadList.Columns.Add(new DataGridViewTextBoxColumn
             {
                 Name = "colTitle",
-                HeaderText = "標題",
+                HeaderText = "檔名",
                 AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill,
                 ReadOnly = true
             });
@@ -635,7 +637,10 @@ namespace YTDownloader
             // 對「標題」與「檔名」均做相同的正規化後再比對，
             // 解決 yt-dlp 將受限字元替換為全形字元（如 / → ／）
             // 而本端僅替換為底線所造成的前綴不吻合問題。
-            var normalizedTitle = NormalizeForFileMatch(req.Title);
+            var matchName = string.IsNullOrWhiteSpace(req.FileName)
+                ? req.Title
+                : Path.GetFileNameWithoutExtension(req.FileName);
+            var normalizedTitle = NormalizeForFileMatch(matchName);
             if (string.IsNullOrWhiteSpace(normalizedTitle)) return;
 
             // yt-dlp 的「影片串流」暫存副檔名（轉音訊前的原始檔）
@@ -684,8 +689,8 @@ namespace YTDownloader
 
             if (deletedCount > 0)
                 logger.LogInformation(
-                    "重啟前清除 {Count} 個殘留暫存檔（標題：{Title}）",
-                    deletedCount, req.Title);
+                    "重啟前清除 {Count} 個殘留暫存檔（檔名：{FileName}）",
+                    deletedCount, req.FileName);
             else
                 logger.LogDebug(
                     "重啟前未找到需清除的暫存檔（正規化標題：{NTitle}）",
@@ -747,7 +752,10 @@ namespace YTDownloader
             if (string.IsNullOrWhiteSpace(req.DownloadDir) || !Directory.Exists(req.DownloadDir))
                 return;
 
-            var normalizedTitle = NormalizeForFileMatch(req.Title);
+            var matchName = string.IsNullOrWhiteSpace(req.FileName)
+                ? req.Title
+                : Path.GetFileNameWithoutExtension(req.FileName);
+            var normalizedTitle = NormalizeForFileMatch(matchName);
             if (string.IsNullOrWhiteSpace(normalizedTitle)) return;
 
             // 確定是影片容器格式（不會是音訊下載的最終輸出）
@@ -770,8 +778,8 @@ namespace YTDownloader
 
             if (deletedCount > 0)
                 logger.LogInformation(
-                    "音訊下載完成後清除 {Count} 個殘留串流暫存檔（標題：{Title}）",
-                    deletedCount, req.Title);
+                    "音訊下載完成後清除 {Count} 個殘留串流暫存檔（檔名：{FileName}）",
+                    deletedCount, req.FileName);
         }
 
         private static long CreateTaskId()
@@ -792,13 +800,78 @@ namespace YTDownloader
                 URL = req.WebpageUrl,
                 Status = status,
                 Title = req.Title,
-                FileName = req.Title,
+                FileName = req.FileName,
                 Path = req.DownloadDir,
                 Progress = progress,
                 Type = req.MediaType.ToString(),
                 DownloadDateTime = DateTime.UtcNow,
                 CompleteDateTime = completeDateTime
             };
+        }
+
+        private string CreateUniqueDownloadFileName(DownloadRequest req)
+        {
+            var baseName = SanitizeFileName(req.Title);
+            if (string.IsNullOrWhiteSpace(baseName))
+                baseName = "download";
+
+            var reservedFileNames = GetReservedFileNames(req.DownloadDir);
+            var extension = GetDefaultExtension(req.MediaType);
+            if (!string.IsNullOrWhiteSpace(extension)
+                && baseName.EndsWith(extension, StringComparison.OrdinalIgnoreCase))
+            {
+                baseName = Path.GetFileNameWithoutExtension(baseName);
+            }
+
+            var candidate = $"{baseName}{extension}";
+            var index = 0;
+
+            while (reservedFileNames.Contains(candidate) || File.Exists(Path.Combine(req.DownloadDir, candidate)))
+            {
+                index++;
+                candidate = $"{baseName}({index}){extension}";
+            }
+
+            return candidate;
+        }
+
+        private HashSet<string> GetReservedFileNames(string downloadDir)
+        {
+            var key = Path.GetFullPath(downloadDir);
+            if (!_reservedDownloadFileNamesByFolder.TryGetValue(key, out var fileNames))
+            {
+                fileNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                _reservedDownloadFileNamesByFolder[key] = fileNames;
+            }
+
+            return fileNames;
+        }
+
+        private static string CreateOutputTemplate(string fileName)
+        {
+            var nameWithoutExtension = Path.GetFileNameWithoutExtension(fileName);
+            return $"{nameWithoutExtension}.%(ext)s";
+        }
+
+        private static string GetDefaultExtension(MediaType mediaType)
+        {
+            return mediaType switch
+            {
+                MediaType.Audio => ".mp3",
+                MediaType.Video => ".mp4",
+                _               => string.Empty
+            };
+        }
+
+        private static string SanitizeFileName(string fileName)
+        {
+            var invalidChars = Path.GetInvalidFileNameChars().ToHashSet();
+            var sanitized = new string(fileName
+                .Select(c => invalidChars.Contains(c) ? '_' : c)
+                .ToArray())
+                .Trim();
+
+            return string.IsNullOrWhiteSpace(sanitized) ? "download" : sanitized;
         }
 
         /// <summary>
@@ -814,11 +887,13 @@ namespace YTDownloader
                 : ffmpegPath;
 
             _downloadService ??= new YtDlpDownloadService(ytDlpPath, ffmpegDir);
-
             foreach (var req in requests)
             {
+                req.FileName = CreateUniqueDownloadFileName(req);
+                GetReservedFileNames(req.DownloadDir).Add(req.FileName);
+
                 // 建立 UI 下載項目時取號，讓 controller 與 DownloadHistory 共用同一組任務編號
-                long taskId = AddDownloadItem(req.Title, req.MediaTypeDisplay);
+                long taskId = AddDownloadItem(req.FileName, req.MediaTypeDisplay);
                 DBTool.InsertDownloadHistory(CreateDownloadHistory(taskId, req, "Waiting", "0"));
 
                 // 捕捉區域變數，避免 closure 捕捉迴圈變數
@@ -834,6 +909,7 @@ namespace YTDownloader
                         MediaType.Audio => await svc.DownloadAudioAsync(
                             url:               capturedReq.WebpageUrl,
                             outputFolder:      capturedReq.DownloadDir,
+                            outputTemplate:    CreateOutputTemplate(capturedReq.FileName),
                             knownTitle:        capturedReq.Title,
                             onProgress:        pct => UpdateDownloadProgress(taskId, pct, "InProgress"),
                             cancellationToken: ct),
@@ -841,6 +917,7 @@ namespace YTDownloader
                         MediaType.Video => await svc.DownloadVideoAsync(
                             url:               capturedReq.WebpageUrl,
                             outputFolder:      capturedReq.DownloadDir,
+                            outputTemplate:    CreateOutputTemplate(capturedReq.FileName),
                             knownTitle:        capturedReq.Title,
                             onProgress:        pct => UpdateDownloadProgress(taskId, pct, "InProgress"),
                             cancellationToken: ct),

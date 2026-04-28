@@ -8,6 +8,9 @@ namespace YTDownloader.Model
         /// <summary>顯示於下載清單的標題。</summary>
         public string Title { get; set; } = string.Empty;
 
+        /// <summary>預計輸出的下載檔名。</summary>
+        public string FileName { get; set; } = string.Empty;
+
         /// <summary>影片頁面網址（yt-dlp 下載來源）。</summary>
         public string WebpageUrl { get; set; } = string.Empty;
 
