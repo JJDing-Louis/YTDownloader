@@ -22,7 +22,7 @@ namespace YTDownloader.Controller
 
         /// <summary>
         /// 以新的 <see cref="CancellationToken"/> 重新啟動下載的工作方法。
-        /// 由 PlaylistHandler 在發起下載時傳入，Main 在「繼續」時呼叫。
+        /// 由 PlaylistHandlerForm 在發起下載時傳入，MainForm 在「繼續」時呼叫。
         /// </summary>
         public Func<CancellationToken, Task> RestartAction { get; set; } = null!;
 

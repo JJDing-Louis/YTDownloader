@@ -10,9 +10,9 @@ using System.Windows.Forms;
 
 namespace YTDownloader.UI
 {
-    public partial class Config : Form
+    public partial class ConfigForm : Form
     {
-        public Config()
+        public ConfigForm()
         {
             InitializeComponent();
         }

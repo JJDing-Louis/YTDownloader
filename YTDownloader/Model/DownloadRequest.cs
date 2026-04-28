@@ -1,7 +1,7 @@
 namespace YTDownloader.Model
 {
     /// <summary>
-    /// 代表一筆待下載任務的資料，由 PlaylistHandler 建立後交給 Main 執行。
+    /// 代表一筆待下載任務的資料，由 PlaylistHandlerForm 建立後交給 MainForm 執行。
     /// </summary>
     public class DownloadRequest
     {

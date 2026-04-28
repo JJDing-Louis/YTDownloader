@@ -18,7 +18,7 @@ namespace YTDownloader
             ApplicationConfiguration.Initialize();
             Startup.Run();
             DBTool.InitDB();
-            Application.Run(new Main());
+            Application.Run(new MainForm());
         }
     }
 }

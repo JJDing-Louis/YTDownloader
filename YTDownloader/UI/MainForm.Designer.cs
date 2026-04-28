@@ -1,6 +1,6 @@
 ﻿namespace YTDownloader
 {
-    partial class Main
+    partial class MainForm
     {
         /// <summary>
         ///  Required designer variable.
@@ -238,7 +238,7 @@
             btn_CancelAll.Text = "全部取消";
             btn_CancelAll.UseVisualStyleBackColor = true;
             // 
-            // Main
+            // MainForm
             // 
             AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
             AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;

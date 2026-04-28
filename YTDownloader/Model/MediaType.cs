@@ -1,7 +1,7 @@
 namespace YTDownloader.Model
 {
     /// <summary>
-    /// 下載的媒體類型。新增類型時，同步更新 Main.EnqueueDownloads() 的 switch。
+    /// 下載的媒體類型。新增類型時，同步更新 MainForm.EnqueueDownloads() 的 switch。
     /// </summary>
     public enum MediaType
     {

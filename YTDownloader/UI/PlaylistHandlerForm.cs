@@ -7,28 +7,28 @@ using YTDownloader.Service;
 
 namespace YTDownloader
 {
-    public partial class PlaylistHandler : Form
+    public partial class PlaylistHandlerForm : Form
     {
-        private ILogger logger = Program.Startup.Container.Resolve<ILogger<PlaylistHandler>>();
+        private ILogger logger = Program.Startup.Container.Resolve<ILogger<PlaylistHandlerForm>>();
         private PlaylistHandlerInitializationService initializationService = Program.Startup.Container.Resolve<PlaylistHandlerInitializationService>();
         private IConfiguration config;
         private string ytDlpPath;
         private string ffmpegPath;
         private string downloadDir;
         private string playlistUrl;
-        private Main mainForm;
+        private MainForm mainForm;
         private MediaType mediaType;
         private string mediaTypeDisplay;
         private List<PlaylistVideoItem> playlistVideos = new();
 
-        public PlaylistHandler()
+        public PlaylistHandlerForm()
         {
             InitializeComponent();
-            logger.LogInformation("PlaylistHandler form initialized.");
+            logger.LogInformation("PlaylistHandlerForm form initialized.");
 
         }
 
-        public PlaylistHandler(string playlistUrl, Main mainForm, MediaType mediaType, string mediaTypeDisplay) : this()
+        public PlaylistHandlerForm(string playlistUrl, MainForm mainForm, MediaType mediaType, string mediaTypeDisplay) : this()
         {
             this.playlistUrl = playlistUrl;
             this.mainForm = mainForm;
@@ -216,7 +216,7 @@ namespace YTDownloader
                 return;
             }
 
-            // ── 3. 組成 DownloadRequest 清單，交給 Main 執行 ─────────────────
+            // ── 3. 組成 DownloadRequest 清單，交給 MainForm 執行 ─────────────────
             var requests = selectedVideoItems.Select(item => new DownloadRequest
             {
                 Title            = item.DisplayTitle,
@@ -228,8 +228,8 @@ namespace YTDownloader
 
             mainForm.EnqueueDownloads(requests);
 
-            // ── 4. 關閉視窗，下載在 Main 背景進行 ────────────────────────────
-            logger.LogInformation("已提交 {Count} 個下載任務，關閉 PlaylistHandler。", selectedVideoItems.Count);
+            // ── 4. 關閉視窗，下載在 MainForm 背景進行 ────────────────────────────
+            logger.LogInformation("已提交 {Count} 個下載任務，關閉 PlaylistHandlerForm。", selectedVideoItems.Count);
             this.Close();
         }
 

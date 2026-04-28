@@ -12,9 +12,9 @@ using YTDownloader.UI.CustomUI;
 
 namespace YTDownloader
 {
-    public partial class Main : Form
+    public partial class MainForm : Form
     {
-        private ILogger logger = Program.Startup.Container.Resolve<ILogger<Main>>();
+        private ILogger logger = Program.Startup.Container.Resolve<ILogger<MainForm>>();
         private IInitializationService initializationService = Program.Startup.Container.Resolve<MainInitializationService>();
         private IConfiguration config;
         private Dictionary<string, List<KeyValuePair<string, string>>> options;
@@ -36,13 +36,13 @@ namespace YTDownloader
 
         private readonly Dictionary<string, HashSet<string>> _reservedDownloadFileNamesByFolder = new(StringComparer.OrdinalIgnoreCase);
 
-        private PlaylistHandler _playlistHandlerForm;
+        private PlaylistHandlerForm _playlistHandlerForm;
         private DownloadHistoryForm _downloadHistoryForm;
 
-        public Main()
+        public MainForm()
         {
             InitializeComponent();
-            logger.LogInformation("Main form initialized.");
+            logger.LogInformation("MainForm form initialized.");
             Init();
 
         }
@@ -334,7 +334,7 @@ namespace YTDownloader
                         break;
                     case UrlResourceType.Playlist:
                         logger.LogInformation($"檢測到播放清單：{SourceType.PlaylistTitle}，共 {SourceType.PlaylistCount} 部影片");
-                        _playlistHandlerForm = new PlaylistHandler(
+                        _playlistHandlerForm = new PlaylistHandlerForm(
                             URL,
                             this,
                             Enum.TryParse<MediaType>(GetSelectedOptionName(cB_ListMediaType), ignoreCase: false, out var playlistMediaType)
@@ -580,7 +580,7 @@ namespace YTDownloader
         }
 
         /// <summary>
-        /// 向 Main 登錄一筆下載任務的控制器（含重啟 Action），回傳可操控該任務的 controller。
+        /// 向 MainForm 登錄一筆下載任務的控制器（含重啟 Action），回傳可操控該任務的 controller。
         /// </summary>
         public DownloadTaskController RegisterDownload(long taskId, Func<CancellationToken, Task> restartAction)
         {
@@ -881,7 +881,7 @@ namespace YTDownloader
         }
 
         /// <summary>
-        /// 接收來自 PlaylistHandler（或其他來源）的下載請求，
+        /// 接收來自 PlaylistHandlerForm（或其他來源）的下載請求，
         /// 加入清單並立即以背景工作排入佇列執行。
         /// 可在視窗已關閉後安全呼叫（執行緒安全）。
         /// </summary>
@@ -957,7 +957,7 @@ namespace YTDownloader
                     }
                 };
 
-                //註冊至 Main，取得控制器以供暫停/繼續使用
+                //註冊至 MainForm，取得控制器以供暫停/繼續使用
                 var controller = RegisterDownload(taskId, downloadAction);
                 controller.OriginalRequest = capturedReq;   // 供重啟前清除暫存檔使用
 

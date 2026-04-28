@@ -1,6 +1,6 @@
 ﻿namespace YTDownloader
 {
-    partial class PlaylistHandler
+    partial class PlaylistHandlerForm
     {
         /// <summary>
         /// Required designer variable.
@@ -174,13 +174,13 @@
             cB_SelectedAll.UseVisualStyleBackColor = true;
             cB_SelectedAll.CheckStateChanged += cB_SelectedAll_CheckStateChanged;
             // 
-            // PlaylistHandler
+            // PlaylistHandlerForm
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             ClientSize = new Size(800, 450);
             Controls.Add(tableLayoutPanel1);
-            Name = "PlaylistHandler";
+            Name = "PlaylistHandlerForm";
             Text = "播放清單處理器";
             tableLayoutPanel1.ResumeLayout(false);
             groupBox1.ResumeLayout(false);
