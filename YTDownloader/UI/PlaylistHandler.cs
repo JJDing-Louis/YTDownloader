@@ -27,6 +27,8 @@ namespace YTDownloader
         private string downloadDir;
         private string playlistUrl;
         private Main mainForm;
+        private MediaType mediaType;
+        private string mediaTypeDisplay;
         private List<PlaylistVideoItem> playlistVideos = new();
 
         public PlaylistHandler()
@@ -36,10 +38,12 @@ namespace YTDownloader
 
         }
 
-        public PlaylistHandler(string playlistUrl, Main mainForm) : this()
+        public PlaylistHandler(string playlistUrl, Main mainForm, MediaType mediaType, string mediaTypeDisplay) : this()
         {
             this.playlistUrl = playlistUrl;
             this.mainForm = mainForm;
+            this.mediaType = mediaType;
+            this.mediaTypeDisplay = mediaTypeDisplay;
             Init();
             InitUI();
         }
@@ -227,8 +231,8 @@ namespace YTDownloader
             {
                 Title            = item.DisplayTitle,
                 WebpageUrl       = item.WebpageUrl!,
-                MediaType        = mainForm.SelectedMediaType,
-                MediaTypeDisplay = mainForm.SelectedMediaTypeDisplay,
+                MediaType        = mediaType,
+                MediaTypeDisplay = mediaTypeDisplay,
                 DownloadDir      = downloadDir
             });
 
