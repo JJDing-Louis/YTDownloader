@@ -11,10 +11,13 @@ namespace YTDownloader;
 
 public partial class PlaylistHandlerForm : Form
 {
+    private const string SelectColumnName = "colSelected";
     private readonly ConfigService _configService;
     private readonly ILogger _logger;
     private readonly ConfigModel _settings;
     private IConfiguration config = null!;
+    private bool _isSelectAllChecked;
+    private bool _updatingSelectAllState;
     private string downloadDir = string.Empty;
     private string ffmpegPath = string.Empty;
     private readonly MainForm mainForm = null!;
@@ -79,11 +82,16 @@ public partial class PlaylistHandlerForm : Form
             {
                 //暫存目前取得的播放清單媒體資訊
                 playlistVideos = playlist.Videos.DeepClone();
+                foreach (var video in playlistVideos)
+                {
+                    video.IsSelected = false;
+                }
 
                 //UI顯示
                 foreach (var video in playlist.Videos)
+                {
                     dGV_PlayList.Rows.Add(
-                        video.IsSelected, // CheckBox 欄
+                        false, // CheckBox 欄
                         video.Index, // #
                         video.Id, //Id（隱藏欄位）
                         video.DisplayTitle, // 標題（自動 fallback 到 ID）
@@ -91,7 +99,9 @@ public partial class PlaylistHandlerForm : Form
                         video.DurationString, // 時長（mm:ss / hh:mm:ss）
                         video.WebpageUrl // 連結（隱藏欄位）
                     );
+                }
             }
+            UpdateSelectAllCheckBoxState();
 
             // 若有不可播放的影片（私人 / 刪除 / 地區限制），跳出一次性提示
             if (playlist.IsSuccess && playlist.SkippedCount > 0)
@@ -134,7 +144,16 @@ public partial class PlaylistHandlerForm : Form
 
     private void InitUI()
     {
+        HideLegacySelectAllCheckBox();
         InitDataGridView();
+    }
+
+    private void HideLegacySelectAllCheckBox()
+    {
+        cB_SelectedAll.Visible = false;
+        tableLayoutPanel3.Visible = false;
+        tableLayoutPanel1.RowStyles[1].SizeType = SizeType.Absolute;
+        tableLayoutPanel1.RowStyles[1].Height = 0;
     }
 
     private void InitDataGridView()
@@ -142,13 +161,14 @@ public partial class PlaylistHandlerForm : Form
         dGV_PlayList.Columns.Clear();
         dGV_PlayList.AllowUserToAddRows = false; // 禁止自動產生空白新增列
         dGV_PlayList.AllowUserToDeleteRows = false; // 禁止使用者刪除列
+        dGV_PlayList.RowHeadersVisible = false;
 
         // 勾選欄
         dGV_PlayList.Columns.Add(new DataGridViewCheckBoxColumn
         {
-            Name = "colSelected",
-            HeaderText = "選取",
-            Width = 50,
+            Name = SelectColumnName,
+            HeaderText = "",
+            Width = 76,
             ReadOnly = false,
             Resizable = DataGridViewTriState.False
         });
@@ -208,6 +228,126 @@ public partial class PlaylistHandlerForm : Form
             ReadOnly = true,
             Visible = false // 隱藏 URL 欄位，僅供內部使用
         });
+
+        dGV_PlayList.ColumnHeadersHeight = 30;
+        InitSelectAllHeader();
+    }
+
+    private void InitSelectAllHeader()
+    {
+        dGV_PlayList.CurrentCellDirtyStateChanged -= PlayList_CurrentCellDirtyStateChanged;
+        dGV_PlayList.CurrentCellDirtyStateChanged += PlayList_CurrentCellDirtyStateChanged;
+        dGV_PlayList.CellValueChanged -= PlayList_CellValueChanged;
+        dGV_PlayList.CellValueChanged += PlayList_CellValueChanged;
+        dGV_PlayList.CellPainting -= PlayList_CellPainting;
+        dGV_PlayList.CellPainting += PlayList_CellPainting;
+        dGV_PlayList.ColumnHeaderMouseClick -= PlayList_ColumnHeaderMouseClick;
+        dGV_PlayList.ColumnHeaderMouseClick += PlayList_ColumnHeaderMouseClick;
+    }
+
+    private void PlayList_ColumnHeaderMouseClick(object? sender, DataGridViewCellMouseEventArgs e)
+    {
+        if (e.ColumnIndex < 0 || dGV_PlayList.Columns[e.ColumnIndex].Name != SelectColumnName)
+        {
+            return;
+        }
+
+        SetAllRowsSelected(!_isSelectAllChecked);
+    }
+
+    private void SetAllRowsSelected(bool isSelected)
+    {
+        dGV_PlayList.EndEdit();
+        _updatingSelectAllState = true;
+        foreach (DataGridViewRow row in dGV_PlayList.Rows)
+        {
+            if (!row.IsNewRow)
+            {
+                row.Cells[SelectColumnName].Value = isSelected;
+            }
+        }
+        _updatingSelectAllState = false;
+
+        _isSelectAllChecked = isSelected;
+        dGV_PlayList.InvalidateCell(dGV_PlayList.Columns[SelectColumnName].Index, -1);
+    }
+
+    private void PlayList_CurrentCellDirtyStateChanged(object? sender, EventArgs e)
+    {
+        if (dGV_PlayList.IsCurrentCellDirty &&
+            dGV_PlayList.CurrentCell?.OwningColumn?.Name == SelectColumnName)
+        {
+            dGV_PlayList.CommitEdit(DataGridViewDataErrorContexts.Commit);
+        }
+    }
+
+    private void PlayList_CellValueChanged(object? sender, DataGridViewCellEventArgs e)
+    {
+        if (e.RowIndex < 0 ||
+            e.ColumnIndex < 0 ||
+            dGV_PlayList.Columns[e.ColumnIndex].Name != SelectColumnName ||
+            _updatingSelectAllState)
+        {
+            return;
+        }
+
+        UpdateSelectAllCheckBoxState();
+    }
+
+    private void UpdateSelectAllCheckBoxState()
+    {
+        _isSelectAllChecked = dGV_PlayList.Rows.Count > 0 &&
+                              dGV_PlayList.Rows
+                                  .Cast<DataGridViewRow>()
+                                  .Where(row => !row.IsNewRow)
+                                  .All(row => Convert.ToBoolean(row.Cells[SelectColumnName].Value));
+        dGV_PlayList.InvalidateCell(dGV_PlayList.Columns[SelectColumnName].Index, -1);
+    }
+
+    private void PlayList_CellPainting(object? sender, DataGridViewCellPaintingEventArgs e)
+    {
+        if (e.RowIndex != -1 ||
+            e.ColumnIndex < 0 ||
+            dGV_PlayList.Columns[e.ColumnIndex].Name != SelectColumnName)
+        {
+            return;
+        }
+
+        if (e.Graphics == null)
+        {
+            return;
+        }
+
+        e.Paint(e.CellBounds, e.PaintParts & ~DataGridViewPaintParts.ContentForeground);
+
+        const int checkBoxSize = 14;
+        const int gap = 4;
+        var text = "全選";
+        var cellStyle = e.CellStyle ?? dGV_PlayList.ColumnHeadersDefaultCellStyle;
+        var font = cellStyle.Font ?? dGV_PlayList.Font;
+        var textSize = TextRenderer.MeasureText(text, font);
+        var totalWidth = checkBoxSize + gap + textSize.Width;
+        var checkBoxLocation = new Point(
+            e.CellBounds.Left + Math.Max(0, (e.CellBounds.Width - totalWidth) / 2),
+            e.CellBounds.Top + (e.CellBounds.Height - checkBoxSize) / 2);
+        var textLocation = new Point(
+            checkBoxLocation.X + checkBoxSize + gap,
+            e.CellBounds.Top + (e.CellBounds.Height - textSize.Height) / 2);
+
+        ControlPaint.DrawCheckBox(
+            e.Graphics,
+            new Rectangle(checkBoxLocation, new Size(checkBoxSize, checkBoxSize)),
+            _isSelectAllChecked ? ButtonState.Checked : ButtonState.Normal);
+
+        TextRenderer.DrawText(
+            e.Graphics,
+            text,
+            font,
+            textLocation,
+            cellStyle.ForeColor,
+            TextFormatFlags.NoPadding);
+
+        e.Handled = true;
     }
 
     private void InitConfig()
@@ -270,11 +410,7 @@ public partial class PlaylistHandlerForm : Form
 
     private void cB_SelectedAll_CheckStateChanged(object sender, EventArgs e)
     {
-        if (dGV_PlayList.RowCount > 0)
-        {
-            var isChecked = cB_SelectedAll.Checked;
-            foreach (DataGridViewRow row in dGV_PlayList.Rows) row.Cells["colSelected"].Value = isChecked;
-        }
+        SetAllRowsSelected(cB_SelectedAll.Checked);
     }
 
     private void btn_Download_Click(object sender, EventArgs e)

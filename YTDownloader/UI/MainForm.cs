@@ -162,6 +162,7 @@ public partial class MainForm : Form
     private void InitDataGridView()
     {
         dGV_DownloadList.Columns.Clear();
+        dGV_DownloadList.RowHeadersVisible = false;
 
         // # 序號
         dGV_DownloadList.Columns.Add(new DataGridViewTextBoxColumn

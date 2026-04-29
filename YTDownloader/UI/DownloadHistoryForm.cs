@@ -58,12 +58,112 @@ public partial class DownloadHistoryForm : Form
 
     private void InitUI()
     {
+        ConfigureSearchLayout();
         InitDataGridView();
+    }
+
+    private void ConfigureSearchLayout()
+    {
+        tableLayoutPanel2.Padding = new Padding(0, 4, 0, 0);
+        var reDownloadButtonSize = GetButtonSize(btn_ReDownload, minWidth: 120, minHeight: 34);
+        var criteriaRowHeight = Math.Max(48, Font.Height + 24);
+        var searchPanelHeight = tableLayoutPanel2.Padding.Top + criteriaRowHeight * tableLayoutPanel2.RowCount + 8;
+        var actionRowHeight = reDownloadButtonSize.Height + 16;
+
+        tableLayoutPanel1.RowStyles[0].SizeType = SizeType.Absolute;
+        tableLayoutPanel1.RowStyles[0].Height = searchPanelHeight;
+        tableLayoutPanel1.RowStyles[1].SizeType = SizeType.Absolute;
+        tableLayoutPanel1.RowStyles[1].Height = actionRowHeight;
+        tableLayoutPanel1.RowStyles[2].SizeType = SizeType.Percent;
+        tableLayoutPanel1.RowStyles[2].Height = 100;
+
+        tableLayoutPanel2.Dock = DockStyle.Top;
+        tableLayoutPanel2.Height = searchPanelHeight;
+        tableLayoutPanel2.ColumnStyles[0].SizeType = SizeType.Absolute;
+        tableLayoutPanel2.ColumnStyles[0].Width = Math.Max(136, TextRenderer.MeasureText("下載結果", Font).Width + 34);
+        tableLayoutPanel2.ColumnStyles[1].SizeType = SizeType.Absolute;
+        tableLayoutPanel2.ColumnStyles[1].Width = 560;
+        tableLayoutPanel2.ColumnStyles[2].SizeType = SizeType.Absolute;
+        tableLayoutPanel2.ColumnStyles[2].Width = Math.Max(130, TextRenderer.MeasureText("查詢", Font).Width + 58);
+
+        foreach (RowStyle rowStyle in tableLayoutPanel2.RowStyles)
+        {
+            rowStyle.SizeType = SizeType.Absolute;
+            rowStyle.Height = criteriaRowHeight;
+        }
+
+        ConfigureCriteriaCheckBox(cB_FileName);
+        ConfigureCriteriaCheckBox(cB_DownloadDate);
+        ConfigureCriteriaCheckBox(cB_DownloadResult);
+        ConfigureCriteriaCheckBox(cB_MediaType);
+
+        ConfigureInputControl(txt_Filename);
+        ConfigureInputControl(cBO_DownloadResult);
+
+        tableLayoutPanel3.Dock = DockStyle.Fill;
+        tableLayoutPanel3.Margin = new Padding(0);
+        tableLayoutPanel3.ColumnStyles[0].SizeType = SizeType.Absolute;
+        tableLayoutPanel3.ColumnStyles[0].Width = Math.Max(230, TextRenderer.MeasureText("2026年  4月30日", Font).Width + 64);
+        tableLayoutPanel3.ColumnStyles[1].SizeType = SizeType.Absolute;
+        tableLayoutPanel3.ColumnStyles[1].Width = 48;
+        tableLayoutPanel3.ColumnStyles[2].SizeType = SizeType.Absolute;
+        tableLayoutPanel3.ColumnStyles[2].Width = tableLayoutPanel3.ColumnStyles[0].Width;
+        dTP_DownLoadStartDate.Dock = DockStyle.None;
+        dTP_DownLoadStartDate.Anchor = AnchorStyles.Left;
+        dTP_DownLoadStartDate.Width = (int)tableLayoutPanel3.ColumnStyles[0].Width;
+        dTP_DownLoadStartDate.Height = dTP_DownLoadStartDate.PreferredSize.Height;
+        dTP_DownLoadEndDate.Dock = DockStyle.None;
+        dTP_DownLoadEndDate.Anchor = AnchorStyles.Left;
+        dTP_DownLoadEndDate.Width = (int)tableLayoutPanel3.ColumnStyles[2].Width;
+        dTP_DownLoadEndDate.Height = dTP_DownLoadEndDate.PreferredSize.Height;
+        label1.Dock = DockStyle.Fill;
+        label1.TextAlign = ContentAlignment.MiddleCenter;
+
+        tableLayoutPanel5.Dock = DockStyle.Fill;
+        tableLayoutPanel5.Margin = new Padding(0, 0, 0, 0);
+        cB_Audio.AutoSize = true;
+        cB_Audio.Anchor = AnchorStyles.Left;
+        cB_Video.AutoSize = true;
+        cB_Video.Anchor = AnchorStyles.Left;
+
+        btn_Search.Anchor = AnchorStyles.Left;
+        btn_Search.Margin = new Padding(10, 0, 0, 0);
+        btn_Search.Size = GetButtonSize(btn_Search, minWidth: 96, minHeight: 32);
+
+        btn_ReDownload.Dock = DockStyle.None;
+        btn_ReDownload.Anchor = AnchorStyles.Left;
+        btn_ReDownload.Margin = new Padding(0);
+        btn_ReDownload.Size = reDownloadButtonSize;
+    }
+
+    private static Size GetButtonSize(Button button, int minWidth, int minHeight)
+    {
+        var preferredSize = button.GetPreferredSize(Size.Empty);
+        return new Size(
+            Math.Max(minWidth, preferredSize.Width + 12),
+            Math.Max(minHeight, preferredSize.Height + 6));
+    }
+
+    private static void ConfigureCriteriaCheckBox(CheckBox checkBox)
+    {
+        checkBox.AutoSize = false;
+        checkBox.Dock = DockStyle.Fill;
+        checkBox.Margin = new Padding(0);
+        checkBox.TextAlign = ContentAlignment.MiddleLeft;
+    }
+
+    private static void ConfigureInputControl(Control control)
+    {
+        control.Dock = DockStyle.None;
+        control.Anchor = AnchorStyles.Left | AnchorStyles.Right;
+        control.Margin = new Padding(0, 0, 0, 0);
+        control.Height = control.PreferredSize.Height;
     }
 
     private void InitDataGridView()
     {
         dGV_SearchResult.Columns.Clear();
+        dGV_SearchResult.RowHeadersVisible = false;
         //勾選選項
         dGV_SearchResult.Columns.Add(new DataGridViewCheckBoxColumn
         {
@@ -95,7 +195,7 @@ public partial class DownloadHistoryForm : Form
         {
             Name = "colMediaType",
             HeaderText = "類型",
-            Width = 65,
+            Width = Math.Max(80, TextRenderer.MeasureText("類型", Font).Width + 32),
             ReadOnly = true,
             Resizable = DataGridViewTriState.False
         });
@@ -118,7 +218,8 @@ public partial class DownloadHistoryForm : Form
             Visible = false
         });
         dGV_SearchResult.Rows.Clear();
-        dGV_SearchResult.ColumnHeadersHeight = 30;
+        dGV_SearchResult.ColumnHeadersDefaultCellStyle.WrapMode = DataGridViewTriState.False;
+        dGV_SearchResult.ColumnHeadersHeight = Math.Max(34, Font.Height + 14);
         InitSelectAllHeader();
     }
 
