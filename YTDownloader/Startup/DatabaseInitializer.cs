@@ -177,7 +177,7 @@ namespace YTDownloader.Data
         }
         
         /// <summary>
-        /// TODO:需修改Table初始化流程
+        /// 專案表格初始化流程
         /// </summary>
         /// <param name="connectionString"></param>
         private void EnsureTEnitiyData(string connectionString)

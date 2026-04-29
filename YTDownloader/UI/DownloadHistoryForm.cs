@@ -1,4 +1,5 @@
 ﻿using Autofac;
+using JJNET.DataAccess.Entity;
 using JJNET.Utility.Tools;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -29,8 +30,6 @@ public partial class DownloadHistoryForm : Form
     public DownloadHistoryForm(ConfigService configService, OptionService optionService,
         ILogger<DownloadHistoryForm> logger)
     {
-        ///TODO:
-        ///讀歷史紀錄，並顯示
         _configService = configService;
         _settings = _configService.Load();
         _optionService = optionService;
@@ -150,5 +149,65 @@ public partial class DownloadHistoryForm : Form
         MaximizeBox = false;
         MinimumSize = Size;
         MaximumSize = Size;
+    }
+
+    /// <summary>
+    /// TODO:待測
+    /// </summary>
+    /// <param name="sender"></param>
+    /// <param name="e"></param>
+    private void btn_Search_Click(object sender, EventArgs e)
+    {
+
+        //TOOD:查詢實作
+        var FileName = cB_FileName.Checked ? txt_Filename.Text.Trim() : null;
+        var DownloadStartDate = cB_DownloadDate.Checked ? dTP_DownLoadStartDate.Value.Date : (DateTime?)null;
+        var DownloadEndDate = cB_DownloadDate.Checked ? dTP_DownLoadEndDate.Value.Date : (DateTime?)null;
+        var DownloadResult = cB_DownloadResult.Checked ? cBO_DownloadResult.SelectedValue : null;
+        var IsAudio = cB_Audio.Checked?"Audio":null;
+        var IsVideo = cB_Video.Checked?"Video":null;;
+        var sqlcmd = """
+                    SELECT 
+                        * 
+                    FROM DownloadHistory
+                    WHERE (@FileName IS NULL OR FileName LIKE '%' + @FileName + '%')
+                    AND (@DownloadStartDate IS NULL OR DownloadDate >= @DownloadStartDate)
+                    AND (@DownloadEndDate IS NULL OR DownloadDate <= @DownloadEndDate)
+                    AND (@DownloadResult IS NULL OR DownloadResult = @DownloadResult)
+                    AND (@IsAudio IS NULL OR MediaType = @IsAudio)
+                    AND (@IsVedio IS NULL OR MediaType = @IsVedio)
+                  """;
+        var Param = new { FileName, DownloadStartDate, DownloadEndDate, DownloadResult, IsAudio, IsVideo };
+        var SearchResult = new List<DownloadHistory>();
+        using (var conn = ConnectionTool.GetConnection())
+        {
+            var result = conn.Query<DownloadHistory>(null,sqlcmd, Param).ToList();
+            if (result != null&&result.Count>0)
+            {
+                dGV_SearchResult.Rows.Clear();
+                SearchResult.AddRange(result);
+                foreach (var item in SearchResult)
+                {
+                    dGV_SearchResult.Rows.Add(
+                        false,
+                        dGV_SearchResult.Rows.Count + 1,
+                        item.FileName,
+                        item.Type,
+                        OptionService.GetOptionDesc(OptionListDownloadStatus, item.Status),
+                        item.TaskID
+                        );
+                }
+            }
+            else
+            {
+                MessageBox.Show("查無資料。", "查詢結果", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+        }
+    }
+
+    private void btn_ReDownload_Click(object sender, EventArgs e)
+    {
+        //TODO:重新下載實作
     }
 }
