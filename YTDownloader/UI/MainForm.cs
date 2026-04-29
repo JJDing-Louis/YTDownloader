@@ -14,7 +14,7 @@ namespace YTDownloader
 {
     public partial class MainForm : Form
     {
-        private readonly ILogger<MainForm> logger;
+        private readonly ILogger<MainForm> _logger;
         private readonly ConfigService _configService;
         private readonly OptionService _optionService;
         private IConfiguration config = null!;
@@ -43,11 +43,10 @@ namespace YTDownloader
         private ConfigForm? _configForm;
 
         public MainForm()
-            : this(
-                new ConfigService(),
-                Program.Startup.Container.Resolve<OptionService>(),
-                Program.Startup.Container.Resolve<ILogger<MainForm>>())
         {
+            _configService = new ConfigService();
+            _optionService = Program.Startup.Container.Resolve<OptionService>();
+            _logger = Program.Startup.Container.Resolve<ILogger<MainForm>>();
         }
 
         public MainForm(
@@ -58,7 +57,7 @@ namespace YTDownloader
             _configService = configService;
             _settings = _configService.Load();
             _optionService = optionService;
-            this.logger = logger;
+            this._logger = logger;
             _downloadSemaphore = CreateDownloadSemaphore(_settings);
 
             GUITool.ApplyStartupFont(this, _settings);
@@ -202,7 +201,7 @@ namespace YTDownloader
 
         private void InitOptions()
         {
-            logger.LogInformation("Initializing options...");
+            _logger.LogInformation("Initializing options...");
 
             try
             {
@@ -211,19 +210,19 @@ namespace YTDownloader
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Failed to initialize options.");
+                _logger.LogError(ex, "Failed to initialize options.");
                 MessageBox.Show("選項載入失敗，請確認資料庫連線。", "初始化錯誤", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
         private void InitConfig()
         {
-            logger.LogInformation("Initializing configuration...");
+            _logger.LogInformation("Initializing configuration...");
             config = ParameterTool.GetConfiguration();
 
             if (config == null)
             {
-                logger.LogError("Configuration object is null.");
+                _logger.LogError("Configuration object is null.");
                 MessageBox.Show("載入設定失敗（config 為 null）。", "初始化錯誤", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
             }
@@ -235,7 +234,7 @@ namespace YTDownloader
 
             if (string.IsNullOrWhiteSpace(ytDlpRel))
             {
-                logger.LogError("yt-dlp path is not configured (Path:yt-dlp or Path:ytDlpPath).");
+                _logger.LogError("yt-dlp path is not configured (Path:yt-dlp or Path:ytDlpPath).");
                 MessageBox.Show("yt-dlp 路徑未在設定中指定。", "配置錯誤", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             else
@@ -243,14 +242,14 @@ namespace YTDownloader
                 ytDlpPath = Path.Combine(Environment.CurrentDirectory, ytDlpRel.Trim());
                 if (!File.Exists(ytDlpPath))
                 {
-                    logger.LogError("yt-dlp executable not found at path: {Path}", ytDlpPath);
+                    _logger.LogError("yt-dlp executable not found at path: {Path}", ytDlpPath);
                     MessageBox.Show($"yt-dlp 可執行檔未找到，請確認路徑：{ytDlpPath}", "配置錯誤", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
             }
 
             if (string.IsNullOrWhiteSpace(ffmpegRel))
             {
-                logger.LogError("ffmpeg path is not configured (Path:ffmpeg or Path:ffmpegPath).");
+                _logger.LogError("ffmpeg path is not configured (Path:ffmpeg or Path:ffmpegPath).");
                 MessageBox.Show("ffmpeg 路徑未在設定中指定。", "配置錯誤", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             else
@@ -258,18 +257,18 @@ namespace YTDownloader
                 ffmpegPath = Path.Combine(Environment.CurrentDirectory, ffmpegRel.Trim());
                 if (!File.Exists(ffmpegPath))
                 {
-                    logger.LogError("ffmpeg executable not found at path: {Path}", ffmpegPath);
+                    _logger.LogError("ffmpeg executable not found at path: {Path}", ffmpegPath);
                     MessageBox.Show($"ffmpeg 可執行檔未找到，請確認路徑：{ffmpegPath}", "配置錯誤", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
             }
 
             if (!string.IsNullOrWhiteSpace(DownloadFolder))
             {
-                logger.LogInformation("Download folder loaded from Config.json: {Path}", DownloadFolder);
+                _logger.LogInformation("Download folder loaded from Config.json: {Path}", DownloadFolder);
             }
             else if (string.IsNullOrWhiteSpace(downloadFolder))
             {
-                logger.LogError("downloadFolder path is not configured (Path:DownLoadDir or Path:ffmpegPath).");
+                _logger.LogError("downloadFolder path is not configured (Path:DownLoadDir or Path:ffmpegPath).");
                 MessageBox.Show("DownLoadDir 路徑未在設定中指定。", "配置錯誤", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             else
@@ -277,7 +276,7 @@ namespace YTDownloader
                 DownloadFolder = Path.Combine(Environment.CurrentDirectory, downloadFolder.Trim());
                 if (!Directory.Exists(DownloadFolder))
                 {
-                    logger.LogError("Download folder not found at path: {Path}", DownloadFolder);
+                    _logger.LogError("Download folder not found at path: {Path}", DownloadFolder);
                     MessageBox.Show($"下載資料夾未找到，請確認路徑：{DownloadFolder}", "配置錯誤", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
             }
@@ -288,7 +287,7 @@ namespace YTDownloader
             var items = GetOptions(key);
             if (items.Count == 0)
             {
-                logger.LogWarning("Options key '{Key}' is missing or empty.", key);
+                _logger.LogWarning("Options key '{Key}' is missing or empty.", key);
                 return;
             }
 
@@ -373,7 +372,7 @@ namespace YTDownloader
                 switch (SourceType.ResourceType)
                 {
                     case UrlResourceType.SingleVideo:
-                        logger.LogInformation($"檢測到單一影片：{SourceType.Title}", "資源檢測", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        _logger.LogInformation($"檢測到單一影片：{SourceType.Title}", "資源檢測", MessageBoxButtons.OK, MessageBoxIcon.Information);
                         var playlist = await YTDownloadService.GetPlaylistVideosAsync(URL);
                         var video =  playlist.Videos.FirstOrDefault() ?? throw new Exception("無法取得影片資訊");
                         var request = new DownloadRequest
@@ -389,7 +388,7 @@ namespace YTDownloader
                         EnqueueDownloads(new[] { request });
                         break;
                     case UrlResourceType.Playlist:
-                        logger.LogInformation($"檢測到播放清單：{SourceType.PlaylistTitle}，共 {SourceType.PlaylistCount} 部影片");
+                        _logger.LogInformation($"檢測到播放清單：{SourceType.PlaylistTitle}，共 {SourceType.PlaylistCount} 部影片");
                         //如果沒有被正確關閉，則先釋放資源
                         if (_playlistHandlerForm is { IsDisposed: false })
                             _playlistHandlerForm.Close();
@@ -403,14 +402,14 @@ namespace YTDownloader
                         var (isSuccess, msg) = await _playlistHandlerForm.GetPlaylistInfoAsync();
                         if (isSuccess)
                         {
-                            logger.LogInformation($"成功獲取播放清單資訊：{msg}");
+                            _logger.LogInformation($"成功獲取播放清單資訊：{msg}");
                             _playlistHandlerForm.Location = new Point(700, 0);
                             _playlistHandlerForm.Disposed += new EventHandler(playlistHandlerForm_Disposed);
                             _playlistHandlerForm.Show();
                         }
                         else
                         {
-                            logger.LogError($"獲取播放清單資訊失敗：{msg}");
+                            _logger.LogError($"獲取播放清單資訊失敗：{msg}");
                             _playlistHandlerForm.Dispose();
                             MessageBox.Show(
                                 $"無法載入播放清單，請確認連結是否正確。\n\n原因：{msg}",
@@ -427,7 +426,7 @@ namespace YTDownloader
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Failed to retrieve selected options.");
+                _logger.LogError(ex, "Failed to retrieve selected options.");
             }
         }
 
@@ -633,7 +632,7 @@ namespace YTDownloader
             }
             catch (Exception ex)
             {
-                logger.LogWarning(ex, "更新 DownloadHistory 進度失敗。TaskID: {TaskID}, Progress: {Progress}, Status: {Status}", taskId, percent, status);
+                _logger.LogWarning(ex, "更新 DownloadHistory 進度失敗。TaskID: {TaskID}, Progress: {Progress}, Status: {Status}", taskId, percent, status);
             }
         }
 
@@ -752,11 +751,11 @@ namespace YTDownloader
             }
 
             if (deletedCount > 0)
-                logger.LogInformation(
+                _logger.LogInformation(
                     "重啟前清除 {Count} 個殘留暫存檔（檔名：{FileName}）",
                     deletedCount, req.FileName);
             else
-                logger.LogDebug(
+                _logger.LogDebug(
                     "重啟前未找到需清除的暫存檔（正規化標題：{NTitle}）",
                     normalizedTitle);
         }
@@ -767,11 +766,11 @@ namespace YTDownloader
             {
                 File.Delete(path);
                 count++;
-                logger.LogInformation("已刪除暫存檔：{File}", Path.GetFileName(path));
+                _logger.LogInformation("已刪除暫存檔：{File}", Path.GetFileName(path));
             }
             catch (Exception ex)
             {
-                logger.LogWarning("無法刪除暫存檔 [{File}]：{Msg}", Path.GetFileName(path), ex.Message);
+                _logger.LogWarning("無法刪除暫存檔 [{File}]：{Msg}", Path.GetFileName(path), ex.Message);
             }
         }
 
@@ -841,7 +840,7 @@ namespace YTDownloader
             }
 
             if (deletedCount > 0)
-                logger.LogInformation(
+                _logger.LogInformation(
                     "音訊下載完成後清除 {Count} 個殘留串流暫存檔（檔名：{FileName}）",
                     deletedCount, req.FileName);
         }
@@ -1011,7 +1010,7 @@ namespace YTDownloader
                         UpdateDownloadProgress(taskId, 0, $"Fail：{firstLine}");
                         SetActionButton(taskId, "重試");
                         SetStatusTooltip(taskId, result.Message ?? "未知錯誤");
-                        logger.LogError("下載失敗 [{Title}]：{Message}", capturedReq.Title, result.Message);
+                        _logger.LogError("下載失敗 [{Title}]：{Message}", capturedReq.Title, result.Message);
                     }
                 };
 
