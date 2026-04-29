@@ -12,11 +12,14 @@ namespace YTDownloader;
 public partial class DownloadHistoryForm : Form
 {
     private const string OptionListDownloadStatus = "ListDownloadStatus";
+    private const string SelectColumnName = "colSelect";
     private readonly ConfigService _configService;
     private readonly ILogger _logger;
     private readonly OptionService _optionService;
     private readonly ConfigModel _settings;
     private IConfiguration config = null!;
+    private bool _isSelectAllChecked;
+    private bool _updatingSelectAllState;
 
     public DownloadHistoryForm()
     {
@@ -64,9 +67,9 @@ public partial class DownloadHistoryForm : Form
         //勾選選項
         dGV_SearchResult.Columns.Add(new DataGridViewCheckBoxColumn
         {
-            Name = "colSelect",
+            Name = SelectColumnName,
             HeaderText = "",
-            Width = 30,
+            Width = 76,
             ReadOnly = false,
             Resizable = DataGridViewTriState.False
         });
@@ -92,7 +95,7 @@ public partial class DownloadHistoryForm : Form
         {
             Name = "colMediaType",
             HeaderText = "類型",
-            Width = 55,
+            Width = 65,
             ReadOnly = true,
             Resizable = DataGridViewTriState.False
         });
@@ -115,6 +118,125 @@ public partial class DownloadHistoryForm : Form
             Visible = false
         });
         dGV_SearchResult.Rows.Clear();
+        dGV_SearchResult.ColumnHeadersHeight = 30;
+        InitSelectAllHeader();
+    }
+
+    private void InitSelectAllHeader()
+    {
+        dGV_SearchResult.CurrentCellDirtyStateChanged -= SearchResult_CurrentCellDirtyStateChanged;
+        dGV_SearchResult.CurrentCellDirtyStateChanged += SearchResult_CurrentCellDirtyStateChanged;
+        dGV_SearchResult.CellValueChanged -= SearchResult_CellValueChanged;
+        dGV_SearchResult.CellValueChanged += SearchResult_CellValueChanged;
+        dGV_SearchResult.CellPainting -= SearchResult_CellPainting;
+        dGV_SearchResult.CellPainting += SearchResult_CellPainting;
+        dGV_SearchResult.ColumnHeaderMouseClick -= SearchResult_ColumnHeaderMouseClick;
+        dGV_SearchResult.ColumnHeaderMouseClick += SearchResult_ColumnHeaderMouseClick;
+    }
+
+    private void SearchResult_ColumnHeaderMouseClick(object? sender, DataGridViewCellMouseEventArgs e)
+    {
+        if (e.ColumnIndex < 0 || dGV_SearchResult.Columns[e.ColumnIndex].Name != SelectColumnName)
+        {
+            return;
+        }
+
+        SetAllRowsSelected(!_isSelectAllChecked);
+    }
+
+    private void SetAllRowsSelected(bool isSelected)
+    {
+        dGV_SearchResult.EndEdit();
+        _updatingSelectAllState = true;
+        foreach (DataGridViewRow row in dGV_SearchResult.Rows)
+        {
+            if (!row.IsNewRow)
+            {
+                row.Cells[SelectColumnName].Value = isSelected;
+            }
+        }
+        _updatingSelectAllState = false;
+
+        _isSelectAllChecked = isSelected;
+        dGV_SearchResult.InvalidateCell(dGV_SearchResult.Columns[SelectColumnName].Index, -1);
+    }
+
+    private void SearchResult_CurrentCellDirtyStateChanged(object? sender, EventArgs e)
+    {
+        if (dGV_SearchResult.IsCurrentCellDirty &&
+            dGV_SearchResult.CurrentCell?.OwningColumn?.Name == SelectColumnName)
+        {
+            dGV_SearchResult.CommitEdit(DataGridViewDataErrorContexts.Commit);
+        }
+    }
+
+    private void SearchResult_CellValueChanged(object? sender, DataGridViewCellEventArgs e)
+    {
+        if (e.RowIndex < 0 ||
+            e.ColumnIndex < 0 ||
+            dGV_SearchResult.Columns[e.ColumnIndex].Name != SelectColumnName ||
+            _updatingSelectAllState)
+        {
+            return;
+        }
+
+        UpdateSelectAllCheckBoxState();
+    }
+
+    private void UpdateSelectAllCheckBoxState()
+    {
+        _isSelectAllChecked = dGV_SearchResult.Rows.Count > 0 &&
+                              dGV_SearchResult.Rows
+                                  .Cast<DataGridViewRow>()
+                                  .Where(row => !row.IsNewRow)
+                                  .All(row => Convert.ToBoolean(row.Cells[SelectColumnName].Value));
+        dGV_SearchResult.InvalidateCell(dGV_SearchResult.Columns[SelectColumnName].Index, -1);
+    }
+
+    private void SearchResult_CellPainting(object? sender, DataGridViewCellPaintingEventArgs e)
+    {
+        if (e.RowIndex != -1 ||
+            e.ColumnIndex < 0 ||
+            dGV_SearchResult.Columns[e.ColumnIndex].Name != SelectColumnName)
+        {
+            return;
+        }
+
+        if (e.Graphics == null)
+        {
+            return;
+        }
+
+        e.Paint(e.CellBounds, e.PaintParts & ~DataGridViewPaintParts.ContentForeground);
+
+        const int checkBoxSize = 14;
+        const int gap = 4;
+        var text = "全選";
+        var cellStyle = e.CellStyle ?? dGV_SearchResult.ColumnHeadersDefaultCellStyle;
+        var font = cellStyle.Font ?? dGV_SearchResult.Font;
+        var textSize = TextRenderer.MeasureText(text, font);
+        var totalWidth = checkBoxSize + gap + textSize.Width;
+        var checkBoxLocation = new Point(
+            e.CellBounds.Left + Math.Max(0, (e.CellBounds.Width - totalWidth) / 2),
+            e.CellBounds.Top + (e.CellBounds.Height - checkBoxSize) / 2);
+        var textLocation = new Point(
+            checkBoxLocation.X + checkBoxSize + gap,
+            e.CellBounds.Top + (e.CellBounds.Height - textSize.Height) / 2);
+
+        ControlPaint.DrawCheckBox(
+            e.Graphics,
+            new Rectangle(checkBoxLocation, new Size(checkBoxSize, checkBoxSize)),
+            _isSelectAllChecked ? ButtonState.Checked : ButtonState.Normal);
+
+        TextRenderer.DrawText(
+            e.Graphics,
+            text,
+            font,
+            textLocation,
+            cellStyle.ForeColor,
+            TextFormatFlags.NoPadding);
+
+        e.Handled = true;
     }
 
     private void InitConfig()
@@ -197,6 +319,7 @@ public partial class DownloadHistoryForm : Form
                         item.TaskID
                         );
                 }
+                UpdateSelectAllCheckBoxState();
             }
             else
             {

@@ -187,7 +187,7 @@ public partial class MainForm : Form
         {
             Name = "colMediaType",
             HeaderText = "類型",
-            Width = 55,
+            Width = 65,
             ReadOnly = true,
             Resizable = DataGridViewTriState.False
         });
