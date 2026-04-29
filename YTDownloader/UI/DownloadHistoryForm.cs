@@ -55,7 +55,61 @@ namespace YTDownloader
 
         private void InitDataGridView()
         {
-            
+            dGV_SearchResult.Columns.Clear();
+            //勾選選項
+            dGV_SearchResult.Columns.Add(new DataGridViewCheckBoxColumn
+            {
+                Name = "colSelect",
+                HeaderText = "",
+                Width = 30,
+                ReadOnly = false,
+                Resizable = DataGridViewTriState.False
+            });
+            // # 序號
+            dGV_SearchResult.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                Name = "colIndex",
+                HeaderText = "#",
+                Width = 40,
+                ReadOnly = true,
+                Resizable = DataGridViewTriState.False
+            });
+            // 檔名
+            dGV_SearchResult.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                Name = "colTitle",
+                HeaderText = "檔名",
+                AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill,
+                ReadOnly = true
+            });
+            // 類型（音訊 / 視訊）
+            dGV_SearchResult.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                Name = "colMediaType",
+                HeaderText = "類型",
+                Width = 55,
+                ReadOnly = true,
+                Resizable = DataGridViewTriState.False
+            });
+            // 狀態文字
+            dGV_SearchResult.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                Name = "colStatus",
+                HeaderText = "狀態",
+                Width = 200,
+                ReadOnly = true,
+                Resizable = DataGridViewTriState.True,
+                DefaultCellStyle = new DataGridViewCellStyle
+                    { Alignment = DataGridViewContentAlignment.MiddleLeft }
+            });
+            // 隱藏的任務 ID（用於刪除列後仍能找到正確的 controller）
+            dGV_SearchResult.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                Name = "colTaskId",
+                HeaderText = "TaskId",
+                Visible = false
+            });
+            dGV_SearchResult.Rows.Clear();
         }
 
         private void InitConfig()
@@ -73,7 +127,7 @@ namespace YTDownloader
         
         private void InitOptions()
         {
-            
+            _logger.LogInformation("Initializing options...");
         }
         
         private void LockWindowSize()

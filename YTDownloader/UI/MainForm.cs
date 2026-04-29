@@ -200,7 +200,6 @@ namespace YTDownloader
 
             try
             {
-                OptionService.GetOptions();
                 BindComboBox(cB_ListMediaType, OptionListMediaType);
             }
             catch (Exception ex)

@@ -42,18 +42,18 @@
             btn_Search = new Button();
             cB_MediaType = new CheckBox();
             tableLayoutPanel5 = new TableLayoutPanel();
+            cB_Video = new CheckBox();
             cB_Audio = new CheckBox();
             groupBox1 = new GroupBox();
-            dataGridView1 = new DataGridView();
+            dGV_SearchResult = new DataGridView();
             tableLayoutPanel4 = new TableLayoutPanel();
             btn_ReDownload = new Button();
-            cB_Video = new CheckBox();
             tableLayoutPanel1.SuspendLayout();
             tableLayoutPanel2.SuspendLayout();
             tableLayoutPanel3.SuspendLayout();
             tableLayoutPanel5.SuspendLayout();
             groupBox1.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)dataGridView1).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)dGV_SearchResult).BeginInit();
             tableLayoutPanel4.SuspendLayout();
             SuspendLayout();
             // 
@@ -230,6 +230,16 @@
             tableLayoutPanel5.Size = new Size(383, 30);
             tableLayoutPanel5.TabIndex = 10;
             // 
+            // cB_Video
+            // 
+            cB_Video.AutoSize = true;
+            cB_Video.Location = new Point(79, 3);
+            cB_Video.Name = "cB_Video";
+            cB_Video.Size = new Size(50, 19);
+            cB_Video.TabIndex = 10;
+            cB_Video.Text = "視訊";
+            cB_Video.UseVisualStyleBackColor = true;
+            // 
             // cB_Audio
             // 
             cB_Audio.AutoSize = true;
@@ -242,7 +252,7 @@
             // 
             // groupBox1
             // 
-            groupBox1.Controls.Add(dataGridView1);
+            groupBox1.Controls.Add(dGV_SearchResult);
             groupBox1.Dock = DockStyle.Fill;
             groupBox1.Location = new Point(3, 228);
             groupBox1.Name = "groupBox1";
@@ -251,15 +261,15 @@
             groupBox1.TabStop = false;
             groupBox1.Text = "查詢結果";
             // 
-            // dataGridView1
+            // dGV_SearchResult
             // 
-            dataGridView1.AllowUserToAddRows = false;
-            dataGridView1.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
-            dataGridView1.Dock = DockStyle.Fill;
-            dataGridView1.Location = new Point(3, 19);
-            dataGridView1.Name = "dataGridView1";
-            dataGridView1.Size = new Size(1016, 197);
-            dataGridView1.TabIndex = 0;
+            dGV_SearchResult.AllowUserToAddRows = false;
+            dGV_SearchResult.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
+            dGV_SearchResult.Dock = DockStyle.Fill;
+            dGV_SearchResult.Location = new Point(3, 19);
+            dGV_SearchResult.Name = "dGV_SearchResult";
+            dGV_SearchResult.Size = new Size(1016, 197);
+            dGV_SearchResult.TabIndex = 0;
             // 
             // tableLayoutPanel4
             // 
@@ -292,16 +302,6 @@
             btn_ReDownload.Text = "重新下載";
             btn_ReDownload.UseVisualStyleBackColor = true;
             // 
-            // cB_Video
-            // 
-            cB_Video.AutoSize = true;
-            cB_Video.Location = new Point(79, 3);
-            cB_Video.Name = "cB_Video";
-            cB_Video.Size = new Size(50, 19);
-            cB_Video.TabIndex = 10;
-            cB_Video.Text = "視訊";
-            cB_Video.UseVisualStyleBackColor = true;
-            // 
             // DownloadHistoryForm
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
@@ -318,7 +318,7 @@
             tableLayoutPanel5.ResumeLayout(false);
             tableLayoutPanel5.PerformLayout();
             groupBox1.ResumeLayout(false);
-            ((System.ComponentModel.ISupportInitialize)dataGridView1).EndInit();
+            ((System.ComponentModel.ISupportInitialize)dGV_SearchResult).EndInit();
             tableLayoutPanel4.ResumeLayout(false);
             ResumeLayout(false);
         }
@@ -339,7 +339,7 @@
         private DateTimePicker dateTimePicker1;
         private DateTimePicker dateTimePicker2;
         private GroupBox groupBox1;
-        private DataGridView dataGridView1;
+        private DataGridView dGV_SearchResult;
         private TableLayoutPanel tableLayoutPanel4;
         private CheckBox cB_MediaType;
         private CheckBox cB_Audio;
