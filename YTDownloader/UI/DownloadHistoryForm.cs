@@ -50,6 +50,11 @@ namespace YTDownloader
 
         private void InitUI()
         {
+            InitDataGridView();
+        }
+
+        private void InitDataGridView()
+        {
             
         }
 

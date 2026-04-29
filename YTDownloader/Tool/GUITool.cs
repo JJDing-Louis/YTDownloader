@@ -59,6 +59,20 @@ internal static class GUITool
                 : Path.Combine(AppContext.BaseDirectory, path));
     }
 
+    public static string GetComboBoxSelectedName(ComboBox comboBox)
+    {
+        return comboBox.SelectedItem is KeyValuePair<string, string> kv
+            ? kv.Value
+            : string.Empty;
+    }
+
+    public static string GetComboBoxSelectedDesc(ComboBox comboBox)
+    {
+        return comboBox.SelectedItem is KeyValuePair<string, string> kv
+            ? kv.Key
+            : string.Empty;
+    }
+
     private static void ApplyConfiguredFont(Form form, string fontName, int fontSize)
     {
         using var configuredFont = CreateConfiguredFont(form.Font, fontName, fontSize);

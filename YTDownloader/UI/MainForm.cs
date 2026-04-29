@@ -18,7 +18,6 @@ namespace YTDownloader
         private readonly ConfigService _configService;
         private readonly OptionService _optionService;
         private IConfiguration config = null!;
-        private Dictionary<string, List<KeyValuePair<string, string>>> options = new();
         private string DownloadFolder = string.Empty;
         private string ytDlpPath = string.Empty;
         private string ffmpegPath = string.Empty;
@@ -201,7 +200,7 @@ namespace YTDownloader
 
             try
             {
-                options = _optionService.GetOptions();
+                OptionService.GetOptions();
                 BindComboBox(cB_ListMediaType, OptionListMediaType);
             }
             catch (Exception ex)
@@ -280,7 +279,7 @@ namespace YTDownloader
 
         private void BindComboBox(ComboBox comboBox, string key)
         {
-            var items = GetOptions(key);
+            var items = OptionService.GetOptions(key);
             if (items.Count == 0)
             {
                 _logger.LogWarning("Options key '{Key}' is missing or empty.", key);
@@ -294,58 +293,6 @@ namespace YTDownloader
 
         #endregion Init
 
-        #region Option helpers
-
-        /// <summary>
-        /// 取得指定外部選單的全部項目。Key 為 Desc（顯示文字），Value 為 Name（資料庫值）。
-        /// </summary>
-        private IReadOnlyList<KeyValuePair<string, string>> GetOptions(string listName)
-        {
-            return options != null && options.TryGetValue(listName, out var items) && items != null
-                ? items
-                : Array.Empty<KeyValuePair<string, string>>();
-        }
-
-        /// <summary>
-        /// 依 Name（資料庫值）取得 Desc（顯示文字）。
-        /// </summary>
-        private string GetOptionDesc(string listName, string name)
-        {
-            var desc = GetOptions(listName)
-                .FirstOrDefault(item => item.Value == name)
-                .Key;
-
-            return string.IsNullOrWhiteSpace(desc) ? name : desc;
-        }
-
-        /// <summary>
-        /// 依 Desc（顯示文字）取得 Name（資料庫值）。
-        /// </summary>
-        private string GetOptionName(string listName, string desc)
-        {
-            var name = GetOptions(listName)
-                .FirstOrDefault(item => item.Key == desc)
-                .Value;
-
-            return string.IsNullOrWhiteSpace(name) ? desc : name;
-        }
-
-        private static string GetSelectedOptionName(ComboBox comboBox)
-        {
-            return comboBox.SelectedItem is KeyValuePair<string, string> kv
-                ? kv.Value
-                : string.Empty;
-        }
-
-        private static string GetSelectedOptionDesc(ComboBox comboBox)
-        {
-            return comboBox.SelectedItem is KeyValuePair<string, string> kv
-                ? kv.Key
-                : string.Empty;
-        }
-
-        #endregion
-        
         #region UI Functions
 
         private async void btn_Download_Click(object sender, EventArgs e)
@@ -375,10 +322,10 @@ namespace YTDownloader
                         {
                             Title            = video.Title ?? "未知標題",
                             WebpageUrl       = URL,
-                            MediaType        = Enum.TryParse<MediaType>(GetSelectedOptionName(cB_ListMediaType), ignoreCase: false, out var mediaType)
+                            MediaType        = Enum.TryParse<MediaType>(GUITool.GetComboBoxSelectedName(cB_ListMediaType), ignoreCase: false, out var mediaType)
                                 ? mediaType
-                                : throw new NotSupportedException($"未知的媒體類型值：{GetSelectedOptionName(cB_ListMediaType)}"),
-                            MediaTypeDisplay = GetSelectedOptionDesc(cB_ListMediaType),
+                                : throw new NotSupportedException($"未知的媒體類型值：{GUITool.GetComboBoxSelectedName(cB_ListMediaType)}"),
+                            MediaTypeDisplay = GUITool.GetComboBoxSelectedDesc(cB_ListMediaType),
                             DownloadDir      = DownloadFolder
                         };
                         EnqueueDownloads(new[] { request });
@@ -391,10 +338,10 @@ namespace YTDownloader
                         _playlistHandlerForm = new PlaylistHandlerForm(
                             URL,
                             this,
-                            Enum.TryParse<MediaType>(GetSelectedOptionName(cB_ListMediaType), ignoreCase: false, out var playlistMediaType)
+                            Enum.TryParse<MediaType>(GUITool.GetComboBoxSelectedName(cB_ListMediaType), ignoreCase: false, out var playlistMediaType)
                                 ? playlistMediaType
-                                : throw new NotSupportedException($"未知的媒體類型值：{GetSelectedOptionName(cB_ListMediaType)}"),
-                            GetSelectedOptionDesc(cB_ListMediaType));
+                                : throw new NotSupportedException($"未知的媒體類型值：{GUITool.GetComboBoxSelectedName(cB_ListMediaType)}"),
+                            GUITool.GetComboBoxSelectedDesc(cB_ListMediaType));
                         var (isSuccess, msg) = await _playlistHandlerForm.GetPlaylistInfoAsync();
                         if (isSuccess)
                         {
@@ -557,7 +504,7 @@ namespace YTDownloader
                 title,                                                      // colTitle
                 mediaType,                                          // colMediaType
                 0.0,                                                       // colProgress（double，ProgressBarCell 讀取）
-                GetOptionDesc(OptionListDownloadStatus, "Waiting"), // colStatus
+                OptionService.GetOptionDesc(OptionListDownloadStatus, "Waiting"), // colStatus
                 "暫停",                                                 // colAction 按鈕文字
                 "取消",                                                 // colCancel 按鈕文字
                 taskId                                                  // colTaskId（隱藏）
@@ -572,8 +519,8 @@ namespace YTDownloader
         public void UpdateDownloadProgress(long taskId, double percent, string status)
         {
             var parts = status.Split('：', 2);
-            var statusName = GetOptionName(OptionListDownloadStatus, parts[0]);
-            var statusDesc = GetOptionDesc(OptionListDownloadStatus, statusName);
+            var statusName = OptionService.GetOptionName(OptionListDownloadStatus, parts[0]);
+            var statusDesc = OptionService.GetOptionDesc(OptionListDownloadStatus, statusName);
             var displayStatus = parts.Length == 2 ? $"{statusDesc}：{parts[1]}" : statusDesc;
 
             UpdateDownloadProgressInDatabase(taskId, percent, status);
@@ -606,7 +553,7 @@ namespace YTDownloader
 
         private Color GetStatusBackColor(string status)
         {
-            var statusName = GetOptionName(OptionListDownloadStatus, status.Split('：', 2)[0]);
+            var statusName = OptionService.GetOptionName(OptionListDownloadStatus, status.Split('：', 2)[0]);
             return statusName switch
             {
                 "Complete"   => Color.FromArgb(200, 240, 200),
@@ -622,7 +569,7 @@ namespace YTDownloader
             try
             {
                 var progress = Math.Clamp((int)Math.Round(percent, MidpointRounding.AwayFromZero), 0, 100);
-                var databaseStatus = GetOptionName(OptionListDownloadStatus, status.Split('：', 2)[0]);
+                var databaseStatus = OptionService.GetOptionName(OptionListDownloadStatus, status.Split('：', 2)[0]);
                 DateTime? completeDateTime = databaseStatus == "Complete" ? DateTime.UtcNow : null;
                 DBTool.UpdateDownloadProgress(taskId, progress, databaseStatus, completeDateTime);
             }
