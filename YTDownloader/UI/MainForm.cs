@@ -200,7 +200,7 @@ namespace YTDownloader
 
             try
             {
-                BindComboBox(cB_ListMediaType, OptionListMediaType);
+                GUITool.BindComboBox(cB_ListMediaType, OptionListMediaType);
             }
             catch (Exception ex)
             {
@@ -274,20 +274,6 @@ namespace YTDownloader
                     MessageBox.Show($"下載資料夾未找到，請確認路徑：{DownloadFolder}", "配置錯誤", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
             }
-        }
-
-        private void BindComboBox(ComboBox comboBox, string key)
-        {
-            var items = OptionService.GetOptions(key);
-            if (items.Count == 0)
-            {
-                _logger.LogWarning("Options key '{Key}' is missing or empty.", key);
-                return;
-            }
-
-            comboBox.DisplayMember = "Key";
-            comboBox.Items.AddRange(items.Cast<object>().ToArray());
-            if (comboBox.Items.Count > 0) { comboBox.SelectedIndex = 0; }
         }
 
         #endregion Init

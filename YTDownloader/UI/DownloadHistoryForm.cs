@@ -18,6 +18,8 @@ namespace YTDownloader
         private IConfiguration config = null!;
         private ConfigModel _settings;
         
+        private const string OptionListDownloadStatus = "ListDownloadStatus";
+        
         public DownloadHistoryForm()
         {
 
@@ -128,6 +130,15 @@ namespace YTDownloader
         private void InitOptions()
         {
             _logger.LogInformation("Initializing options...");
+            try
+            {
+                GUITool.BindComboBox(cBO_DownloadResult, OptionListDownloadStatus);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to initialize options.");
+                MessageBox.Show("選項載入失敗，請確認資料庫連線。", "初始化錯誤", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
         
         private void LockWindowSize()

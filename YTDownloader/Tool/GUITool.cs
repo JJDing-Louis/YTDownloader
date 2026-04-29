@@ -73,6 +73,18 @@ internal static class GUITool
             : string.Empty;
     }
 
+    public static void BindComboBox(ComboBox comboBox, string optionKey)
+    {
+        var items = OptionService.GetOptions(optionKey);
+        if (items.Count == 0)
+            return;
+
+        comboBox.DisplayMember = "Key";
+        comboBox.Items.AddRange(items.Cast<object>().ToArray());
+        if (comboBox.Items.Count > 0)
+            comboBox.SelectedIndex = 0;
+    }
+
     private static void ApplyConfiguredFont(Form form, string fontName, int fontSize)
     {
         using var configuredFont = CreateConfiguredFont(form.Font, fontName, fontSize);
