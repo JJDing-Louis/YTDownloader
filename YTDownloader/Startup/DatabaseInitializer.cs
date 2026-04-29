@@ -130,8 +130,7 @@ namespace YTDownloader.Data
             UpdateTable();
             EnsureStaticData(connectionString);
         }
-
-
+        
         private void EnsureDatabase(string connectionString)
         {
             _logger.LogInformation("Initializing database...");

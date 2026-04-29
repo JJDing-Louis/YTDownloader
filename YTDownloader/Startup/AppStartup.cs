@@ -42,10 +42,9 @@ namespace YTDownloader.Startup
         {
             var services = new ServiceCollection();
             services.AddLogging(b => b.AddSerilog(dispose: true));
-
+            //TODO:待修正DI部分
             var builder = new ContainerBuilder();
             builder.Populate(services);
-
             builder.RegisterInstance(config).As<IConfiguration>().SingleInstance();
             builder.RegisterType<ConfigService>().AsSelf().SingleInstance();
             builder.RegisterType<DatabaseInitializer>().AsSelf().InstancePerDependency();
