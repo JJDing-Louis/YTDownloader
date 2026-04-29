@@ -44,8 +44,11 @@ namespace YTDownloader
         public MainForm()
         {
             _configService = new ConfigService();
+            _settings = _configService.Load();
             _optionService = Program.Startup.Container.Resolve<OptionService>();
             _logger = Program.Startup.Container.Resolve<ILogger<MainForm>>();
+            _downloadSemaphore = CreateDownloadSemaphore(_settings);
+            InitializeForm();
         }
 
         public MainForm(ConfigService configService, OptionService optionService, ILogger<MainForm> logger)
@@ -55,13 +58,17 @@ namespace YTDownloader
             _optionService = optionService;
             _logger = logger;
             _downloadSemaphore = CreateDownloadSemaphore(_settings);
+            InitializeForm();
+        }
+
+        private void InitializeForm()
+        {
             GUITool.ApplyStartupFont(this, _settings);
             InitializeComponent();
             LockWindowSize();
             ApplyStartupSettings();
             _logger.LogInformation("MainForm form initialized.");
             Init();
-
         }
         
         #region Init

@@ -10,24 +10,33 @@ namespace YTDownloader
 {
     public partial class PlaylistHandlerForm : Form
     {
-        private ILogger logger = Program.Startup.Container.Resolve<ILogger<PlaylistHandlerForm>>();
-        private IConfiguration config;
-        private string ytDlpPath;
-        private string ffmpegPath;
-        private string downloadDir;
-        private string playlistUrl;
-        private MainForm mainForm;
+        private readonly ILogger _logger;
+        private readonly ConfigService _configService;
+        private IConfiguration config = null!;
+        private ConfigModel _settings;
+        private string ytDlpPath = string.Empty;
+        private string ffmpegPath = string.Empty;
+        private string downloadDir = string.Empty;
+        private string playlistUrl = string.Empty;
+        private MainForm mainForm = null!;
         private MediaType mediaType;
-        private string mediaTypeDisplay;
+        private string mediaTypeDisplay = string.Empty;
         private List<PlaylistVideoItem> playlistVideos = new();
 
         public PlaylistHandlerForm()
         {
-            GUITool.ApplyStartupFontFromConfig(this);
-            InitializeComponent();
-            GUITool.ApplyFromConfig(this);
-            logger.LogInformation("PlaylistHandlerForm form initialized.");
+            _configService = new ConfigService();
+            _settings = _configService.Load();
+            _logger = Program.Startup.Container.Resolve<ILogger<PlaylistHandlerForm>>();
+            InitializeForm();
+        }
 
+        public PlaylistHandlerForm(ConfigService configService, ILogger<PlaylistHandlerForm> logger)
+        {
+            _configService = configService;
+            _settings = _configService.Load();
+            _logger = logger;
+            InitializeForm();
         }
 
         public PlaylistHandlerForm(string playlistUrl, MainForm mainForm, MediaType mediaType, string mediaTypeDisplay) : this()
@@ -36,14 +45,22 @@ namespace YTDownloader
             this.mainForm = mainForm;
             this.mediaType = mediaType;
             this.mediaTypeDisplay = mediaTypeDisplay;
+        }
+
+        private void InitializeForm()
+        {
+            GUITool.ApplyStartupFont(this, _settings);
+            InitializeComponent();
+            GUITool.Apply(this, _settings);
+            _logger.LogInformation("PlaylistHandlerForm form initialized.");
             Init();
-            InitUI();
         }
 
         #region Init
         private void Init()
         {
             InitConfig();
+            InitUI();
         }
 
         private void InitUI()
@@ -125,12 +142,12 @@ namespace YTDownloader
         }
         private void InitConfig()
         {
-            logger.LogInformation("Initializing configuration...");
+            _logger.LogInformation("Initializing configuration...");
             config = ParameterTool.GetConfiguration();
 
             if (config == null)
             {
-                logger.LogError("Configuration object is null.");
+                _logger.LogError("Configuration object is null.");
                 MessageBox.Show("載入設定失敗（config 為 null）。", "初始化錯誤", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
             }
@@ -141,7 +158,7 @@ namespace YTDownloader
 
             if (string.IsNullOrWhiteSpace(ytDlpRel))
             {
-                logger.LogError("yt-dlp path is not configured (Path:yt-dlp or Path:ytDlpPath).");
+                _logger.LogError("yt-dlp path is not configured (Path:yt-dlp or Path:ytDlpPath).");
                 MessageBox.Show("yt-dlp 路徑未在設定中指定。", "配置錯誤", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             else
@@ -149,14 +166,14 @@ namespace YTDownloader
                 ytDlpPath = Path.Combine(Environment.CurrentDirectory, ytDlpRel.Trim());
                 if (!File.Exists(ytDlpPath))
                 {
-                    logger.LogError("yt-dlp executable not found at path: {Path}", ytDlpPath);
+                    _logger.LogError("yt-dlp executable not found at path: {Path}", ytDlpPath);
                     MessageBox.Show($"yt-dlp 可執行檔未找到，請確認路徑：{ytDlpPath}", "配置錯誤", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
             }
 
             if (string.IsNullOrWhiteSpace(ffmpegRel))
             {
-                logger.LogError("ffmpeg path is not configured (Path:ffmpeg or Path:ffmpegPath).");
+                _logger.LogError("ffmpeg path is not configured (Path:ffmpeg or Path:ffmpegPath).");
                 MessageBox.Show("ffmpeg 路徑未在設定中指定。", "配置錯誤", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             else
@@ -164,7 +181,7 @@ namespace YTDownloader
                 ffmpegPath = Path.Combine(Environment.CurrentDirectory, ffmpegRel.Trim());
                 if (!File.Exists(ffmpegPath))
                 {
-                    logger.LogError("ffmpeg executable not found at path: {Path}", ffmpegPath);
+                    _logger.LogError("ffmpeg executable not found at path: {Path}", ffmpegPath);
                     MessageBox.Show($"ffmpeg 可執行檔未找到，請確認路徑：{ffmpegPath}", "配置錯誤", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
             }
@@ -231,7 +248,7 @@ namespace YTDownloader
             mainForm.EnqueueDownloads(requests);
 
             // ── 4. 關閉視窗，下載在 MainForm 背景進行 ────────────────────────────
-            logger.LogInformation("已提交 {Count} 個下載任務，關閉 PlaylistHandlerForm。", selectedVideoItems.Count);
+            _logger.LogInformation("已提交 {Count} 個下載任務，關閉 PlaylistHandlerForm。", selectedVideoItems.Count);
             this.Close();
         }
 
@@ -294,7 +311,7 @@ namespace YTDownloader
                         MessageBoxIcon.Information);
                 }
 
-                return (playlist.IsSuccess, playlist.Message);
+                return (playlist.IsSuccess, playlist.Message ?? string.Empty);
             }
             catch (Exception ex)
             {

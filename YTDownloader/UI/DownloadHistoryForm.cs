@@ -22,13 +22,14 @@ namespace YTDownloader
         
         public DownloadHistoryForm()
         {
-
             _configService = new ConfigService();
+            _settings = _configService.Load();
             _optionService = Program.Startup.Container.Resolve<OptionService>();
             _logger = Program.Startup.Container.Resolve<ILogger<DownloadHistoryForm>>();
+            InitializeForm();
         }
         
-        public DownloadHistoryForm(ConfigService configService, OptionService optionService, ILogger<MainForm> logger)
+        public DownloadHistoryForm(ConfigService configService, OptionService optionService, ILogger<DownloadHistoryForm> logger)
         {
             ///TODO:
             ///讀歷史紀錄，並顯示
@@ -36,6 +37,11 @@ namespace YTDownloader
             _settings = _configService.Load();
             _optionService = optionService;
             _logger = logger;
+            InitializeForm();
+        }
+
+        private void InitializeForm()
+        {
             GUITool.ApplyStartupFont(this, _settings);
             InitializeComponent();
             LockWindowSize();

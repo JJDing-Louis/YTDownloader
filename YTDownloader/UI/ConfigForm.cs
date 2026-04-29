@@ -40,6 +40,11 @@ namespace YTDownloader.UI
         {
             _configService = configService;
             _settings = _configService.Load();
+            InitializeForm();
+        }
+
+        private void InitializeForm()
+        {
             GUITool.ApplyStartupFont(this, _settings);
             InitializeComponent();
             BuildLayout();
