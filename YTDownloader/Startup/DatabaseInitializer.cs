@@ -1,14 +1,13 @@
 using System.Data.Common;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using System.Data.SQLite;
 using JJNET.DataAccess.Entity;
 using JJNET.Utility.Tools;
 using YTDownloader.Startup;
 
 namespace YTDownloader.Data
 {
-    //TODO: 待修改初始化流程
+    //TODO: 待測
     internal class DatabaseInitializer : IAppInitializer
     {
         private readonly IConfiguration _config;
@@ -136,7 +135,7 @@ namespace YTDownloader.Data
         private void EnsureDatabase(string connectionString)
         {
             _logger.LogInformation("Initializing database...");
-            using var conn = new SQLiteConnection(connectionString);
+            using var conn = ConnectionTool.GetConnection();
             conn.Open();
             _logger.LogInformation("Database ready.");
         }
@@ -154,15 +153,13 @@ namespace YTDownloader.Data
                 InitTSQL_LOG
             };
 
-            using var conn = new SQLiteConnection(connectionString);
-            conn.Open();
-
-            foreach (var sql in commands)
+            using (var conn = ConnectionTool.GetConnection())
             {
-                using var cmd = new SQLiteCommand(sql, conn);
-                cmd.ExecuteNonQuery();
+                foreach (var sql in commands)
+                {
+                    conn.Execute(sql);
+                }
             }
-
             _logger.LogInformation("System tables ready.");
         }
 
@@ -174,15 +171,12 @@ namespace YTDownloader.Data
                       INSERT INTO TEntityDisplayType (DisplayType, DataType) VALUES ('DATETIME', 'DATETIME');
                       INSERT INTO TEntityDisplayType (DisplayType, DataType) VALUES ('DOUBLE', 'REAL');
                       """;
-            using (var conn = new SQLiteConnection(connectionString))
+            using (var conn = ConnectionTool.GetConnection())
             {
-                conn.Open();
-                using var cmd = new SQLiteCommand(sql, conn);
-                cmd.ExecuteNonQuery(); 
+                conn.Execute(sql);
             }
         }
-
-
+        
         /// <summary>
         /// TODO:需修改Table初始化流程
         /// </summary>
@@ -223,14 +217,11 @@ namespace YTDownloader.Data
             
             var commands = new[]{SQLTEntityData, SQLTEntityColumnsData};
 
-            using (var conn = new SQLiteConnection(connectionString))
+            using (var conn = ConnectionTool.GetConnection())
             {
-                conn.Open();
-
                 foreach (var sql in commands)
                 {
-                    using var cmd = new SQLiteCommand(sql, conn);
-                    cmd.ExecuteNonQuery();
+                    conn.Execute(sql);
                 }
             }
             _logger.LogInformation("Tables ready.");
@@ -255,11 +246,15 @@ namespace YTDownloader.Data
                     Entities.AddRange(result);
 
                 if (Entities.Count > 0)
+                {
                     foreach (var entity in Entities)
                     {
                         var migrator = new EntityTableCreator(ConnectionStringBuilder);
                         migrator.UpdateTableSchema(entity);
-                    }
+                    }   
+                }
+
+
             }
         }
 
@@ -286,15 +281,13 @@ namespace YTDownloader.Data
                 """
             };
 
-            using var conn = new SQLiteConnection(connectionString);
-            conn.Open();
-
-            foreach (var sql in commands)
+            using (var conn = ConnectionTool.GetConnection())
             {
-                using var cmd = new SQLiteCommand(sql, conn);
-                cmd.ExecuteNonQuery();
+                foreach (var sql in commands)
+                {
+                    conn.Execute(sql);
+                }
             }
-
             _logger.LogInformation("Static Data.");
         }
     }
