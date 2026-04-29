@@ -14,7 +14,7 @@ namespace YTDownloader
 {
     public partial class MainForm : Form
     {
-        private readonly ILogger<MainForm> _logger;
+        private readonly ILogger _logger;
         private readonly ConfigService _configService;
         private readonly OptionService _optionService;
         private IConfiguration config = null!;
@@ -49,22 +49,18 @@ namespace YTDownloader
             _logger = Program.Startup.Container.Resolve<ILogger<MainForm>>();
         }
 
-        public MainForm(
-            ConfigService configService,
-            OptionService optionService,
-            ILogger<MainForm> logger)
+        public MainForm(ConfigService configService, OptionService optionService, ILogger<MainForm> logger)
         {
             _configService = configService;
             _settings = _configService.Load();
             _optionService = optionService;
-            this._logger = logger;
+            _logger = logger;
             _downloadSemaphore = CreateDownloadSemaphore(_settings);
-
             GUITool.ApplyStartupFont(this, _settings);
             InitializeComponent();
             LockWindowSize();
             ApplyStartupSettings();
-            logger.LogInformation("MainForm form initialized.");
+            _logger.LogInformation("MainForm form initialized.");
             Init();
 
         }

@@ -2,7 +2,9 @@
 
 using Autofac;
 using JJNET.Utility.Tools;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using YTDownloader.Model;
 using YTDownloader.Service;
 using YTDownloader.Tool;
 
@@ -10,27 +12,33 @@ namespace YTDownloader
 {
     public partial class DownloadHistoryForm : Form
     {
-        private readonly ILogger<MainForm> _logger;
+        private readonly ILogger _logger;
         private readonly ConfigService _configService;
         private readonly OptionService _optionService;
+        private IConfiguration config = null!;
+        private ConfigModel _settings;
         
         public DownloadHistoryForm()
         {
-            GUITool.ApplyStartupFontFromConfig(this);
-            InitializeComponent();
-            GUITool.ApplyFromConfig(this);
+
             _configService = new ConfigService();
             _optionService = Program.Startup.Container.Resolve<OptionService>();
             _logger = Program.Startup.Container.Resolve<ILogger<DownloadHistoryForm>>();
         }
         
-        public DownloadHistoryForm(MainForm main) : this()
+        public DownloadHistoryForm(ConfigService configService, OptionService optionService, ILogger<MainForm> logger)
         {
             ///TODO:
             ///讀歷史紀錄，並顯示
-
+            _configService = configService;
+            _settings = _configService.Load();
+            _optionService = optionService;
+            _logger = logger;
+            GUITool.ApplyStartupFont(this, _settings);
+            InitializeComponent();
+            LockWindowSize();
+            _logger.LogInformation("DownloadHistoryForm form initialized.");
             Init();
-            
         }
 
         private void Init()
@@ -61,6 +69,14 @@ namespace YTDownloader
         private void InitOptions()
         {
             
+        }
+        
+        private void LockWindowSize()
+        {
+            FormBorderStyle = FormBorderStyle.FixedSingle;
+            MaximizeBox = false;
+            MinimumSize = Size;
+            MaximumSize = Size;
         }
     }
 }
