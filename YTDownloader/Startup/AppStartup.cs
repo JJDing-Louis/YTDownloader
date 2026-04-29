@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Serilog;
 using YTDownloader.Data;
+using YTDownloader.Service;
 
 namespace YTDownloader.Startup
 {
@@ -46,7 +47,10 @@ namespace YTDownloader.Startup
             builder.Populate(services);
 
             builder.RegisterInstance(config).As<IConfiguration>().SingleInstance();
+            builder.RegisterType<ConfigService>().AsSelf().SingleInstance();
             builder.RegisterType<DatabaseInitializer>().AsSelf().InstancePerDependency();
+            builder.RegisterType<OptionService>().AsSelf().InstancePerDependency();
+            builder.RegisterType<MainForm>().AsSelf().InstancePerDependency();
 
             return builder.Build();
         }

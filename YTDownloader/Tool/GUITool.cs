@@ -7,13 +7,13 @@ internal static class GUITool
 {
     public static void ApplyFromConfig(Form form)
     {
-        var settings = new ConfigSettingService().Init();
+        var settings = new ConfigService().Load();
         Apply(form, settings.Appearance);
     }
 
     public static void ApplyStartupFontFromConfig(Form form)
     {
-        var settings = new ConfigSettingService().Init();
+        var settings = new ConfigService().Load();
         ApplyStartupFont(form, settings.Appearance);
     }
 

@@ -1,40 +1,65 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Serialization;
+using YTDownloader.Model;
 
-namespace YTDownloader.Service
+namespace YTDownloader.Service;
+
+public sealed class ConfigService
 {
-    internal class ConfigService : BaseService
+    /// <summary>
+    /// 設定檔預設路徑
+    /// </summary>
+    private readonly string _filePath;
+    
+    private ConfigModel _configModel = new();
+
+    public ConfigService(string? filePath = null)
     {
-        public ConfigService()
+        _filePath = string.IsNullOrWhiteSpace(filePath)
+            ? Path.Combine(AppContext.BaseDirectory, "Config.json")
+            : filePath;
+        if (!File.Exists(_filePath))
         {
+            //直接建立一個預設設定檔
+            Save(new ConfigModel());
         }
+        Init();
+    }
+    
+    private void Init()
+    {
+        if (!File.Exists(_filePath))
+            Save(new ConfigModel()); 
 
-        public override void Dispose()
-        {
-            base.Dispose();
-        }
+        var json = File.ReadAllText(_filePath);
 
-        public override bool Equals(object? obj)
-        {
-            return base.Equals(obj);
-        }
+        _configModel = JsonConvert.DeserializeObject<ConfigModel>(json, GetJsonSettings())
+                       ?? new ConfigModel();
+    }
 
-        public override int GetHashCode()
-        {
-            return base.GetHashCode();
-        }
+    public ConfigModel Load()
+    {
+        return _configModel;
+    }
 
-        public override void InitData()
-        {
-            base.InitData();
-        }
+    public void Save(ConfigModel settings)
+    {
+        var directory = Path.GetDirectoryName(_filePath);
 
-        public override string? ToString()
+        if (!string.IsNullOrWhiteSpace(directory))
+            Directory.CreateDirectory(directory);
+
+        var json = JsonConvert.SerializeObject(settings, GetJsonSettings());
+        File.WriteAllText(_filePath, json);
+        _configModel = settings;
+    }
+
+    private static JsonSerializerSettings GetJsonSettings()
+    {
+        return new JsonSerializerSettings
         {
-            return base.ToString();
-        }
+            Formatting = Formatting.Indented,
+            ContractResolver = new CamelCasePropertyNamesContractResolver()
+        };
     }
 }

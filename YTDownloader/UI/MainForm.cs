@@ -14,12 +14,14 @@ namespace YTDownloader
 {
     public partial class MainForm : Form
     {
-        private ILogger logger = Program.Startup.Container.Resolve<ILogger<MainForm>>();
-        private IConfiguration config;
-        private Dictionary<string, List<KeyValuePair<string, string>>> options;
-        private string DownloadFolder;
-        private string ytDlpPath;
-        private string ffmpegPath;
+        private readonly ILogger<MainForm> logger;
+        private readonly ConfigService _configService;
+        private readonly OptionService _optionService;
+        private IConfiguration config = null!;
+        private Dictionary<string, List<KeyValuePair<string, string>>> options = new();
+        private string DownloadFolder = string.Empty;
+        private string ytDlpPath = string.Empty;
+        private string ffmpegPath = string.Empty;
         private ConfigModel _settings;
 
         private const string OptionListMediaType = "ListMediaType";
@@ -36,17 +38,27 @@ namespace YTDownloader
 
         private readonly Dictionary<string, HashSet<string>> _reservedDownloadFileNamesByFolder = new(StringComparer.OrdinalIgnoreCase);
 
-        private PlaylistHandlerForm _playlistHandlerForm;
-        private DownloadHistoryForm _downloadHistoryForm;
+        private PlaylistHandlerForm? _playlistHandlerForm;
+        private DownloadHistoryForm? _downloadHistoryForm;
         private ConfigForm? _configForm;
 
-        public MainForm() : this(new ConfigSettingService().Init())
+        public MainForm()
+            : this(
+                new ConfigService(),
+                Program.Startup.Container.Resolve<OptionService>(),
+                Program.Startup.Container.Resolve<ILogger<MainForm>>())
         {
         }
 
-        public MainForm(ConfigModel settings)
+        public MainForm(
+            ConfigService configService,
+            OptionService optionService,
+            ILogger<MainForm> logger)
         {
-            _settings = settings;
+            _configService = configService;
+            _settings = _configService.Load();
+            _optionService = optionService;
+            this.logger = logger;
             _downloadSemaphore = CreateDownloadSemaphore(_settings);
 
             GUITool.ApplyStartupFont(this, _settings);
@@ -194,7 +206,7 @@ namespace YTDownloader
 
             try
             {
-                options = initializationService.GetOptions();
+                options = _optionService.GetOptions();
                 BindComboBox(cB_ListMediaType, OptionListMediaType);
             }
             catch (Exception ex)
@@ -434,7 +446,7 @@ namespace YTDownloader
         /// <summary>
         /// 處理下載清單的按鈕點擊（暫停 / 繼續 / 重試 / 取消）。
         /// </summary>
-        private void OnDownloadListCellContentClick(object sender, DataGridViewCellEventArgs e)
+        private void OnDownloadListCellContentClick(object? sender, DataGridViewCellEventArgs e)
         {
             if (e.RowIndex < 0) return;
 
@@ -1032,11 +1044,11 @@ namespace YTDownloader
                 return;
             }
 
-            _configForm = new ConfigForm();
+            _configForm = new ConfigForm(_configService);
             _configForm.Location = new Point(700, 0);
             _configForm.FormClosed += (_, _) =>
             {
-                _settings = new ConfigSettingService().Init();
+                _settings = _configService.Load();
                 ApplyStartupSettings();
             };
             _configForm.Disposed += (_, _) => _configForm = null;

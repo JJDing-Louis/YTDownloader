@@ -9,7 +9,7 @@ namespace YTDownloader.UI
     {
         private const string BackgroundImageFolderName = "BackgroundImg";
 
-        private readonly ConfigSettingService _configSettingService;
+        private readonly ConfigService _configService;
         private ConfigModel _settings = new();
 
         private readonly ListBox _categoryList = new();
@@ -32,14 +32,14 @@ namespace YTDownloader.UI
         private readonly TextBox _downloadPathTextBox = new();
         private readonly ComboBox _languageComboBox = new();
 
-        public ConfigForm() : this(new ConfigSettingService())
+        public ConfigForm() : this(new ConfigService())
         {
         }
 
-        public ConfigForm(ConfigSettingService configSettingService)
+        public ConfigForm(ConfigService configService)
         {
-            _configSettingService = configSettingService;
-            _settings = _configSettingService.Init();
+            _configService = configService;
+            _settings = _configService.Load();
             GUITool.ApplyStartupFont(this, _settings);
             InitializeComponent();
             BuildLayout();
@@ -376,7 +376,7 @@ namespace YTDownloader.UI
 
         private void LoadSettings()
         {
-            _settings = _configSettingService.Init();
+            _settings = _configService.Load();
 
             _isDarkModeCheckBox.Checked = _settings.Appearance.IsDarkMode;
             _backColorTextBox.Text = NormalizeColorText(_settings.Appearance.BackColor);
@@ -430,7 +430,7 @@ namespace YTDownloader.UI
             _settings.Save.DownloadPath = _downloadPathTextBox.Text.Trim();
             _settings.General.Language = _languageComboBox.SelectedItem?.ToString() ?? "zh-TW";
 
-            _configSettingService.Save(_settings);
+            _configService.Save(_settings);
             return true;
         }
 
