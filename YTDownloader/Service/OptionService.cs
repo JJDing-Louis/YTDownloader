@@ -1,5 +1,4 @@
-﻿using System.Data.Common;
-using JJNET.DataAccess.Entity;
+﻿using JJNET.DataAccess.Entity;
 using JJNET.Utility.Tools;
 
 namespace YTDownloader.Service;
@@ -7,21 +6,19 @@ namespace YTDownloader.Service;
 public class OptionService
 {
     public Dictionary<string, List<KeyValuePair<string, string>>> options = new();
+
     public OptionService()
     {
         var tables = GetListOptionTable();
 
-        foreach (var table in tables)
-        {
-            options.Add(table, GetListOptions(table));
-        }
+        foreach (var table in tables) options.Add(table, GetListOptions(table));
     }
-    
+
     public Dictionary<string, List<KeyValuePair<string, string>>> GetOptions()
     {
         return options;
     }
-    
+
     private static List<string> GetListOptionTable()
     {
         var tables = new List<string>();
@@ -43,10 +40,10 @@ public class OptionService
             Console.WriteLine(e);
             throw;
         }
-        
+
         return tables;
     }
-    
+
     private static List<KeyValuePair<string, string>> GetListOptions(string tableName, bool ignoreMissingTable = false)
     {
         var options = new List<KeyValuePair<string, string>>();
@@ -64,9 +61,8 @@ public class OptionService
                 using (var reader = cmd.ExecuteReader())
                 {
                     while (reader.Read())
-                    {
-                        options.Add(new KeyValuePair<string, string>(reader["Desc"].ToString()!, reader["Name"].ToString()!));
-                    }
+                        options.Add(new KeyValuePair<string, string>(reader["Desc"].ToString()!,
+                            reader["Name"].ToString()!));
                 }
             }
         }
@@ -75,7 +71,7 @@ public class OptionService
             if (!ignoreMissingTable)
                 throw;
         }
+
         return options;
     }
-
 }

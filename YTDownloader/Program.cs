@@ -18,8 +18,6 @@ namespace YTDownloader
         {
             ApplicationConfiguration.Initialize();
             Startup.Run();
-            DBTool.InitDB();
-
             Application.Run(Startup.Container.Resolve<MainForm>());
         }
     }

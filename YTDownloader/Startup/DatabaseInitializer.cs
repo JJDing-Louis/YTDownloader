@@ -1,6 +1,9 @@
+using System.Data.Common;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using System.Data.SQLite;
+using JJNET.DataAccess.Entity;
+using JJNET.Utility.Tools;
 using YTDownloader.Startup;
 
 namespace YTDownloader.Data
@@ -10,6 +13,106 @@ namespace YTDownloader.Data
     {
         private readonly IConfiguration _config;
         private readonly ILogger<DatabaseInitializer> _logger;
+
+        #region InitSQL
+
+        private string InitTEntity = """
+                                     create table if not exists TEntity
+                                     (
+                                         MasterEntity     text               not null,
+                                         SubEntity        text    default '' not null,
+                                         HistLog          integer default 0  not null,
+                                         AccessRestricted integer default 0  not null,
+                                         AllowRID         integer default 1  not null,
+                                         Description      text,
+                                         Position         integer,
+                                         constraint TEntity_PK
+                                             primary key (MasterEntity, SubEntity)
+                                     );
+                                     """;
+        private string InitTEntity_Columns = """
+                                     create table if not exists TEntity_Columns
+                                     (
+                                         MasterEntity     text               not null,
+                                         SubEntity        text    default '' not null,
+                                         ColumnName       text               not null,
+                                         DisplayType      text
+                                             constraint TEntityColumn_TEntityDisplayType_FK
+                                                 references TEntityDisplayType,
+                                         DataType         text               not null,
+                                         IsPK             integer default 0  not null,
+                                         RefEntity        text,
+                                         SecurityMask     text,
+                                         Description      text,
+                                         Position         integer,
+                                         _LIST_IDX        numeric,
+                                         ListSelectionIdx integer,
+                                         constraint TEntityColumn_PK
+                                             primary key (MasterEntity, SubEntity, ColumnName),
+                                         constraint TEntityColumn_TEntity_FK
+                                             foreign key (MasterEntity, SubEntity) references TEntity
+                                     );
+                                     """;
+        private string InitTEntity_Mvt = """
+                                     create table if not exists TEntity_Mvt
+                                     (
+                                         MasterEntity  text not null,
+                                         SubEntity     text not null,
+                                         _AUDIT_ID     integer,
+                                         _AUDIT_ACTION text,
+                                         _AUDIT_TS     blob,
+                                         _AUDIT_TIME   text,
+                                         _AUDIT_USER   text,
+                                         constraint TEntity_Mvt_PK
+                                             primary key (MasterEntity, SubEntity)
+                                     );
+                                     
+                                     
+                                     """;
+        private string InitTEntityDisplayType = """
+                                                create table if not exists TEntityDisplayType
+                                                (
+                                                    DisplayType text not null
+                                                        constraint TEntityDisplayType_PK
+                                                            primary key,
+                                                    DataType    text
+                                                );
+                                                
+                                                """;
+        private string InitTSQL_LOG = """
+                                      create table if not exists TSQL_LOG
+                                      (
+                                          ID                INTEGER
+                                              primary key autoincrement,
+                                          TS                DATETIME,
+                                          ES                DATETIME,
+                                          DUR               NUMERIC,
+                                          USR               TEXT,
+                                          WSID              TEXT,
+                                          TSQL              TEXT,
+                                          PARAM             TEXT,
+                                          CALLER            TEXT,
+                                          REC_CNT           INTEGER,
+                                          ERR_MSG           TEXT,
+                                          SP_ID             INTEGER,
+                                          TX_ID             INTEGER,
+                                          TIME_OUT          INTEGER,
+                                          CLTID             TEXT not null,
+                                          ACCESS_RESTRICTED INTEGER,
+                                          REMOTE_IP         TEXT,
+                                          CONTROLLER        TEXT,
+                                          EVENT             TEXT,
+                                          URL               TEXT,
+                                          TEVENT_ID         INTEGER,
+                                          ACTION            TEXT,
+                                          FUN_DESC          TEXT,
+                                          ROLES             TEXT,
+                                          DEPUTY            TEXT,
+                                          WEB_TRANSACTION   TEXT,
+                                          CATALOG           TEXT
+                                      );
+                                      """;
+        #endregion
 
         public DatabaseInitializer(IConfiguration config, ILogger<DatabaseInitializer> logger)
         {
@@ -21,12 +124,14 @@ namespace YTDownloader.Data
         {
             string connectionString = _config.GetConnectionString("Default")
                 ?? throw new InvalidOperationException("Connection string 'Default' not found.");
-
             EnsureDatabase(connectionString);
-            EnsureTables(connectionString);
+            EnsureSystemTables(connectionString);
+            EnsureSystemStaticData(connectionString);
+            EnsureTEnitiyData(connectionString);
+            UpdateTable();
             EnsureStaticData(connectionString);
-
         }
+
 
         private void EnsureDatabase(string connectionString)
         {
@@ -35,57 +140,18 @@ namespace YTDownloader.Data
             conn.Open();
             _logger.LogInformation("Database ready.");
         }
-
-        /// <summary>
-        /// TODO:需修改Table初始化流程
-        /// </summary>
-        /// <param name="connectionString"></param>
-        private void EnsureTables(string connectionString)
+        
+        private void EnsureSystemTables(string connectionString)
         {
-            _logger.LogInformation("Ensuring tables...");
+            _logger.LogInformation("Ensuring system tables...");
 
             var commands = new[]
             {
-                """
-                CREATE TABLE IF NOT EXISTS DownloadHistory (
-                    ID                INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-                    FileName    TEXT    NOT NULL,  -- 下載的檔案名稱
-                    URL             TEXT    NOT NULL,  -- 來源網址
-                    Type            TEXT,             -- 檔案類型，例如 video / audio
-                    Path             TEXT,             -- 本地儲存路徑
-                    DownloadDateTime TEXT,             -- 開始下載時間 (ISO 8601)
-                    CompleteDateTime TEXT,              -- 完成下載時間 (ISO 8601)
-                    Resulr          TEXT           -- 下載結果，例如 Success / Failed
-                );
-                """,
-                """
-                CREATE TABLE  IF NOT EXISTS ListMediaType
-                (
-                    Name TEXT not null,
-                    Desc TEXT not null,
-                    constraint ListMediaType_pk
-                        primary key (Desc, Name)
-                );
-                """,
-                """
-                CREATE TABLE  IF NOT EXISTS ListSourceType
-                (
-                    Name TEXT not null,
-                    Desc TEXT  not null,
-                    constraint ListSourceType_pk
-                        primary key (Desc, Name)
-                );
-                """,
-                """
-                CREATE TABLE  IF NOT EXISTS ListDownloadStatus
-                (
-                    Name TEXT not null,
-                    Desc TEXT not null,
-                    RID TEXT,
-                    constraint ListDownloadStatus_pk
-                        primary key (Name, Desc)
-                );
-                """,
+                InitTEntityDisplayType,
+                InitTEntity,
+                InitTEntity_Columns,
+                InitTEntity_Mvt,
+                InitTSQL_LOG
             };
 
             using var conn = new SQLiteConnection(connectionString);
@@ -97,7 +163,104 @@ namespace YTDownloader.Data
                 cmd.ExecuteNonQuery();
             }
 
+            _logger.LogInformation("System tables ready.");
+        }
+
+        private void EnsureSystemStaticData(string connectionString)
+        {
+            var sql = """
+                      INSERT INTO TEntityDisplayType (DisplayType, DataType) VALUES ('TEXT', 'TEXT');
+                      INSERT INTO TEntityDisplayType (DisplayType, DataType) VALUES ('INTEGER', 'INTEGER');
+                      INSERT INTO TEntityDisplayType (DisplayType, DataType) VALUES ('DATETIME', 'DATETIME');
+                      INSERT INTO TEntityDisplayType (DisplayType, DataType) VALUES ('DOUBLE', 'REAL');
+                      """;
+            using (var conn = new SQLiteConnection(connectionString))
+            {
+                conn.Open();
+                using var cmd = new SQLiteCommand(sql, conn);
+                cmd.ExecuteNonQuery(); 
+            }
+        }
+
+
+        /// <summary>
+        /// TODO:需修改Table初始化流程
+        /// </summary>
+        /// <param name="connectionString"></param>
+        private void EnsureTEnitiyData(string connectionString)
+        {
+            _logger.LogInformation("Ensuring tables...");
+
+            var SQLTEntityData = """
+                                 INSERT OR IGNORE INTO TEntity (MasterEntity, SubEntity, HistLog, AccessRestricted, AllowRID, Description, Position) VALUES ('ListMediaType', '', 0, 1, 1, '媒體類型', 0);
+                                 INSERT OR IGNORE INTO TEntity (MasterEntity, SubEntity, HistLog, AccessRestricted, AllowRID, Description, Position) VALUES ('ListSourceType', '', 0, 1, 1, '來源類型', 1);
+                                 INSERT OR IGNORE INTO TEntity (MasterEntity, SubEntity, HistLog, AccessRestricted, AllowRID, Description, Position) VALUES ('ListDownloadStatus', '', 0, 1, 1, '下載狀態清單', 3);
+                                 INSERT OR IGNORE INTO TEntity (MasterEntity, SubEntity, HistLog, AccessRestricted, AllowRID, Description, Position) VALUES ('DownloadHistory', '', 0, 1, 1, '下載歷史紀錄', 2);
+                                 """;
+            var SQLTEntityColumnsData = """
+                                        INSERT OR IGNORE INTO TEntity_Columns (MasterEntity, SubEntity, ColumnName, DisplayType, DataType, IsPK, RefEntity, SecurityMask, Description, Position, _LIST_IDX, ListSelectionIdx) VALUES ('ListMediaType', '', 'Name', 'TEXT', 'TEXT', 1, null, null, '名稱', 0, 0, null);
+                                        INSERT OR IGNORE INTO TEntity_Columns (MasterEntity, SubEntity, ColumnName, DisplayType, DataType, IsPK, RefEntity, SecurityMask, Description, Position, _LIST_IDX, ListSelectionIdx) VALUES ('ListMediaType', '', 'Desc', 'TEXT', 'TEXT', 1, null, null, '敘述', 1, 0, null);
+                                        INSERT OR IGNORE INTO TEntity_Columns (MasterEntity, SubEntity, ColumnName, DisplayType, DataType, IsPK, RefEntity, SecurityMask, Description, Position, _LIST_IDX, ListSelectionIdx) VALUES ('ListSourceType', '', 'Name', 'TEXT', 'TEXT', 1, null, null, '名稱', 0, 0, null);
+                                        INSERT OR IGNORE INTO TEntity_Columns (MasterEntity, SubEntity, ColumnName, DisplayType, DataType, IsPK, RefEntity, SecurityMask, Description, Position, _LIST_IDX, ListSelectionIdx) VALUES ('ListSourceType', '', 'Desc', 'TEXT', 'TEXT', 1, null, null, '敘述', 1, 0, null);
+                                        INSERT OR IGNORE INTO TEntity_Columns (MasterEntity, SubEntity, ColumnName, DisplayType, DataType, IsPK, RefEntity, SecurityMask, Description, Position, _LIST_IDX, ListSelectionIdx) VALUES ('DownloadHistory', '', 'TaskID', 'INTEGER', 'INTEGER', 1, null, null, null, null, null, null);
+                                        INSERT OR IGNORE INTO TEntity_Columns (MasterEntity, SubEntity, ColumnName, DisplayType, DataType, IsPK, RefEntity, SecurityMask, Description, Position, _LIST_IDX, ListSelectionIdx) VALUES ('DownloadHistory', '', 'URL', 'TEXT', 'TEXT', 1, null, null, null, null, null, null);
+                                        INSERT OR IGNORE INTO TEntity_Columns (MasterEntity, SubEntity, ColumnName, DisplayType, DataType, IsPK, RefEntity, SecurityMask, Description, Position, _LIST_IDX, ListSelectionIdx) VALUES ('DownloadHistory', '', 'Status', 'TEXT', 'TEXT', 1, null, null, null, null, null, null);
+                                        INSERT OR IGNORE INTO TEntity_Columns (MasterEntity, SubEntity, ColumnName, DisplayType, DataType, IsPK, RefEntity, SecurityMask, Description, Position, _LIST_IDX, ListSelectionIdx) VALUES ('DownloadHistory', '', 'Title', 'TEXT', 'TEXT', 0, null, null, null, null, null, null);
+                                        INSERT OR IGNORE INTO TEntity_Columns (MasterEntity, SubEntity, ColumnName, DisplayType, DataType, IsPK, RefEntity, SecurityMask, Description, Position, _LIST_IDX, ListSelectionIdx) VALUES ('DownloadHistory', '', 'FileName', 'TEXT', 'TEXT', 0, null, null, null, null, null, null);
+                                        INSERT OR IGNORE INTO TEntity_Columns (MasterEntity, SubEntity, ColumnName, DisplayType, DataType, IsPK, RefEntity, SecurityMask, Description, Position, _LIST_IDX, ListSelectionIdx) VALUES ('DownloadHistory', '', 'Type', 'TEXT', 'TEXT', 0, null, null, null, null, null, null);
+                                        INSERT OR IGNORE INTO TEntity_Columns (MasterEntity, SubEntity, ColumnName, DisplayType, DataType, IsPK, RefEntity, SecurityMask, Description, Position, _LIST_IDX, ListSelectionIdx) VALUES ('DownloadHistory', '', 'DownloadDateTime', 'DATETIME', 'DATETIME', 0, null, null, null, null, null, null);
+                                        INSERT OR IGNORE INTO TEntity_Columns (MasterEntity, SubEntity, ColumnName, DisplayType, DataType, IsPK, RefEntity, SecurityMask, Description, Position, _LIST_IDX, ListSelectionIdx) VALUES ('DownloadHistory', '', 'CompleteDateTime', 'DATETIME', 'DATETIME', 0, null, null, null, null, null, null);
+                                        INSERT OR IGNORE INTO TEntity_Columns (MasterEntity, SubEntity, ColumnName, DisplayType, DataType, IsPK, RefEntity, SecurityMask, Description, Position, _LIST_IDX, ListSelectionIdx) VALUES ('DownloadHistory', '', 'Path', 'TEXT', 'TEXT', 0, null, null, null, null, null, null);
+                                        INSERT OR IGNORE INTO TEntity_Columns (MasterEntity, SubEntity, ColumnName, DisplayType, DataType, IsPK, RefEntity, SecurityMask, Description, Position, _LIST_IDX, ListSelectionIdx) VALUES ('DownloadHistory', '', 'Progress', 'DOUBLE', 'REAL', 0, null, null, null, null, null, null);
+                                        INSERT OR IGNORE INTO TEntity_Columns (MasterEntity, SubEntity, ColumnName, DisplayType, DataType, IsPK, RefEntity, SecurityMask, Description, Position, _LIST_IDX, ListSelectionIdx) VALUES ('ListDownloadStatus', '', 'Name', 'TEXT', 'TEXT', 1, null, null, '名稱', 0, 0, null);
+                                        INSERT OR IGNORE INTO TEntity_Columns (MasterEntity, SubEntity, ColumnName, DisplayType, DataType, IsPK, RefEntity, SecurityMask, Description, Position, _LIST_IDX, ListSelectionIdx) VALUES ('ListDownloadStatus', '', 'Desc', 'TEXT', 'TEXT', 1, null, null, '敘述', 1, 0, null);
+                                        INSERT OR IGNORE INTO TEntity_Columns (MasterEntity, SubEntity, ColumnName, DisplayType, DataType, IsPK, RefEntity, SecurityMask, Description, Position, _LIST_IDX, ListSelectionIdx) VALUES ('Configuration', '', 'Class', 'TEXT', 'TEXT', 1, null, null, '分類', 0, null, null);
+                                        INSERT OR IGNORE INTO TEntity_Columns (MasterEntity, SubEntity, ColumnName, DisplayType, DataType, IsPK, RefEntity, SecurityMask, Description, Position, _LIST_IDX, ListSelectionIdx) VALUES ('Configuration', '', 'SubClass', 'TEXT', 'TEXT', 1, null, null, '子分類', 1, null, null);
+                                        INSERT OR IGNORE INTO TEntity_Columns (MasterEntity, SubEntity, ColumnName, DisplayType, DataType, IsPK, RefEntity, SecurityMask, Description, Position, _LIST_IDX, ListSelectionIdx) VALUES ('Configuration', '', 'Name', 'TEXT', 'TEXT', 1, null, null, '名稱', 2, null, null);
+                                        INSERT OR IGNORE INTO TEntity_Columns (MasterEntity, SubEntity, ColumnName, DisplayType, DataType, IsPK, RefEntity, SecurityMask, Description, Position, _LIST_IDX, ListSelectionIdx) VALUES ('Configuration', '', 'DataType', 'TEXT', 'TEXT', 0, null, null, '資料類型', 3, null, null);
+                                        INSERT OR IGNORE INTO TEntity_Columns (MasterEntity, SubEntity, ColumnName, DisplayType, DataType, IsPK, RefEntity, SecurityMask, Description, Position, _LIST_IDX, ListSelectionIdx) VALUES ('Configuration', '', 'UICategory', 'TEXT', 'TEXT', 0, null, null, 'UI種類', 4, null, null);
+                                        """;
+            
+            var commands = new[]{SQLTEntityData, SQLTEntityColumnsData};
+
+            using (var conn = new SQLiteConnection(connectionString))
+            {
+                conn.Open();
+
+                foreach (var sql in commands)
+                {
+                    using var cmd = new SQLiteCommand(sql, conn);
+                    cmd.ExecuteNonQuery();
+                }
+            }
             _logger.LogInformation("Tables ready.");
+        }
+
+        private void UpdateTable()
+        {
+            var Entities = new List<string>();
+            DbConnectionStringBuilder ConnectionStringBuilder = new();
+
+            using (var conn = ConnectionTool.GetConnection())
+            {
+                ConnectionStringBuilder.ConnectionString = conn.ConnectionString;
+                var sqlcmd = """
+                             SELECT 
+                                 MasterEntity 
+                             FROM TEntity
+                             WHERE SubEntity = ''
+                             """;
+                var result = conn.Query<string>(sqlcmd);
+                if (result != null)
+                    Entities.AddRange(result);
+
+                if (Entities.Count > 0)
+                    foreach (var entity in Entities)
+                    {
+                        var migrator = new EntityTableCreator(ConnectionStringBuilder);
+                        migrator.UpdateTableSchema(entity);
+                    }
+            }
         }
 
         private void EnsureStaticData(string connectionString) 

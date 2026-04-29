@@ -13,6 +13,7 @@ namespace YTDownloader
 {
     public partial class DownloadHistoryForm : Form
     {
+        
         public DownloadHistoryForm()
         {
             GUITool.ApplyStartupFontFromConfig(this);

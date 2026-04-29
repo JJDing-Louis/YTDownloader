@@ -7,33 +7,6 @@ namespace YTDownloader.Tool;
 
 public class DBTool
 {
-    public static void InitDB()
-    {
-        var Entities = new List<string>();
-        DbConnectionStringBuilder ConnectionStringBuilder = new();
-
-        using (var conn = ConnectionTool.GetConnection())
-        {
-            ConnectionStringBuilder.ConnectionString = conn.ConnectionString;
-            var sqlcmd = """
-                         SELECT 
-                             MasterEntity 
-                         FROM TEntity
-                         WHERE SubEntity = ''
-                         """;
-            var result = conn.Query<string>(sqlcmd);
-            if (result != null)
-                Entities.AddRange(result);
-
-            if (Entities.Count > 0)
-                foreach (var entity in Entities)
-                {
-                    var migrator = new EntityTableCreator(ConnectionStringBuilder);
-                    migrator.UpdateTableSchema(entity);
-                }
-        }
-    }
-
     public static void InsertDownloadHistory(DownloadHistory downloadHistory)
     {
         using (var conn = ConnectionTool.GetConnection())
