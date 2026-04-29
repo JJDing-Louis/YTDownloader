@@ -165,10 +165,10 @@ namespace YTDownloader.Data
         private void EnsureSystemStaticData(string connectionString)
         {
             var sql = """
-                      INSERT INTO TEntityDisplayType (DisplayType, DataType) VALUES ('TEXT', 'TEXT');
-                      INSERT INTO TEntityDisplayType (DisplayType, DataType) VALUES ('INTEGER', 'INTEGER');
-                      INSERT INTO TEntityDisplayType (DisplayType, DataType) VALUES ('DATETIME', 'DATETIME');
-                      INSERT INTO TEntityDisplayType (DisplayType, DataType) VALUES ('DOUBLE', 'REAL');
+                      INSERT OR IGNORE INTO TEntityDisplayType (DisplayType, DataType) VALUES ('TEXT', 'TEXT');
+                      INSERT OR IGNORE INTO TEntityDisplayType (DisplayType, DataType) VALUES ('INTEGER', 'INTEGER');
+                      INSERT OR IGNORE INTO TEntityDisplayType (DisplayType, DataType) VALUES ('DATETIME', 'DATETIME');
+                      INSERT OR IGNORE INTO TEntityDisplayType (DisplayType, DataType) VALUES ('DOUBLE', 'REAL');
                       """;
             using (var conn = ConnectionTool.GetConnection())
             {

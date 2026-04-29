@@ -228,6 +228,7 @@
             btn_ClearCompleteTask.TabIndex = 0;
             btn_ClearCompleteTask.Text = "清空已完成";
             btn_ClearCompleteTask.UseVisualStyleBackColor = true;
+            btn_ClearCompleteTask.Click += btn_ClearCompleteTask_Click;
             // 
             // btn_CancelAll
             // 
@@ -238,6 +239,7 @@
             btn_CancelAll.TabIndex = 1;
             btn_CancelAll.Text = "全部取消";
             btn_CancelAll.UseVisualStyleBackColor = true;
+            btn_CancelAll.Click += btn_CancelAll_Click;
             // 
             // MainForm
             // 
@@ -277,7 +279,7 @@
         private GroupBox groupBox4;
         private TextBox tB_URL;
         private TableLayoutPanel tableLayoutPanel3;
-        private Button btn_ClearCompleteTask;
-        private Button btn_CancelAll;
+        private System.Windows.Forms.Button btn_ClearCompleteTask;
+        private System.Windows.Forms.Button btn_CancelAll;
     }
 }

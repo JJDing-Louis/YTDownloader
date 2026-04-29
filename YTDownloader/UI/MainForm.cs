@@ -390,6 +390,9 @@ namespace YTDownloader
                         break;
                     case UrlResourceType.Playlist:
                         logger.LogInformation($"檢測到播放清單：{SourceType.PlaylistTitle}，共 {SourceType.PlaylistCount} 部影片");
+                        //如果沒有被正確關閉，則先釋放資源
+                        if (_playlistHandlerForm is { IsDisposed: false })
+                            _playlistHandlerForm.Close();
                         _playlistHandlerForm = new PlaylistHandlerForm(
                             URL,
                             this,
@@ -1030,6 +1033,11 @@ namespace YTDownloader
 
         private void MSItem_DownloadHistory_Click(object sender, EventArgs e)
         {
+            if(_downloadHistoryForm is { IsDisposed: false })
+            {
+                _downloadHistoryForm.Activate();
+                return;
+            }
             _downloadHistoryForm = new DownloadHistoryForm();
             _downloadHistoryForm.Location = new Point(700, 0);
             _downloadHistoryForm.Disposed += new EventHandler(downloadHistoryForm_Disposed);
@@ -1053,6 +1061,16 @@ namespace YTDownloader
             };
             _configForm.Disposed += (_, _) => _configForm = null;
             _configForm.Show(this);
+        }
+
+        private void btn_ClearCompleteTask_Click(object sender, EventArgs e)
+        {
+            //TODO: 清除已完成的下載任務
+        }
+
+        private void btn_CancelAll_Click(object sender, EventArgs e)
+        {
+            //TODO: 清除所有下載任務
         }
     }
 }
