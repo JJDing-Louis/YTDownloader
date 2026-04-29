@@ -25,6 +25,28 @@ namespace YTDownloader
         {
             ///TODO:
             ///讀歷史紀錄，並顯示
+
+            Init();
+        }
+
+        private void Init()
+        {
+            
+        }
+
+        private void InitUI()
+        {
+            
+        }
+
+        private void InitConfig()
+        {
+            
+        }
+        
+        private void InitOptions()
+        {
+            
         }
     }
 }

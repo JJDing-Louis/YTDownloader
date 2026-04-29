@@ -30,23 +30,28 @@
         {
             tableLayoutPanel1 = new TableLayoutPanel();
             tableLayoutPanel2 = new TableLayoutPanel();
-            checkBox1 = new CheckBox();
+            cB_FileName = new CheckBox();
             textBox1 = new TextBox();
-            checkBox2 = new CheckBox();
-            checkBox3 = new CheckBox();
-            comboBox1 = new ComboBox();
+            cB_DownloadDate = new CheckBox();
+            cB_DownloadResult = new CheckBox();
+            cBO_DownloadResult = new ComboBox();
             tableLayoutPanel3 = new TableLayoutPanel();
             label1 = new Label();
             dateTimePicker1 = new DateTimePicker();
             dateTimePicker2 = new DateTimePicker();
-            button1 = new Button();
+            btn_Search = new Button();
+            cB_MediaType = new CheckBox();
+            tableLayoutPanel5 = new TableLayoutPanel();
+            cB_Audio = new CheckBox();
             groupBox1 = new GroupBox();
             dataGridView1 = new DataGridView();
             tableLayoutPanel4 = new TableLayoutPanel();
-            button2 = new Button();
+            btn_ReDownload = new Button();
+            cB_Video = new CheckBox();
             tableLayoutPanel1.SuspendLayout();
             tableLayoutPanel2.SuspendLayout();
             tableLayoutPanel3.SuspendLayout();
+            tableLayoutPanel5.SuspendLayout();
             groupBox1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)dataGridView1).BeginInit();
             tableLayoutPanel4.SuspendLayout();
@@ -75,14 +80,16 @@
             tableLayoutPanel2.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 9.998043F));
             tableLayoutPanel2.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 38.16047F));
             tableLayoutPanel2.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 51.8591F));
-            tableLayoutPanel2.Controls.Add(checkBox1, 0, 0);
+            tableLayoutPanel2.Controls.Add(cB_FileName, 0, 0);
             tableLayoutPanel2.Controls.Add(textBox1, 1, 0);
-            tableLayoutPanel2.Controls.Add(checkBox2, 0, 1);
-            tableLayoutPanel2.Controls.Add(checkBox3, 0, 2);
-            tableLayoutPanel2.Controls.Add(comboBox1, 1, 2);
+            tableLayoutPanel2.Controls.Add(cB_DownloadDate, 0, 1);
+            tableLayoutPanel2.Controls.Add(cB_DownloadResult, 0, 2);
+            tableLayoutPanel2.Controls.Add(cBO_DownloadResult, 1, 2);
             tableLayoutPanel2.Controls.Add(tableLayoutPanel3, 1, 1);
-            tableLayoutPanel2.Controls.Add(button1, 2, 0);
-            tableLayoutPanel2.Dock = DockStyle.Fill;
+            tableLayoutPanel2.Controls.Add(btn_Search, 2, 0);
+            tableLayoutPanel2.Controls.Add(cB_MediaType, 0, 3);
+            tableLayoutPanel2.Controls.Add(tableLayoutPanel5, 1, 3);
+            tableLayoutPanel2.Dock = DockStyle.Left;
             tableLayoutPanel2.Location = new Point(3, 3);
             tableLayoutPanel2.Name = "tableLayoutPanel2";
             tableLayoutPanel2.RowCount = 4;
@@ -93,15 +100,15 @@
             tableLayoutPanel2.Size = new Size(1022, 174);
             tableLayoutPanel2.TabIndex = 1;
             // 
-            // checkBox1
+            // cB_FileName
             // 
-            checkBox1.AutoSize = true;
-            checkBox1.Location = new Point(3, 3);
-            checkBox1.Name = "checkBox1";
-            checkBox1.Size = new Size(74, 19);
-            checkBox1.TabIndex = 0;
-            checkBox1.Text = "檔案名稱";
-            checkBox1.UseVisualStyleBackColor = true;
+            cB_FileName.AutoSize = true;
+            cB_FileName.Location = new Point(3, 3);
+            cB_FileName.Name = "cB_FileName";
+            cB_FileName.Size = new Size(74, 19);
+            cB_FileName.TabIndex = 0;
+            cB_FileName.Text = "檔案名稱";
+            cB_FileName.UseVisualStyleBackColor = true;
             // 
             // textBox1
             // 
@@ -111,35 +118,35 @@
             textBox1.Size = new Size(383, 23);
             textBox1.TabIndex = 1;
             // 
-            // checkBox2
+            // cB_DownloadDate
             // 
-            checkBox2.AutoSize = true;
-            checkBox2.Dock = DockStyle.Fill;
-            checkBox2.Location = new Point(3, 46);
-            checkBox2.Name = "checkBox2";
-            checkBox2.Size = new Size(96, 49);
-            checkBox2.TabIndex = 2;
-            checkBox2.Text = "日期";
-            checkBox2.UseVisualStyleBackColor = true;
+            cB_DownloadDate.AutoSize = true;
+            cB_DownloadDate.Dock = DockStyle.Fill;
+            cB_DownloadDate.Location = new Point(3, 46);
+            cB_DownloadDate.Name = "cB_DownloadDate";
+            cB_DownloadDate.Size = new Size(96, 49);
+            cB_DownloadDate.TabIndex = 2;
+            cB_DownloadDate.Text = "下載日期";
+            cB_DownloadDate.UseVisualStyleBackColor = true;
             // 
-            // checkBox3
+            // cB_DownloadResult
             // 
-            checkBox3.AutoSize = true;
-            checkBox3.Location = new Point(3, 101);
-            checkBox3.Name = "checkBox3";
-            checkBox3.Size = new Size(74, 19);
-            checkBox3.TabIndex = 4;
-            checkBox3.Text = "下載結果";
-            checkBox3.UseVisualStyleBackColor = true;
+            cB_DownloadResult.AutoSize = true;
+            cB_DownloadResult.Location = new Point(3, 101);
+            cB_DownloadResult.Name = "cB_DownloadResult";
+            cB_DownloadResult.Size = new Size(74, 19);
+            cB_DownloadResult.TabIndex = 4;
+            cB_DownloadResult.Text = "下載結果";
+            cB_DownloadResult.UseVisualStyleBackColor = true;
             // 
-            // comboBox1
+            // cBO_DownloadResult
             // 
-            comboBox1.Dock = DockStyle.Fill;
-            comboBox1.FormattingEnabled = true;
-            comboBox1.Location = new Point(105, 101);
-            comboBox1.Name = "comboBox1";
-            comboBox1.Size = new Size(383, 23);
-            comboBox1.TabIndex = 5;
+            cBO_DownloadResult.Dock = DockStyle.Fill;
+            cBO_DownloadResult.FormattingEnabled = true;
+            cBO_DownloadResult.Location = new Point(105, 101);
+            cBO_DownloadResult.Name = "cBO_DownloadResult";
+            cBO_DownloadResult.Size = new Size(383, 23);
+            cBO_DownloadResult.TabIndex = 5;
             // 
             // tableLayoutPanel3
             // 
@@ -186,14 +193,52 @@
             dateTimePicker2.Size = new Size(167, 23);
             dateTimePicker2.TabIndex = 2;
             // 
-            // button1
+            // btn_Search
             // 
-            button1.Location = new Point(494, 3);
-            button1.Name = "button1";
-            button1.Size = new Size(75, 23);
-            button1.TabIndex = 7;
-            button1.Text = "查詢";
-            button1.UseVisualStyleBackColor = true;
+            btn_Search.Location = new Point(494, 3);
+            btn_Search.Name = "btn_Search";
+            btn_Search.Size = new Size(75, 23);
+            btn_Search.TabIndex = 7;
+            btn_Search.Text = "查詢";
+            btn_Search.UseVisualStyleBackColor = true;
+            // 
+            // cB_MediaType
+            // 
+            cB_MediaType.AutoSize = true;
+            cB_MediaType.Location = new Point(3, 141);
+            cB_MediaType.Name = "cB_MediaType";
+            cB_MediaType.Size = new Size(74, 19);
+            cB_MediaType.TabIndex = 8;
+            cB_MediaType.Text = "媒體類型";
+            cB_MediaType.UseVisualStyleBackColor = true;
+            // 
+            // tableLayoutPanel5
+            // 
+            tableLayoutPanel5.ColumnCount = 5;
+            tableLayoutPanel5.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 20F));
+            tableLayoutPanel5.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 20F));
+            tableLayoutPanel5.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 20F));
+            tableLayoutPanel5.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 20F));
+            tableLayoutPanel5.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 20F));
+            tableLayoutPanel5.Controls.Add(cB_Video, 1, 0);
+            tableLayoutPanel5.Controls.Add(cB_Audio, 0, 0);
+            tableLayoutPanel5.Dock = DockStyle.Fill;
+            tableLayoutPanel5.Location = new Point(105, 141);
+            tableLayoutPanel5.Name = "tableLayoutPanel5";
+            tableLayoutPanel5.RowCount = 1;
+            tableLayoutPanel5.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+            tableLayoutPanel5.Size = new Size(383, 30);
+            tableLayoutPanel5.TabIndex = 10;
+            // 
+            // cB_Audio
+            // 
+            cB_Audio.AutoSize = true;
+            cB_Audio.Location = new Point(3, 3);
+            cB_Audio.Name = "cB_Audio";
+            cB_Audio.Size = new Size(50, 19);
+            cB_Audio.TabIndex = 9;
+            cB_Audio.Text = "音訊";
+            cB_Audio.UseVisualStyleBackColor = true;
             // 
             // groupBox1
             // 
@@ -227,7 +272,7 @@
             tableLayoutPanel4.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 12.5F));
             tableLayoutPanel4.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 12.5F));
             tableLayoutPanel4.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 12.5F));
-            tableLayoutPanel4.Controls.Add(button2, 0, 0);
+            tableLayoutPanel4.Controls.Add(btn_ReDownload, 0, 0);
             tableLayoutPanel4.Dock = DockStyle.Fill;
             tableLayoutPanel4.Location = new Point(3, 183);
             tableLayoutPanel4.Name = "tableLayoutPanel4";
@@ -237,29 +282,41 @@
             tableLayoutPanel4.Size = new Size(1022, 39);
             tableLayoutPanel4.TabIndex = 3;
             // 
-            // button2
+            // btn_ReDownload
             // 
-            button2.Dock = DockStyle.Fill;
-            button2.Location = new Point(3, 3);
-            button2.Name = "button2";
-            button2.Size = new Size(121, 33);
-            button2.TabIndex = 0;
-            button2.Text = "重新下載";
-            button2.UseVisualStyleBackColor = true;
+            btn_ReDownload.Dock = DockStyle.Fill;
+            btn_ReDownload.Location = new Point(3, 3);
+            btn_ReDownload.Name = "btn_ReDownload";
+            btn_ReDownload.Size = new Size(121, 33);
+            btn_ReDownload.TabIndex = 0;
+            btn_ReDownload.Text = "重新下載";
+            btn_ReDownload.UseVisualStyleBackColor = true;
             // 
-            // DownloadHistory
+            // cB_Video
+            // 
+            cB_Video.AutoSize = true;
+            cB_Video.Location = new Point(79, 3);
+            cB_Video.Name = "cB_Video";
+            cB_Video.Size = new Size(50, 19);
+            cB_Video.TabIndex = 10;
+            cB_Video.Text = "視訊";
+            cB_Video.UseVisualStyleBackColor = true;
+            // 
+            // DownloadHistoryForm
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             ClientSize = new Size(1028, 450);
             Controls.Add(tableLayoutPanel1);
-            Name = "DownloadHistory";
+            Name = "DownloadHistoryForm";
             Text = "下載紀錄";
             tableLayoutPanel1.ResumeLayout(false);
             tableLayoutPanel2.ResumeLayout(false);
             tableLayoutPanel2.PerformLayout();
             tableLayoutPanel3.ResumeLayout(false);
             tableLayoutPanel3.PerformLayout();
+            tableLayoutPanel5.ResumeLayout(false);
+            tableLayoutPanel5.PerformLayout();
             groupBox1.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)dataGridView1).EndInit();
             tableLayoutPanel4.ResumeLayout(false);
@@ -270,19 +327,23 @@
 
         private TableLayoutPanel tableLayoutPanel1;
         private TableLayoutPanel tableLayoutPanel2;
-        private CheckBox checkBox1;
+        private CheckBox cB_FileName;
         private TextBox textBox1;
-        private CheckBox checkBox2;
-        private CheckBox checkBox3;
-        private ComboBox comboBox1;
+        private CheckBox cB_DownloadDate;
+        private CheckBox cB_DownloadResult;
+        private ComboBox cBO_DownloadResult;
         private TableLayoutPanel tableLayoutPanel3;
-        private Button button2;
+        private Button btn_ReDownload;
         private Label label1;
-        private Button button1;
+        private Button btn_Search;
         private DateTimePicker dateTimePicker1;
         private DateTimePicker dateTimePicker2;
         private GroupBox groupBox1;
         private DataGridView dataGridView1;
         private TableLayoutPanel tableLayoutPanel4;
+        private CheckBox cB_MediaType;
+        private CheckBox cB_Audio;
+        private TableLayoutPanel tableLayoutPanel5;
+        private CheckBox cB_Video;
     }
 }
