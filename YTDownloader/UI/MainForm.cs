@@ -4,7 +4,6 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using System.Diagnostics;
 using YTDownloader.Controller;
-using YTDownloader.Init;
 using YTDownloader.Model;
 using YTDownloader.Service;
 using YTDownloader.Tool;
@@ -16,7 +15,6 @@ namespace YTDownloader
     public partial class MainForm : Form
     {
         private ILogger logger = Program.Startup.Container.Resolve<ILogger<MainForm>>();
-        private IInitializationService initializationService = Program.Startup.Container.Resolve<MainInitializationService>();
         private IConfiguration config;
         private Dictionary<string, List<KeyValuePair<string, string>>> options;
         private string DownloadFolder;
@@ -209,7 +207,7 @@ namespace YTDownloader
         private void InitConfig()
         {
             logger.LogInformation("Initializing configuration...");
-            config = initializationService.GetConfig();
+            config = ParameterTool.GetConfiguration();
 
             if (config == null)
             {

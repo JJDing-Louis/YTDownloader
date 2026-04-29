@@ -1,7 +1,7 @@
 ﻿using Autofac;
+using JJNET.Utility.Tools;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using YTDownloader.Init;
 using YTDownloader.Model;
 using YTDownloader.Service;
 using YTDownloader.Tool;
@@ -11,7 +11,6 @@ namespace YTDownloader
     public partial class PlaylistHandlerForm : Form
     {
         private ILogger logger = Program.Startup.Container.Resolve<ILogger<PlaylistHandlerForm>>();
-        private PlaylistHandlerInitializationService initializationService = Program.Startup.Container.Resolve<PlaylistHandlerInitializationService>();
         private IConfiguration config;
         private string ytDlpPath;
         private string ffmpegPath;
@@ -127,7 +126,7 @@ namespace YTDownloader
         private void InitConfig()
         {
             logger.LogInformation("Initializing configuration...");
-            config = initializationService.GetConfig();
+            config = ParameterTool.GetConfiguration();
 
             if (config == null)
             {
