@@ -1,0 +1,92 @@
+name: CD — Release Build & Publish
+
+on:
+  push:
+    tags:
+      - "Release-*"   # 只有符合 Release-x.y.z 的 tag 才觸發
+
+jobs:
+  build-installer:
+    name: Build Installer & Publish Release
+    runs-on: windows-latest
+
+    permissions:
+      contents: write   # 允許建立 GitHub Release 並上傳 assets
+
+    steps:
+      # ── 1. 取出版本號（去掉 "Release-" 前綴）──────────────────────────────
+      - name: Parse version from tag
+        id: version
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"           # e.g. Release-1.2.3
+          $ver = $tag -replace '^Release-', ''      # e.g. 1.2.3
+          echo "VERSION=$ver" >> $env:GITHUB_OUTPUT
+          echo "Parsed version: $ver"
+
+      # ── 2. Checkout ──────────────────────────────────────────────────────────
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      # ── 3. 設定 .NET 8 ───────────────────────────────────────────────────────
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      # ── 4. Restore & Publish（self-contained, win-x64）──────────────────────
+      - name: Restore NuGet packages
+        run: dotnet restore YTDownloader.sln
+
+      - name: Publish application
+        run: >
+          dotnet publish YTDownloader/YTDownloader.csproj
+          --configuration Release
+          --runtime win-x64
+          --self-contained true
+          -p:PublishSingleFile=false
+          -p:AppVersion=${{ steps.version.outputs.VERSION }}
+          --output publish
+
+      # ── 5. 安裝 Inno Setup 6 ─────────────────────────────────────────────────
+      - name: Install Inno Setup
+        run: choco install innosetup --yes --no-progress
+        shell: pwsh
+
+      # ── 6. 編譯安裝程式 ───────────────────────────────────────────────────────
+      - name: Build installer with Inno Setup
+        shell: pwsh
+        run: |
+          $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          $ver  = "${{ steps.version.outputs.VERSION }}"
+          & $iscc /DAppVersion=$ver installer\setup.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      # ── 7. 確認安裝檔存在並列出 ──────────────────────────────────────────────
+      - name: Verify installer output
+        shell: pwsh
+        run: |
+          $files = Get-ChildItem installer\Output\*.exe
+          if (-not $files) { Write-Error "No installer found!"; exit 1 }
+          $files | ForEach-Object { Write-Host "Found: $($_.FullName)" }
+
+      # ── 8. 建立 GitHub Release 並上傳安裝程式 ───────────────────────────────
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: "YTDownloader ${{ steps.version.outputs.VERSION }}"
+          body: |
+            ## YTDownloader v${{ steps.version.outputs.VERSION }}
+
+            ### 安裝方式
+            1. 下載下方的 `YTDownloader_Setup_v${{ steps.version.outputs.VERSION }}.exe`
+            2. 執行安裝程式，依照指示完成安裝
+            3. 啟動 YTDownloader
+
+            ### 系統需求
+            - Windows 10 (1809) 以上
+            - x64 架構
+          files: installer/Output/YTDownloader_Setup_v${{ steps.version.outputs.VERSION }}.exe
+          draft: false
+          prerelease: false

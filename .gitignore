@@ -660,3 +660,9 @@ fabric.properties
 # Additional files built by Visual Studio
 
 # End of https://www.toptal.com/developers/gitignore/api/csharp,visualstudio,rider
+
+# 發布輸出
+/publish/
+
+# Inno Setup 輸出安裝檔
+/installer/Output/
