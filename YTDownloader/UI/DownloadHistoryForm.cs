@@ -11,10 +11,12 @@ namespace YTDownloader;
 
 public partial class DownloadHistoryForm : Form
 {
+    private const string OptionListMediaType = "ListMediaType";
     private const string OptionListDownloadStatus = "ListDownloadStatus";
     private const string SelectColumnName = "colSelect";
     private readonly ConfigService _configService;
     private readonly ILogger _logger;
+    private readonly MainForm? _mainForm;
     private readonly OptionService _optionService;
     private readonly ConfigModel _settings;
     private IConfiguration config = null!;
@@ -30,13 +32,19 @@ public partial class DownloadHistoryForm : Form
         InitializeForm();
     }
 
+    public DownloadHistoryForm(MainForm mainForm) : this()
+    {
+        _mainForm = mainForm;
+    }
+
     public DownloadHistoryForm(ConfigService configService, OptionService optionService,
-        ILogger<DownloadHistoryForm> logger)
+        ILogger<DownloadHistoryForm> logger, MainForm? mainForm = null)
     {
         _configService = configService;
         _settings = _configService.Load();
         _optionService = optionService;
         _logger = logger;
+        _mainForm = mainForm;
         InitializeForm();
     }
 
@@ -238,6 +246,12 @@ public partial class DownloadHistoryForm : Form
         {
             Name = "colURL",
             HeaderText = "URL",
+            Visible = false
+        });
+        dGV_SearchResult.Columns.Add(new DataGridViewTextBoxColumn
+        {
+            Name = "colPath",
+            HeaderText = "Path",
             Visible = false
         });
         dGV_SearchResult.Rows.Clear();
@@ -455,11 +469,12 @@ public partial class DownloadHistoryForm : Form
                         dGV_SearchResult.Rows.Count + 1,
                         item.FileName,
                         FormatLocalDateTime(item.DownloadDateTime),
-                        item.Type,
+                        OptionService.GetOptionDesc(OptionListMediaType, item.Type),
                         OptionService.GetOptionDesc(OptionListDownloadStatus, item.Status),
                         item.TaskID,
                         item.Title,
-                        item.URL
+                        item.URL,
+                        item.Path
                         );
                 }
                 UpdateSelectAllCheckBoxState();
@@ -469,7 +484,6 @@ public partial class DownloadHistoryForm : Form
 
     private void btn_ReDownload_Click(object sender, EventArgs e)
     {
-        //TODO:重新下載實作
         var selectedItem =  dGV_SearchResult.Rows
             .Cast<DataGridViewRow>()
             .Where(row => !row.IsNewRow 
@@ -478,14 +492,22 @@ public partial class DownloadHistoryForm : Form
             && row.Cells["colURL"].Value != null
             ).ToList();
    
-        var requests = selectedItem.Select(row => new DownloadRequest
+        var requests = selectedItem.Select(row =>
         {
-            Title = row.Cells["colTitle"].Value.ToString() ?? string.Empty,
-            WebpageUrl = row.Cells["colURL"].Value.ToString() ?? string.Empty,
-            MediaType = row.Cells["colMediaType"].Value.ToString() ,
-            MediaTypeDisplay = row.Cells["colMediaType"].Value.ToString() ,
+            var mediaType = OptionService.GetOptionName(
+                OptionListMediaType,
+                row.Cells["colMediaType"].Value?.ToString() ?? string.Empty);
+
+            return new DownloadRequest
+            {
+                Title = row.Cells["colTitle"].Value?.ToString() ?? string.Empty,
+                WebpageUrl = row.Cells["colURL"].Value?.ToString() ?? string.Empty,
+                MediaType = mediaType,
+                MediaTypeDisplay = OptionService.GetOptionDesc(OptionListMediaType, mediaType),
+                DownloadDir = row.Cells["colPath"].Value?.ToString() ?? string.Empty,
+            };
         }).ToList();
-        mainForm.EnqueueDownloads(requests);
+        _mainForm?.EnqueueDownloads(requests);
         _logger.LogInformation("已提交 {Count} 個下載任務，關閉 PlaylistHandlerForm。", selectedItem.Count);
     }
 

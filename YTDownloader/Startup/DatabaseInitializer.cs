@@ -7,7 +7,6 @@ using YTDownloader.Startup;
 
 namespace YTDownloader.Data
 {
-    //TODO: 待測
     internal class DatabaseInitializer : IAppInitializer
     {
         private readonly IConfiguration _config;
@@ -267,7 +266,7 @@ namespace YTDownloader.Data
                 INSERT OR IGNORE INTO ListMediaType (Name, "Desc") VALUES ('Video', '視訊');
                 """,
                 """
-                INSERT OR IGNORE INTO ListSourceType (Name, Desc) VALUES ('VideoOnly', '單一影片');
+                INSERT OR IGNORE INTO ListSourceType (Name, Desc) VALUES ('SingleVideo', '單一影片');
                 INSERT OR IGNORE INTO ListSourceType (Name, Desc) VALUES ('PlayList', '播放清單');
                 """,
                 """

@@ -277,14 +277,13 @@ public class YtDlpDownloadService
     ///     <see cref="ResourceDetectionResult" />，包含：
     ///     <list type="bullet">
     ///         <item>
-    ///             <see cref="ResourceDetectionResult.ResourceType" /> — 判斷結果，<see cref="UrlResourceType.SingleVideo" />、
-    ///             <see cref="UrlResourceType.Playlist" /> 或 <see cref="UrlResourceType.Unknown" />。
+    ///             <see cref="ResourceDetectionResult.ResourceType" /> — 判斷結果為 SingleVideo、Playlist 或 Unknown。
     ///         </item>
     ///         <item><see cref="ResourceDetectionResult.Title" /> — 影片或播放清單標題。</item>
     ///         <item><see cref="ResourceDetectionResult.PlaylistCount" /> — 播放清單宣告的影片總數（單一影片時為 <c>null</c>）。</item>
     ///         <item><see cref="ResourceDetectionResult.Message" /> — 判斷說明或錯誤原因。</item>
     ///     </list>
-    ///     無法取得 metadata 時，<c>ResourceType</c> 為 <see cref="UrlResourceType.Unknown" />，不拋出例外。
+    ///     無法取得 metadata 時，<c>ResourceType</c> 為 Unknown，不拋出例外。
     /// </returns>
     /// <exception cref="ArgumentException">
     ///     <paramref name="url" /> 為空白或格式不正確時拋出。
@@ -303,12 +302,12 @@ public class YtDlpDownloadService
             // 避免 yt-dlp 把整個播放清單的所有影片 metadata 全部 dump 出來。
             var uri = new Uri(url);
             var quickType = TryDetectFromUrlPattern(uri);
-            if (quickType.HasValue)
+            if (!string.IsNullOrWhiteSpace(quickType))
                 return new ResourceDetectionResult
                 {
                     Url = url,
-                    ResourceType = quickType.Value,
-                    Message = quickType.Value == UrlResourceType.Playlist
+                    ResourceType = quickType,
+                    Message = quickType == ResourceDetectionResult.GetSourceTypeName("播放清單")
                         ? "URL 特徵判斷為播放清單（快速路徑）"
                         : "URL 特徵判斷為單一影片（快速路徑）"
                 };
@@ -320,7 +319,7 @@ public class YtDlpDownloadService
                 return new ResourceDetectionResult
                 {
                     Url = url,
-                    ResourceType = UrlResourceType.Unknown,
+                    ResourceType = ResourceDetectionResult.GetSourceTypeName("Unknown"),
                     Message = "無法取得 metadata"
                 };
 
@@ -328,8 +327,8 @@ public class YtDlpDownloadService
             {
                 Url = url,
                 ResourceType = metadata.IsPlaylist
-                    ? UrlResourceType.Playlist
-                    : UrlResourceType.SingleVideo,
+                    ? ResourceDetectionResult.GetSourceTypeName("播放清單")
+                    : ResourceDetectionResult.GetSourceTypeName("單一影片"),
                 Title = metadata.Title,
                 PlaylistId = metadata.PlaylistId,
                 PlaylistTitle = metadata.PlaylistTitle,
@@ -347,7 +346,7 @@ public class YtDlpDownloadService
             return new ResourceDetectionResult
             {
                 Url = url,
-                ResourceType = UrlResourceType.Unknown,
+                ResourceType = ResourceDetectionResult.GetSourceTypeName("Unknown"),
                 Message = $"判斷失敗: {ex.Message}"
             };
         }
@@ -940,10 +939,10 @@ public class YtDlpDownloadService
     ///     支援 YouTube、YouTube Music、Bilibili 等常見平台的播放清單 URL 特徵。
     /// </summary>
     /// <returns>
-    ///     能從 URL 確定類型時回傳 <see cref="UrlResourceType" />；
+    ///     能從 URL 確定類型時回傳資源類型字串；
     ///     無法判斷時回傳 <c>null</c>，由呼叫端 fallback 至 yt-dlp。
     /// </returns>
-    private static UrlResourceType? TryDetectFromUrlPattern(Uri uri)
+    private static string? TryDetectFromUrlPattern(Uri uri)
     {
         var host = uri.Host.ToLowerInvariant();
         var path = uri.AbsolutePath.ToLowerInvariant();
@@ -954,17 +953,17 @@ public class YtDlpDownloadService
         {
             // 明確的播放清單頁面：youtube.com/playlist?list=xxx
             if (path == "/playlist")
-                return UrlResourceType.Playlist;
+                return ResourceDetectionResult.GetSourceTypeName("播放清單");
 
             // 頻道/用戶頁面：通常為多部影片集合
             if (path.StartsWith("/channel/") ||
                 path.StartsWith("/user/") ||
                 path.StartsWith("/@"))
-                return UrlResourceType.Playlist;
+                return ResourceDetectionResult.GetSourceTypeName("播放清單");
 
             // youtu.be 短網址（無 list 參數）→ 單一影片
             if (host == "youtu.be" && !HasQueryParam(query, "list"))
-                return UrlResourceType.SingleVideo;
+                return ResourceDetectionResult.GetSourceTypeName("單一影片");
 
             // watch?v=xxx&list=yyy → 帶播放清單 context 的影片頁面，視為播放清單
             if (path == "/watch")
@@ -972,8 +971,8 @@ public class YtDlpDownloadService
                 var hasVideo = HasQueryParam(query, "v");
                 var hasList = HasQueryParam(query, "list");
 
-                if (hasList) return UrlResourceType.Playlist;
-                if (hasVideo) return UrlResourceType.SingleVideo;
+                if (hasList) return ResourceDetectionResult.GetSourceTypeName("播放清單");
+                if (hasVideo) return ResourceDetectionResult.GetSourceTypeName("單一影片");
             }
         }
 
@@ -984,11 +983,11 @@ public class YtDlpDownloadService
             if (path.StartsWith("/list/") ||
                 path.Contains("/channel/") ||
                 path.Contains("/medialist/"))
-                return UrlResourceType.Playlist;
+                return ResourceDetectionResult.GetSourceTypeName("播放清單");
 
             // 一般影片頁面
             if (path.StartsWith("/video/"))
-                return UrlResourceType.SingleVideo;
+                return ResourceDetectionResult.GetSourceTypeName("單一影片");
         }
 
         // 其他平台無法從 URL 特徵判斷，交由 yt-dlp

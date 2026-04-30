@@ -11,6 +11,7 @@ namespace YTDownloader;
 
 public partial class PlaylistHandlerForm : Form
 {
+    private const string OptionListMediaType = "ListMediaType";
     private const string SelectColumnName = "colSelected";
     private readonly ConfigService _configService;
     private readonly ILogger _logger;
@@ -21,7 +22,7 @@ public partial class PlaylistHandlerForm : Form
     private string downloadDir = string.Empty;
     private string ffmpegPath = string.Empty;
     private readonly MainForm mainForm = null!;
-    private readonly MediaType mediaType;
+    private readonly string mediaType = string.Empty;
     private readonly string mediaTypeDisplay = string.Empty;
     private readonly string playlistUrl = string.Empty;
     private List<PlaylistVideoItem> playlistVideos = new();
@@ -43,13 +44,15 @@ public partial class PlaylistHandlerForm : Form
         InitializeForm();
     }
 
-    public PlaylistHandlerForm(string playlistUrl, MainForm mainForm, MediaType mediaType, string mediaTypeDisplay) :
+    public PlaylistHandlerForm(string playlistUrl, MainForm mainForm, string mediaType, string mediaTypeDisplay) :
         this()
     {
         this.playlistUrl = playlistUrl;
         this.mainForm = mainForm;
-        this.mediaType = mediaType;
-        this.mediaTypeDisplay = mediaTypeDisplay;
+        this.mediaType = OptionService.GetOptionName(OptionListMediaType, mediaType);
+        this.mediaTypeDisplay = string.IsNullOrWhiteSpace(mediaTypeDisplay)
+            ? OptionService.GetOptionDesc(OptionListMediaType, this.mediaType)
+            : mediaTypeDisplay;
     }
 
     private void InitializeForm()

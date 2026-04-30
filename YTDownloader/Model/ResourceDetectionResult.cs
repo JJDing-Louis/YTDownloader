@@ -1,11 +1,14 @@
-﻿namespace YTDownloader.Model
+using YTDownloader.Service;
+
+namespace YTDownloader.Model
 {
-    
     /// <summary>
     /// 類型判斷結果
     /// </summary>
     public class ResourceDetectionResult
     {
+        private const string OptionListSourceType = "ListSourceType";
+
         /// <summary>
         /// 原始 URL
         /// </summary>
@@ -14,7 +17,7 @@
         /// <summary>
         /// 類型
         /// </summary>
-        public UrlResourceType ResourceType { get; set; }
+        public string ResourceType { get; set; } = string.Empty;
 
         /// <summary>
         /// 標題
@@ -44,17 +47,21 @@
         /// <summary>
         /// 是否為播放清單
         /// </summary>
-        public bool IsPlaylist => ResourceType == UrlResourceType.Playlist;
+        public bool IsPlaylist => ResourceType == GetSourceTypeName("播放清單");
 
         /// <summary>
         /// 是否為單一影片
         /// </summary>
-        public bool IsSingleVideo => ResourceType == UrlResourceType.SingleVideo;
+        public bool IsSingleVideo => ResourceType == GetSourceTypeName("單一影片");
 
         /// <summary>
         /// 結果訊息
         /// </summary>
         public string Message { get; set; } = string.Empty;
-    }
 
+        public static string GetSourceTypeName(string desc)
+        {
+            return OptionService.GetOptionName(OptionListSourceType, desc);
+        }
+    }
 }

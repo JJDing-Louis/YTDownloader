@@ -81,7 +81,7 @@ public partial class MainForm : Form
             return;
         }
 
-        _downloadHistoryForm = new DownloadHistoryForm();
+        _downloadHistoryForm = new DownloadHistoryForm(this);
         _downloadHistoryForm.Location = new Point(700, 0);
         _downloadHistoryForm.Disposed += downloadHistoryForm_Disposed;
         _downloadHistoryForm.Show();
@@ -352,64 +352,60 @@ public partial class MainForm : Form
             var YTDownloadService = new YtDlpDownloadService(ytDlpPath, ffmpegDir);
 
             var SourceType = await YTDownloadService.DetectResourceAsync(URL);
-            switch (SourceType.ResourceType)
+            if (SourceType.IsSingleVideo)
             {
-                case UrlResourceType.SingleVideo:
-                    _logger.LogInformation($"檢測到單一影片：{SourceType.Title}", "資源檢測", MessageBoxButtons.OK,
-                        MessageBoxIcon.Information);
-                    var playlist = await YTDownloadService.GetPlaylistVideosAsync(URL);
-                    var video = playlist.Videos.FirstOrDefault() ?? throw new Exception("無法取得影片資訊");
-                    var request = new DownloadRequest
-                    {
-                        Title = video.Title ?? "未知標題",
-                        WebpageUrl = URL,
-                        MediaType = Enum.TryParse<MediaType>(GUITool.GetComboBoxSelectedName(cB_ListMediaType), false,
-                            out var mediaType)
-                            ? mediaType
-                            : throw new NotSupportedException(
-                                $"未知的媒體類型值：{GUITool.GetComboBoxSelectedName(cB_ListMediaType)}"),
-                        MediaTypeDisplay = GUITool.GetComboBoxSelectedDesc(cB_ListMediaType),
-                        DownloadDir = DownloadFolder
-                    };
-                    EnqueueDownloads(new[] { request });
-                    break;
-                case UrlResourceType.Playlist:
-                    _logger.LogInformation($"檢測到播放清單：{SourceType.PlaylistTitle}，共 {SourceType.PlaylistCount} 部影片");
-                    //如果沒有被正確關閉，則先釋放資源
-                    if (_playlistHandlerForm is { IsDisposed: false })
-                        _playlistHandlerForm.Close();
-                    _playlistHandlerForm = new PlaylistHandlerForm(
-                        URL,
-                        this,
-                        Enum.TryParse<MediaType>(GUITool.GetComboBoxSelectedName(cB_ListMediaType), false,
-                            out var playlistMediaType)
-                            ? playlistMediaType
-                            : throw new NotSupportedException(
-                                $"未知的媒體類型值：{GUITool.GetComboBoxSelectedName(cB_ListMediaType)}"),
-                        GUITool.GetComboBoxSelectedDesc(cB_ListMediaType));
-                    var (isSuccess, msg) = await _playlistHandlerForm.GetPlaylistInfoAsync();
-                    if (isSuccess)
-                    {
-                        _logger.LogInformation($"成功獲取播放清單資訊：{msg}");
-                        _playlistHandlerForm.Location = new Point(700, 0);
-                        _playlistHandlerForm.Disposed += playlistHandlerForm_Disposed;
-                        _playlistHandlerForm.Show();
-                    }
-                    else
-                    {
-                        _logger.LogError($"獲取播放清單資訊失敗：{msg}");
-                        _playlistHandlerForm.Dispose();
-                        MessageBox.Show(
-                            $"無法載入播放清單，請確認連結是否正確。\n\n原因：{msg}",
-                            "播放清單載入失敗",
-                            MessageBoxButtons.OK,
-                            MessageBoxIcon.Error);
-                    }
-
-                    break;
-                default:
-                    MessageBox.Show("無法識別的 URL 類型。", "資源檢測", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    break;
+                _logger.LogInformation($"檢測到單一影片：{SourceType.Title}", "資源檢測", MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+                var playlist = await YTDownloadService.GetPlaylistVideosAsync(URL);
+                var video = playlist.Videos.FirstOrDefault() ?? throw new Exception("無法取得影片資訊");
+                var selectedMediaType = OptionService.GetOptionName(
+                    OptionListMediaType,
+                    GUITool.GetComboBoxSelectedName(cB_ListMediaType));
+                var request = new DownloadRequest
+                {
+                    Title = video.Title ?? "未知標題",
+                    WebpageUrl = URL,
+                    MediaType = selectedMediaType,
+                    MediaTypeDisplay = OptionService.GetOptionDesc(OptionListMediaType, selectedMediaType),
+                    DownloadDir = DownloadFolder
+                };
+                EnqueueDownloads(new[] { request });
+            }
+            else if (SourceType.IsPlaylist)
+            {
+                _logger.LogInformation($"檢測到播放清單：{SourceType.PlaylistTitle}，共 {SourceType.PlaylistCount} 部影片");
+                //如果沒有被正確關閉，則先釋放資源
+                if (_playlistHandlerForm is { IsDisposed: false })
+                    _playlistHandlerForm.Close();
+                _playlistHandlerForm = new PlaylistHandlerForm(
+                    URL,
+                    this,
+                    OptionService.GetOptionName(
+                        OptionListMediaType,
+                        GUITool.GetComboBoxSelectedName(cB_ListMediaType)),
+                    GUITool.GetComboBoxSelectedDesc(cB_ListMediaType));
+                var (isSuccess, msg) = await _playlistHandlerForm.GetPlaylistInfoAsync();
+                if (isSuccess)
+                {
+                    _logger.LogInformation($"成功獲取播放清單資訊：{msg}");
+                    _playlistHandlerForm.Location = new Point(700, 0);
+                    _playlistHandlerForm.Disposed += playlistHandlerForm_Disposed;
+                    _playlistHandlerForm.Show();
+                }
+                else
+                {
+                    _logger.LogError($"獲取播放清單資訊失敗：{msg}");
+                    _playlistHandlerForm.Dispose();
+                    MessageBox.Show(
+                        $"無法載入播放清單，請確認連結是否正確。\n\n原因：{msg}",
+                        "播放清單載入失敗",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Error);
+                }
+            }
+            else
+            {
+                MessageBox.Show("無法識別的 URL 類型。", "資源檢測", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
         catch (Exception ex)
@@ -734,7 +730,7 @@ public partial class MainForm : Form
             // ── 2. 音訊任務：偵測並刪除不完整的最終音訊輸出 ──────────────
             //    判定條件：最終音訊檔（.mp3 等）與原始串流檔（.webm 等）同時存在
             //    → ffmpeg 轉檔被中斷，音訊輸出不完整，需強制重新轉檔
-            if (req.MediaType == MediaType.Audio && audioOutputExts.Contains(ext))
+            if (req.MediaType == "Audio" && audioOutputExts.Contains(ext))
             {
                 var videoStreamExists = videoStreamExts.Any(ve =>
                     File.Exists(Path.Combine(req.DownloadDir, stem + ve)));
@@ -861,7 +857,7 @@ public partial class MainForm : Form
             FileName = req.FileName,
             Path = req.DownloadDir,
             Progress = progress,
-            Type = req.MediaType.ToString(),
+            Type = req.MediaType,
             DownloadDateTime = DateTime.UtcNow,
             CompleteDateTime = completeDateTime
         };
@@ -909,12 +905,12 @@ public partial class MainForm : Form
         return $"{nameWithoutExtension}.%(ext)s";
     }
 
-    private static string GetDefaultExtension(MediaType mediaType)
+    private static string GetDefaultExtension(string mediaType)
     {
         return mediaType switch
         {
-            MediaType.Audio => ".mp3",
-            MediaType.Video => ".mp4",
+            "Audio" => ".mp3",
+            "Video" => ".mp4",
             _ => string.Empty
         };
     }
@@ -962,7 +958,7 @@ public partial class MainForm : Form
 
                 var result = capturedReq.MediaType switch
                 {
-                    MediaType.Audio => await svc.DownloadAudioAsync(
+                    "Audio" => await svc.DownloadAudioAsync(
                         capturedReq.WebpageUrl,
                         capturedReq.DownloadDir,
                         outputTemplate: CreateOutputTemplate(capturedReq.FileName),
@@ -970,7 +966,7 @@ public partial class MainForm : Form
                         onProgress: pct => UpdateDownloadProgress(taskId, pct, "InProgress"),
                         cancellationToken: ct),
 
-                    MediaType.Video => await svc.DownloadVideoAsync(
+                    "Video" => await svc.DownloadVideoAsync(
                         capturedReq.WebpageUrl,
                         capturedReq.DownloadDir,
                         outputTemplate: CreateOutputTemplate(capturedReq.FileName),
@@ -990,7 +986,7 @@ public partial class MainForm : Form
                     UpdateDownloadProgress(taskId, 100, "Complete");
                     SetActionButton(taskId, "—");
                     // 音訊下載完成後，清除 yt-dlp/ffmpeg 未自動刪除的中間影片串流暫存檔
-                    if (capturedReq.MediaType == MediaType.Audio)
+                    if (capturedReq.MediaType == "Audio")
                         CleanVideoStreamsAfterAudioDownload(capturedReq);
                 }
                 else
