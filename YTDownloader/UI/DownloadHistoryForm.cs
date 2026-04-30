@@ -394,11 +394,11 @@ public partial class DownloadHistoryForm : Form
                         * 
                     FROM DownloadHistory
                     WHERE (@FileName IS NULL OR FileName LIKE '%' + @FileName + '%')
-                    AND (@DownloadStartDate IS NULL OR DownloadDate >= @DownloadStartDate)
-                    AND (@DownloadEndDate IS NULL OR DownloadDate <= @DownloadEndDate)
-                    AND (@DownloadResult IS NULL OR DownloadResult = @DownloadResult)
-                    AND (@IsAudio IS NULL OR MediaType = @IsAudio)
-                    AND (@IsVedio IS NULL OR MediaType = @IsVedio)
+                    AND (@DownloadStartDate IS NULL OR DownloadDateTime >= @DownloadStartDate)
+                    AND (@DownloadEndDate IS NULL OR DownloadDateTime <= @DownloadEndDate)
+                    AND (@DownloadResult IS NULL OR Status = @DownloadResult)
+                    AND (@IsAudio IS NULL OR Type = @IsAudio)
+                    AND (@IsVedio IS NULL OR Type = @IsVedio)
                   """;
         var Param = new { FileName, DownloadStartDate, DownloadEndDate, DownloadResult, IsAudio, IsVideo };
         var SearchResult = new List<DownloadHistory>();
