@@ -13,8 +13,12 @@ namespace YTDownloaderTest.ServiceTest
 
         private const string ValidVideoUrl    = "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
         private const string ValidPlaylistUrl = "https://www.youtube.com/playlist?list=PLrEnWoR732-BHrPp_Pm8_VleD68f9s14-";
+        private const string MembersOnlyPlaylistUrl = "https://www.youtube.com/playlist?list=PLfaO5EsbbgdnRn2P7eTAj244MLNEFYqil";
+        private const string UnavailableVideoUrl = "https://www.youtube.com/watch?v=ES6JF6cGliQ&t=6909s";
         private const string InvalidUrl       = "this-is-not-a-url";
         private const string FakeOutputFolder = @"C:\FakeOutputFolder";
+        private const string SourceTypePlaylist = "PlayList";
+        private const string SourceTypeSingleVideo = "VideoOnly";
 
         private YtDlpDownloadService _service = null!;
 
@@ -335,6 +339,48 @@ namespace YTDownloaderTest.ServiceTest
             });
         }
 
+        [Test]
+        [Category("Integration")]
+        [Ignore("需要實際 yt-dlp 執行檔與網路連線，請手動執行整合測試")]
+        [Description("含會員專屬影片的播放清單應跳過不可下載項目，且不回傳該影片到 Videos")]
+        public async Task GetPlaylistVideosAsync_MembersOnlyPlaylist_SkipsSubscriberOnlyVideo()
+        {
+            var service = new YtDlpDownloadService(
+                GetRealYtDlpPath(),
+                logger: NullLogger<YtDlpDownloadService>.Instance);
+
+            var result = await service.GetPlaylistVideosAsync(MembersOnlyPlaylistUrl);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(result.IsSuccess, Is.True);
+                Assert.That(result.Videos, Is.Not.Empty);
+                Assert.That(result.UnavailableEntries, Has.Some.Contains("會員專屬"));
+                Assert.That(result.Videos.Select(v => v.Id), Does.Not.Contain("wqrfsF_OMKs"));
+            });
+        }
+
+        [Test]
+        [Category("Integration")]
+        [Ignore("需要實際 yt-dlp 執行檔與網路連線，請手動執行整合測試")]
+        [Description("不可存取的單一影片應回傳 SkippedCount，不應回傳可下載影片")]
+        public async Task GetPlaylistVideosAsync_UnavailableSingleVideo_ReturnsSkippedEntry()
+        {
+            var service = new YtDlpDownloadService(
+                GetRealYtDlpPath(),
+                logger: NullLogger<YtDlpDownloadService>.Instance);
+
+            var result = await service.GetPlaylistVideosAsync(UnavailableVideoUrl);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(result.IsSuccess, Is.False);
+                Assert.That(result.Videos, Is.Empty);
+                Assert.That(result.SkippedCount, Is.EqualTo(1));
+                Assert.That(result.UnavailableEntries, Has.Some.Contains("[Unavailable video]"));
+            });
+        }
+
         // =====================================================================
         // URL 型別快速偵測 — DetectResourceAsync 快速路徑（不呼叫 yt-dlp）
         // =====================================================================
@@ -344,34 +390,42 @@ namespace YTDownloaderTest.ServiceTest
         [Test]
         [TestCase(
             "https://www.youtube.com/playlist?list=PLEKDwEUpZdpN1Ho1W5nQB368PnN53llE3",
-            UrlResourceType.Playlist,
+            SourceTypePlaylist,
             Description = "playlist?list= 格式（150 首夜店歌曲清單）應判斷為 Playlist")]
         [TestCase(
             "https://www.youtube.com/watch?v=uEJuoEs1UxY&list=PLEKDwEUpZdpN1Ho1W5nQB368PnN53llE3",
-            UrlResourceType.Playlist,
+            SourceTypePlaylist,
             Description = "watch?v=&list= 同時帶有 list 參數應判斷為 Playlist")]
         [TestCase(
             "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-            UrlResourceType.SingleVideo,
+            SourceTypeSingleVideo,
             Description = "watch?v= 無 list 參數應判斷為 SingleVideo")]
         [TestCase(
             "https://youtu.be/dQw4w9WgXcQ",
-            UrlResourceType.SingleVideo,
+            SourceTypeSingleVideo,
             Description = "youtu.be 短網址無 list 參數應判斷為 SingleVideo")]
         [TestCase(
+            MembersOnlyPlaylistUrl,
+            SourceTypePlaylist,
+            Description = "使用者提供的會員專屬混合播放清單 URL 應判斷為 Playlist")]
+        [TestCase(
+            UnavailableVideoUrl,
+            SourceTypeSingleVideo,
+            Description = "使用者提供的不可存取 watch URL（含 t 參數）應判斷為 SingleVideo")]
+        [TestCase(
             "https://www.youtube.com/@SomeChannel/videos",
-            UrlResourceType.Playlist,
+            SourceTypePlaylist,
             Description = "@ 頻道網址應判斷為 Playlist")]
         [TestCase(
             "https://www.youtube.com/channel/UCxxxxxxxxxxxxxxxxxxxxxx",
-            UrlResourceType.Playlist,
+            SourceTypePlaylist,
             Description = "/channel/ 網址應判斷為 Playlist")]
         [TestCase(
             "https://www.youtube.com/user/SomeLegacyUser",
-            UrlResourceType.Playlist,
+            SourceTypePlaylist,
             Description = "/user/ 舊式頻道網址應判斷為 Playlist")]
         public async Task DetectResourceAsync_QuickPath_ReturnsCorrectResourceType(
-            string url, UrlResourceType expectedType)
+            string url, string expectedType)
         {
             var result = await _service.DetectResourceAsync(url);
 
