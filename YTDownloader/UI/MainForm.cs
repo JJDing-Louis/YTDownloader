@@ -108,12 +108,50 @@ public partial class MainForm : Form
 
     private void btn_ClearCompleteTask_Click(object sender, EventArgs e)
     {
-        //TODO: 清除已完成的下載任務
+        foreach (DataGridViewRow row in dGV_DownloadList.Rows)
+        {
+            if (row.Cells["Status"].Value.ToString() == "已完成")
+            {
+                dGV_DownloadList.Rows.Remove(row);
+            }
+        }
+        RenumberRows();
     }
 
     private void btn_CancelAll_Click(object sender, EventArgs e)
     {
-        //TODO: 清除所有下載任務
+        var rows = dGV_DownloadList.Rows
+            .Cast<DataGridViewRow>()
+            .Where(row => !row.IsNewRow)
+            .ToList();
+        var controllersToClean = new List<DownloadTaskController>();
+
+        foreach (var row in rows)
+        {
+            var taskIdCell = row.Cells["colTaskId"].Value;
+            if (TryGetTaskId(taskIdCell, out var taskId)
+                && _downloadControllers.TryGetValue(taskId, out var cancelCtrl))
+            {
+                cancelCtrl.Cts.Cancel();
+                controllersToClean.Add(cancelCtrl);
+                _downloadControllers.Remove(taskId);
+            }
+
+            if (!row.IsNewRow && dGV_DownloadList.Rows.Contains(row))
+                dGV_DownloadList.Rows.Remove(row);
+        }
+
+        RenumberRows();
+
+        foreach (var controller in controllersToClean)
+        {
+            CleanCanceledDownloadFiles(controller, releaseReservedFileName: true);
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(TimeSpan.FromSeconds(2));
+                CleanCanceledDownloadFiles(controller, releaseReservedFileName: false);
+            });
+        }
     }
 
     #region Init
@@ -511,12 +549,29 @@ public partial class MainForm : Form
         {
             var cellVal = row.Cells["colTaskId"].Value;
             // DataGridViewTextBoxColumn 可能以 int 或 string 儲存
-            if (cellVal is long lid && lid == taskId) return row;
-            if (cellVal is int id && id == taskId) return row;
-            if (cellVal is string s && long.TryParse(s, out var sid) && sid == taskId) return row;
+            if (TryGetTaskId(cellVal, out var rowTaskId) && rowTaskId == taskId) return row;
         }
 
         return null;
+    }
+
+    private static bool TryGetTaskId(object? cellValue, out long taskId)
+    {
+        switch (cellValue)
+        {
+            case long longId:
+                taskId = longId;
+                return true;
+            case int intId:
+                taskId = intId;
+                return true;
+            case string s when long.TryParse(s, out var parsedId):
+                taskId = parsedId;
+                return true;
+            default:
+                taskId = 0;
+                return false;
+        }
     }
 
     /// <summary>
@@ -762,6 +817,43 @@ public partial class MainForm : Form
         {
             _logger.LogWarning("無法刪除暫存檔 [{File}]：{Msg}", Path.GetFileName(path), ex.Message);
         }
+    }
+
+    private void CleanCanceledDownloadFiles(
+        DownloadTaskController controller,
+        bool releaseReservedFileName)
+    {
+        var req = controller.OriginalRequest;
+        if (req == null
+            || string.IsNullOrWhiteSpace(req.DownloadDir)
+            || !Directory.Exists(req.DownloadDir))
+            return;
+
+        var matchName = string.IsNullOrWhiteSpace(req.FileName)
+            ? req.Title
+            : Path.GetFileNameWithoutExtension(req.FileName);
+        var normalizedTitle = NormalizeForFileMatch(matchName);
+        if (string.IsNullOrWhiteSpace(normalizedTitle)) return;
+
+        var deletedCount = 0;
+        foreach (var file in Directory.GetFiles(req.DownloadDir))
+        {
+            var fileName = Path.GetFileName(file);
+            var normalizedFileName = NormalizeForFileMatch(fileName);
+
+            if (!normalizedFileName.StartsWith(normalizedTitle, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            TryDeleteTempFile(file, ref deletedCount);
+        }
+
+        if (releaseReservedFileName && !string.IsNullOrWhiteSpace(req.FileName))
+            GetReservedFileNames(req.DownloadDir).Remove(req.FileName);
+
+        if (deletedCount > 0)
+            _logger.LogInformation(
+                "取消下載後清除 {Count} 個檔案（檔名：{FileName}）",
+                deletedCount, req.FileName);
     }
 
     /// <summary>
