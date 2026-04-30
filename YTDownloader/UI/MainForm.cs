@@ -21,6 +21,9 @@ public partial class MainForm : Form
     /// <summary>以 Task ID 為 Key，記錄每筆下載任務的控制器。</summary>
     private readonly Dictionary<long, DownloadTaskController> _downloadControllers = new();
 
+    private readonly HashSet<long> _canceledDownloadTaskIds = new();
+    private readonly object _canceledDownloadTaskIdsLock = new();
+
     /// <summary>跨批次共用的並發信號量，最大同時下載數由 Config.json 控制。</summary>
     private readonly SemaphoreSlim _downloadSemaphore;
 
@@ -129,12 +132,25 @@ public partial class MainForm : Form
         foreach (var row in rows)
         {
             var taskIdCell = row.Cells["colTaskId"].Value;
-            if (TryGetTaskId(taskIdCell, out var taskId)
-                && _downloadControllers.TryGetValue(taskId, out var cancelCtrl))
+            if (TryGetTaskId(taskIdCell, out var taskId))
             {
-                cancelCtrl.Cts.Cancel();
-                controllersToClean.Add(cancelCtrl);
-                _downloadControllers.Remove(taskId);
+                if (IsCompletedDownloadRow(row))
+                {
+                    if (_downloadControllers.Remove(taskId, out var completedCtrl)
+                        && completedCtrl.OriginalRequest != null)
+                        ReleaseReservedDownloadFileName(completedCtrl.OriginalRequest);
+                }
+                else if (_downloadControllers.TryGetValue(taskId, out var cancelCtrl))
+                {
+                    cancelCtrl.Cts.Cancel();
+                    MarkDownloadCanceled(taskId, cancelCtrl.LastPercent);
+                    controllersToClean.Add(cancelCtrl);
+                    _downloadControllers.Remove(taskId);
+                }
+                else
+                {
+                    MarkDownloadCanceled(taskId, GetRowProgress(row));
+                }
             }
 
             if (!row.IsNewRow && dGV_DownloadList.Rows.Contains(row))
@@ -551,10 +567,21 @@ public partial class MainForm : Form
         // ── 取消按鈕 ──────────────────────────────────────────
         if (colName == "colCancel")
         {
-            if (_downloadControllers.TryGetValue(taskId, out var cancelCtrl))
+            if (IsCompletedDownloadRow(row))
+            {
+                if (_downloadControllers.Remove(taskId, out var completedCtrl)
+                    && completedCtrl.OriginalRequest != null)
+                    ReleaseReservedDownloadFileName(completedCtrl.OriginalRequest);
+            }
+            else if (_downloadControllers.TryGetValue(taskId, out var cancelCtrl))
             {
                 cancelCtrl.Cts.Cancel();
+                MarkDownloadCanceled(taskId, cancelCtrl.LastPercent);
                 _downloadControllers.Remove(taskId);
+            }
+            else
+            {
+                MarkDownloadCanceled(taskId, GetRowProgress(row));
             }
 
             dGV_DownloadList.Rows.RemoveAt(e.RowIndex);
@@ -610,6 +637,57 @@ public partial class MainForm : Form
         }
 
         return null;
+    }
+
+    private void MarkDownloadCanceled(long taskId, double percent)
+    {
+        try
+        {
+            lock (_canceledDownloadTaskIdsLock)
+            {
+                _canceledDownloadTaskIds.Add(taskId);
+            }
+
+            var progress = Math.Clamp(
+                (int)Math.Round(percent, MidpointRounding.AwayFromZero),
+                0,
+                100);
+
+            DBTool.UpdateDownloadProgress(taskId, progress, "Cancel");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "更新 DownloadHistory 取消狀態失敗。TaskID: {TaskID}", taskId);
+        }
+    }
+
+    private bool IsDownloadCanceled(long taskId)
+    {
+        lock (_canceledDownloadTaskIdsLock)
+        {
+            return _canceledDownloadTaskIds.Contains(taskId);
+        }
+    }
+
+    private void ClearDownloadCanceled(long taskId)
+    {
+        lock (_canceledDownloadTaskIdsLock)
+        {
+            _canceledDownloadTaskIds.Remove(taskId);
+        }
+    }
+
+    private static double GetRowProgress(DataGridViewRow row)
+    {
+        return row.Cells["colProgress"].Value switch
+        {
+            double directDouble => directDouble,
+            float directFloat => directFloat,
+            decimal directDecimal => (double)directDecimal,
+            int directInt => directInt,
+            string s when double.TryParse(s, out var parsed) => parsed,
+            _ => 0
+        };
     }
 
     private static bool TryGetTaskId(object? cellValue, out long taskId)
@@ -674,6 +752,13 @@ public partial class MainForm : Form
     /// </summary>
     public void UpdateDownloadProgress(long taskId, double percent, string status)
     {
+        if (IsDownloadCanceled(taskId)
+            && !string.Equals(
+                OptionService.GetOptionName(OptionListDownloadStatus, status.Split('：', 2)[0]),
+                "Cancel",
+                StringComparison.OrdinalIgnoreCase))
+            return;
+
         var parts = status.Split('：', 2);
         var statusName = OptionService.GetOptionName(OptionListDownloadStatus, parts[0]);
         var statusDesc = OptionService.GetOptionDesc(OptionListDownloadStatus, statusName);
@@ -862,6 +947,13 @@ public partial class MainForm : Form
                 normalizedTitle);
     }
 
+    private static bool IsCompletedDownloadRow(DataGridViewRow row)
+    {
+        var status = row.Cells["colStatus"].Value?.ToString();
+        return string.Equals(status, "已完成", StringComparison.OrdinalIgnoreCase)
+               || string.Equals(status, "Complete", StringComparison.OrdinalIgnoreCase);
+    }
+
     private void TryDeleteTempFile(string path, ref int count)
     {
         try
@@ -886,11 +978,14 @@ public partial class MainForm : Form
             || !Directory.Exists(req.DownloadDir))
             return;
 
-        var matchName = string.IsNullOrWhiteSpace(req.FileName)
-            ? req.Title
-            : Path.GetFileNameWithoutExtension(req.FileName);
-        var normalizedTitle = NormalizeForFileMatch(matchName);
-        if (string.IsNullOrWhiteSpace(normalizedTitle)) return;
+        var targetFileName = Path.GetFileName(req.FileName);
+        if (string.IsNullOrWhiteSpace(targetFileName)) return;
+
+        var normalizedTargetFileName = NormalizeForFileMatch(targetFileName);
+        var normalizedTargetStem = NormalizeForFileMatch(Path.GetFileNameWithoutExtension(targetFileName));
+        if (string.IsNullOrWhiteSpace(normalizedTargetFileName)
+            || string.IsNullOrWhiteSpace(normalizedTargetStem))
+            return;
 
         var deletedCount = 0;
         foreach (var file in Directory.GetFiles(req.DownloadDir))
@@ -898,7 +993,7 @@ public partial class MainForm : Form
             var fileName = Path.GetFileName(file);
             var normalizedFileName = NormalizeForFileMatch(fileName);
 
-            if (!normalizedFileName.StartsWith(normalizedTitle, StringComparison.OrdinalIgnoreCase))
+            if (!IsCanceledDownloadFile(normalizedFileName, normalizedTargetFileName, normalizedTargetStem))
                 continue;
 
             TryDeleteTempFile(file, ref deletedCount);
@@ -911,6 +1006,42 @@ public partial class MainForm : Form
             _logger.LogInformation(
                 "取消下載後清除 {Count} 個檔案（檔名：{FileName}）",
                 deletedCount, req.FileName);
+    }
+
+    private static bool IsCanceledDownloadFile(
+        string normalizedFileName,
+        string normalizedTargetFileName,
+        string normalizedTargetStem)
+    {
+        if (string.Equals(normalizedFileName, normalizedTargetFileName, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        if (!IsYtDlpTempFileName(normalizedFileName))
+            return false;
+
+        if (normalizedFileName.StartsWith(
+                normalizedTargetFileName + ".",
+                StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        return normalizedFileName.StartsWith(
+            normalizedTargetStem + ".",
+            StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsYtDlpTempFileName(string normalizedFileName)
+    {
+        var tempExts = new[] { ".part", ".ytdl", ".tmp", ".temp" };
+        return tempExts.Any(ext =>
+            normalizedFileName.EndsWith(ext, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private void ReleaseReservedDownloadFileName(DownloadRequest req)
+    {
+        if (string.IsNullOrWhiteSpace(req.DownloadDir) || string.IsNullOrWhiteSpace(req.FileName))
+            return;
+
+        GetReservedFileNames(req.DownloadDir).Remove(req.FileName);
     }
 
     /// <summary>
@@ -1103,6 +1234,9 @@ public partial class MainForm : Form
 
             Func<CancellationToken, Task> downloadAction = async ct =>
             {
+                if (ct.IsCancellationRequested || IsDownloadCanceled(taskId))
+                    return;
+
                 UpdateDownloadProgress(taskId, 0, "InProgress");
 
                 var result = capturedReq.MediaType switch
@@ -1112,7 +1246,11 @@ public partial class MainForm : Form
                         capturedReq.DownloadDir,
                         outputTemplate: CreateOutputTemplate(capturedReq.FileName),
                         knownTitle: capturedReq.Title,
-                        onProgress: pct => UpdateDownloadProgress(taskId, pct, "InProgress"),
+                        onProgress: pct =>
+                        {
+                            if (!ct.IsCancellationRequested && !IsDownloadCanceled(taskId))
+                                UpdateDownloadProgress(taskId, pct, "InProgress");
+                        },
                         cancellationToken: ct),
 
                     "Video" => await svc.DownloadVideoAsync(
@@ -1120,7 +1258,11 @@ public partial class MainForm : Form
                         capturedReq.DownloadDir,
                         outputTemplate: CreateOutputTemplate(capturedReq.FileName),
                         knownTitle: capturedReq.Title,
-                        onProgress: pct => UpdateDownloadProgress(taskId, pct, "InProgress"),
+                        onProgress: pct =>
+                        {
+                            if (!ct.IsCancellationRequested && !IsDownloadCanceled(taskId))
+                                UpdateDownloadProgress(taskId, pct, "InProgress");
+                        },
                         cancellationToken: ct),
 
                     _ => throw new NotSupportedException(
@@ -1134,6 +1276,9 @@ public partial class MainForm : Form
                 {
                     UpdateDownloadProgress(taskId, 100, "Complete");
                     SetActionButton(taskId, "—");
+                    ClearDownloadCanceled(taskId);
+                    _downloadControllers.Remove(taskId);
+                    ReleaseReservedDownloadFileName(capturedReq);
                     // 音訊下載完成後，清除 yt-dlp/ffmpeg 未自動刪除的中間影片串流暫存檔
                     if (capturedReq.MediaType == "Audio")
                         CleanVideoStreamsAfterAudioDownload(capturedReq);
@@ -1162,6 +1307,9 @@ public partial class MainForm : Form
                 await _downloadSemaphore.WaitAsync();
                 try
                 {
+                    if (controller.Cts.IsCancellationRequested || IsDownloadCanceled(taskId))
+                        return;
+
                     await downloadAction(controller.Cts.Token);
                 }
                 finally

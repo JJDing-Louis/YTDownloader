@@ -451,6 +451,7 @@ public partial class DownloadHistoryForm : Form
                         OR Type = @IsAudio
                         OR Type = @IsVideo
                     )
+                    ORDER BY DownloadDateTime DESC
                   """;
         var Param = new { FileName, DownloadStartDate, DownloadEndDate, DownloadResult, IsAudio, IsVideo };
         var SearchResult = new List<DownloadHistory>();

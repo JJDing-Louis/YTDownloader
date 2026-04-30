@@ -275,6 +275,7 @@ namespace YTDownloader.Data
                 INSERT OR IGNORE INTO ListDownloadStatus (Name, Desc) VALUES ('Complete', '完成');
                 INSERT OR IGNORE INTO ListDownloadStatus (Name, Desc) VALUES ('Fail', '失敗');
                 INSERT OR IGNORE INTO ListDownloadStatus (Name, Desc) VALUES ('Pause', '已暫停');
+                INSERT OR IGNORE INTO ListDownloadStatus (Name, Desc) VALUES ('Cancel', '已取消');
                 """
             };
 

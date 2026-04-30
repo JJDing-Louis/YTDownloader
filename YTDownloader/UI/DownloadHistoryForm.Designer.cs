@@ -90,7 +90,6 @@
             tableLayoutPanel2.Controls.Add(cB_MediaType, 0, 3);
             tableLayoutPanel2.Controls.Add(tableLayoutPanel5, 1, 3);
             tableLayoutPanel2.Dock = DockStyle.Left;
-            tableLayoutPanel2.Enabled = false;
             tableLayoutPanel2.Location = new Point(3, 3);
             tableLayoutPanel2.Name = "tableLayoutPanel2";
             tableLayoutPanel2.RowCount = 4;
