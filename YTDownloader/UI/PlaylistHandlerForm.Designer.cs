@@ -35,14 +35,11 @@
             btn_Cancel = new Button();
             groupBox2 = new GroupBox();
             dGV_PlayList = new DataGridView();
-            tableLayoutPanel3 = new TableLayoutPanel();
-            cB_SelectedAll = new CheckBox();
             tableLayoutPanel1.SuspendLayout();
             groupBox1.SuspendLayout();
             tableLayoutPanel2.SuspendLayout();
             groupBox2.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)dGV_PlayList).BeginInit();
-            tableLayoutPanel3.SuspendLayout();
             SuspendLayout();
             // 
             // tableLayoutPanel1
@@ -50,15 +47,14 @@
             tableLayoutPanel1.ColumnCount = 1;
             tableLayoutPanel1.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
             tableLayoutPanel1.Controls.Add(groupBox1, 0, 0);
-            tableLayoutPanel1.Controls.Add(groupBox2, 0, 2);
-            tableLayoutPanel1.Controls.Add(tableLayoutPanel3, 0, 1);
+            tableLayoutPanel1.Controls.Add(groupBox2, 0, 1);
             tableLayoutPanel1.Dock = DockStyle.Fill;
             tableLayoutPanel1.Location = new Point(0, 0);
             tableLayoutPanel1.Name = "tableLayoutPanel1";
-            tableLayoutPanel1.RowCount = 3;
+            tableLayoutPanel1.RowCount = 2;
             tableLayoutPanel1.RowStyles.Add(new RowStyle(SizeType.Percent, 15F));
-            tableLayoutPanel1.RowStyles.Add(new RowStyle(SizeType.Percent, 10F));
-            tableLayoutPanel1.RowStyles.Add(new RowStyle(SizeType.Percent, 75F));
+            tableLayoutPanel1.RowStyles.Add(new RowStyle(SizeType.Percent, 85F));
+            tableLayoutPanel1.RowStyles.Add(new RowStyle(SizeType.Absolute, 20F));
             tableLayoutPanel1.Size = new Size(800, 450);
             tableLayoutPanel1.TabIndex = 0;
             // 
@@ -123,9 +119,9 @@
             // 
             groupBox2.Controls.Add(dGV_PlayList);
             groupBox2.Dock = DockStyle.Fill;
-            groupBox2.Location = new Point(3, 115);
+            groupBox2.Location = new Point(3, 70);
             groupBox2.Name = "groupBox2";
-            groupBox2.Size = new Size(794, 332);
+            groupBox2.Size = new Size(794, 377);
             groupBox2.TabIndex = 2;
             groupBox2.TabStop = false;
             groupBox2.Text = "清單";
@@ -136,43 +132,8 @@
             dGV_PlayList.Dock = DockStyle.Fill;
             dGV_PlayList.Location = new Point(3, 19);
             dGV_PlayList.Name = "dGV_PlayList";
-            dGV_PlayList.Size = new Size(788, 310);
+            dGV_PlayList.Size = new Size(788, 355);
             dGV_PlayList.TabIndex = 0;
-            // 
-            // tableLayoutPanel3
-            // 
-            tableLayoutPanel3.ColumnCount = 10;
-            tableLayoutPanel3.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 10F));
-            tableLayoutPanel3.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 10F));
-            tableLayoutPanel3.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 10F));
-            tableLayoutPanel3.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 10F));
-            tableLayoutPanel3.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 10F));
-            tableLayoutPanel3.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 10F));
-            tableLayoutPanel3.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 10F));
-            tableLayoutPanel3.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 10F));
-            tableLayoutPanel3.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 10F));
-            tableLayoutPanel3.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 10F));
-            tableLayoutPanel3.Controls.Add(cB_SelectedAll, 0, 0);
-            tableLayoutPanel3.Dock = DockStyle.Fill;
-            tableLayoutPanel3.Location = new Point(3, 70);
-            tableLayoutPanel3.Name = "tableLayoutPanel3";
-            tableLayoutPanel3.RowCount = 1;
-            tableLayoutPanel3.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-            tableLayoutPanel3.RowStyles.Add(new RowStyle(SizeType.Absolute, 20F));
-            tableLayoutPanel3.Size = new Size(794, 39);
-            tableLayoutPanel3.TabIndex = 3;
-            // 
-            // cB_SelectedAll
-            // 
-            cB_SelectedAll.AutoSize = true;
-            cB_SelectedAll.Dock = DockStyle.Fill;
-            cB_SelectedAll.Location = new Point(3, 3);
-            cB_SelectedAll.Name = "cB_SelectedAll";
-            cB_SelectedAll.Size = new Size(73, 33);
-            cB_SelectedAll.TabIndex = 0;
-            cB_SelectedAll.Text = "全選";
-            cB_SelectedAll.UseVisualStyleBackColor = true;
-            cB_SelectedAll.CheckStateChanged += cB_SelectedAll_CheckStateChanged;
             // 
             // PlaylistHandlerForm
             // 
@@ -187,8 +148,6 @@
             tableLayoutPanel2.ResumeLayout(false);
             groupBox2.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)dGV_PlayList).EndInit();
-            tableLayoutPanel3.ResumeLayout(false);
-            tableLayoutPanel3.PerformLayout();
             ResumeLayout(false);
         }
 
@@ -201,7 +160,5 @@
         private Button btn_Cancel;
         private GroupBox groupBox2;
         private DataGridView dGV_PlayList;
-        private TableLayoutPanel tableLayoutPanel3;
-        private CheckBox cB_SelectedAll;
     }
 }

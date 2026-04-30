@@ -217,13 +217,27 @@ public partial class DownloadHistoryForm : Form
             ReadOnly = true,
             Resizable = DataGridViewTriState.True,
             DefaultCellStyle = new DataGridViewCellStyle
-                { Alignment = DataGridViewContentAlignment.MiddleLeft }
+            { Alignment = DataGridViewContentAlignment.MiddleLeft }
         });
         // 隱藏的任務 ID（用於刪除列後仍能找到正確的 controller）
         dGV_SearchResult.Columns.Add(new DataGridViewTextBoxColumn
         {
             Name = "colTaskId",
             HeaderText = "TaskId",
+            Visible = false
+        });
+        // 隱藏的URL（用於刪除列後仍能找到正確的 controller）
+        dGV_SearchResult.Columns.Add(new DataGridViewTextBoxColumn
+        {
+            Name = "colTitle",
+            HeaderText = "Title",
+            Visible = false
+        });
+        // 隱藏的URL（用於刪除列後仍能找到正確的 controller）
+        dGV_SearchResult.Columns.Add(new DataGridViewTextBoxColumn
+        {
+            Name = "colURL",
+            HeaderText = "URL",
             Visible = false
         });
         dGV_SearchResult.Rows.Clear();
@@ -430,7 +444,7 @@ public partial class DownloadHistoryForm : Form
         using (var conn = ConnectionTool.GetConnection())
         {
             var result = conn.Query<DownloadHistory>(sqlcmd, Param).ToList();
-            if (result != null&&result.Count>0)
+            if (result != null && result.Count > 0)
             {
 
                 SearchResult.AddRange(result);
@@ -443,7 +457,9 @@ public partial class DownloadHistoryForm : Form
                         FormatLocalDateTime(item.DownloadDateTime),
                         item.Type,
                         OptionService.GetOptionDesc(OptionListDownloadStatus, item.Status),
-                        item.TaskID
+                        item.TaskID,
+                        item.Title,
+                        item.URL
                         );
                 }
                 UpdateSelectAllCheckBoxState();
@@ -454,5 +470,74 @@ public partial class DownloadHistoryForm : Form
     private void btn_ReDownload_Click(object sender, EventArgs e)
     {
         //TODO:重新下載實作
+        var selectedItem =  dGV_SearchResult.Rows
+            .Cast<DataGridViewRow>()
+            .Where(row => !row.IsNewRow 
+            && Convert.ToBoolean(row.Cells[SelectColumnName].Value)
+            && row.Cells["colTaskId"].Value != null
+            && row.Cells["colURL"].Value != null
+            ).ToList();
+   
+        var requests = selectedItem.Select(row => new DownloadRequest
+        {
+            Title = row.Cells["colTitle"].Value.ToString() ?? string.Empty,
+            WebpageUrl = row.Cells["colURL"].Value.ToString() ?? string.Empty,
+            MediaType = row.Cells["colMediaType"].Value.ToString() ,
+            MediaTypeDisplay = row.Cells["colMediaType"].Value.ToString() ,
+        }).ToList();
+        mainForm.EnqueueDownloads(requests);
+        _logger.LogInformation("已提交 {Count} 個下載任務，關閉 PlaylistHandlerForm。", selectedItem.Count);
+    }
+
+    private void cB_SearchCondition_CheckedChanged(object sender, EventArgs e)
+    {
+        if (cB_FileName.Checked)
+        {
+            txt_Filename.Enabled=true;
+        } 
+        else
+        {
+            txt_Filename.Enabled = false;
+            txt_Filename.Text = string.Empty;
+        }
+
+        if (cB_DownloadDate.Checked) 
+        {
+            dTP_DownLoadStartDate.Enabled =true;
+            dTP_DownLoadEndDate.Enabled =  true;
+            dTP_DownLoadStartDate.Value = DateTime.Now;
+            dTP_DownLoadEndDate.Value = DateTime.Now;
+        }
+        else
+        {
+            dTP_DownLoadStartDate.Enabled =false;
+            dTP_DownLoadEndDate.Enabled = false;
+            dTP_DownLoadStartDate.Value = DateTime.Now;
+            dTP_DownLoadEndDate.Value = DateTime.Now;
+        }
+
+        if (cB_DownloadResult.Checked)
+        {
+            cBO_DownloadResult.Enabled = true;
+            cBO_DownloadResult.Text = cBO_DownloadResult.Items.Count > 0 ? cBO_DownloadResult.Items[0].ToString() : string.Empty;
+        }
+        else 
+        {
+            cBO_DownloadResult.Enabled = false;
+            cBO_DownloadResult.Text = string.Empty;
+        }
+
+        if (cB_MediaType.Checked)
+        {
+            cB_Audio.Enabled = true;
+            cB_Video.Enabled = true;
+        }
+        else
+        {
+             cB_Audio.Enabled = false;
+             cB_Video.Enabled = false;
+             cB_Audio.Checked = false;
+             cB_Video.Checked = false;
+        }
     }
 }

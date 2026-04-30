@@ -144,17 +144,10 @@ public partial class PlaylistHandlerForm : Form
 
     private void InitUI()
     {
-        HideLegacySelectAllCheckBox();
         InitDataGridView();
     }
 
-    private void HideLegacySelectAllCheckBox()
-    {
-        cB_SelectedAll.Visible = false;
-        tableLayoutPanel3.Visible = false;
-        tableLayoutPanel1.RowStyles[1].SizeType = SizeType.Absolute;
-        tableLayoutPanel1.RowStyles[1].Height = 0;
-    }
+
 
     private void InitDataGridView()
     {
@@ -408,10 +401,6 @@ public partial class PlaylistHandlerForm : Form
 
     #region UI Functions
 
-    private void cB_SelectedAll_CheckStateChanged(object sender, EventArgs e)
-    {
-        SetAllRowsSelected(cB_SelectedAll.Checked);
-    }
 
     private void btn_Download_Click(object sender, EventArgs e)
     {
