@@ -1,0 +1,41 @@
+# =============================================================================
+# YTDownloader 測試映像
+# 基底：Windows Server Core + .NET 8 SDK
+#
+# 前置條件：
+#   Docker Desktop 必須切換至「Windows 容器」模式，
+#   因為測試專案含 WinForms（net8.0-windows）相依。
+#
+# 建置：
+#   docker build -f Dockerfile.test -t ytdownloader-test .
+#
+# 執行：
+#   docker run --rm -v "%CD%\TestResults:C:\TestResults" ytdownloader-test
+# =============================================================================
+FROM mcr.microsoft.com/dotnet/sdk:8.0-windowsservercore-ltsc2022
+
+WORKDIR C:/src
+
+# ── 第一層：只複製專案定義檔，讓 NuGet restore 可被快取 ─────────────────────
+COPY YTDownloader.sln                              ./
+COPY YTDownloader/YTDownloader.csproj              YTDownloader/
+COPY YTDownloaderTest/YTDownloaderTest.csproj      YTDownloaderTest/
+
+RUN dotnet restore YTDownloaderTest/YTDownloaderTest.csproj
+
+# ── 第二層：複製所有原始碼並建置（不重新 restore）────────────────────────────
+COPY . .
+
+RUN dotnet build YTDownloaderTest/YTDownloaderTest.csproj ^
+        --no-restore ^
+        --configuration Debug
+
+# ── 建立測試結果輸出目錄 ──────────────────────────────────────────────────────
+RUN mkdir C:\TestResults
+
+# ── 複製容器入口點腳本 ────────────────────────────────────────────────────────
+COPY docker-entrypoint.ps1 C:/src/docker-entrypoint.ps1
+
+# ── 使用 PowerShell 執行入口點，以支援 TEST_FILTER 環境變數 ───────────────────
+ENTRYPOINT ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", \
+            "-File", "C:/src/docker-entrypoint.ps1"]

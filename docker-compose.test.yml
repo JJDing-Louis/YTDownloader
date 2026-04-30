@@ -1,0 +1,29 @@
+# =============================================================================
+# YTDownloader 測試 Docker Compose
+#
+# 使用方式：
+#   docker-compose -f docker-compose.test.yml up --build --abort-on-container-exit
+#
+# 或透過 run-tests.ps1：
+#   .\run-tests.ps1
+#
+# 前置條件：Docker Desktop 必須切換至「Windows 容器」模式
+# =============================================================================
+services:
+  ytdownloader-test:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    image: ytdownloader-test:latest
+    container_name: ytdownloader-test-runner
+
+    # 測試篩選條件（選填），可由主機環境變數覆寫
+    # 範例：$env:TEST_FILTER="Category=Unit"; docker-compose ...
+    environment:
+      - TEST_FILTER=${TEST_FILTER:-}
+
+    # 將容器內的測試結果掛載至主機 ./TestResults 目錄
+    volumes:
+      - type: bind
+        source: ./TestResults
+        target: C:\TestResults
