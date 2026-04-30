@@ -3,12 +3,12 @@ using Autofac;
 using JJNET.Utility.Tools;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using YTDownloader.Controller;
 using YTDownloader.Model;
 using YTDownloader.Service;
 using YTDownloader.Tool;
 using YTDownloader.UI;
-using YTDownloader.UI.CustomUI;
 
 namespace YTDownloader;
 
@@ -49,9 +49,13 @@ public partial class MainForm : Form
     public MainForm()
     {
         _configService = new ConfigService();
-        _settings = _configService.Load();
-        _optionService = Program.Startup.Container.Resolve<OptionService>();
-        _logger = Program.Startup.Container.Resolve<ILogger<MainForm>>();
+        _settings = IsInDesignMode() ? new ConfigModel() : _configService.Load();
+        _optionService = IsInDesignMode()
+            ? null!
+            : Program.Startup.Container.Resolve<OptionService>();
+        _logger = IsInDesignMode()
+            ? NullLogger<MainForm>.Instance
+            : Program.Startup.Container.Resolve<ILogger<MainForm>>();
         _downloadLimiter = CreateDownloadLimiter(_settings);
         InitializeForm();
     }
@@ -68,12 +72,22 @@ public partial class MainForm : Form
 
     private void InitializeForm()
     {
-        GUITool.ApplyStartupFont(this, _settings);
+        if (!IsInDesignMode())
+            GUITool.ApplyStartupFont(this, _settings);
+
         InitializeComponent();
-        LockWindowSize();
+
+        if (IsInDesignMode())
+            return;
+
         ApplyStartupSettings();
         _logger.LogInformation("MainForm form initialized.");
         Init();
+    }
+
+    private static bool IsInDesignMode()
+    {
+        return System.ComponentModel.LicenseManager.UsageMode == System.ComponentModel.LicenseUsageMode.Designtime;
     }
 
     private void MSItem_DownloadHistory_Click(object sender, EventArgs e)
@@ -85,7 +99,7 @@ public partial class MainForm : Form
         }
 
         _downloadHistoryForm = new DownloadHistoryForm(this);
-        _downloadHistoryForm.Location = new Point(700, 0);
+        PositionChildForm(_downloadHistoryForm);
         _downloadHistoryForm.Disposed += downloadHistoryForm_Disposed;
         _downloadHistoryForm.Show();
     }
@@ -99,7 +113,7 @@ public partial class MainForm : Form
         }
 
         _configForm = new ConfigForm(_configService);
-        _configForm.Location = new Point(700, 0);
+        PositionChildForm(_configForm);
         _configForm.SettingsApplied += (_, settings) => ApplyRuntimeSettings(settings);
         _configForm.FormClosed += (_, _) => { ApplyRuntimeSettings(_configService.Load()); };
         _configForm.Disposed += (_, _) => _configForm = null;
@@ -175,20 +189,6 @@ public partial class MainForm : Form
     {
         InitConfig();
         InitOptions();
-        InitUI();
-    }
-
-    private void InitUI()
-    {
-        InitDataGridView();
-    }
-
-    private void LockWindowSize()
-    {
-        FormBorderStyle = FormBorderStyle.FixedSingle;
-        MaximizeBox = false;
-        MinimumSize = Size;
-        MaximumSize = Size;
     }
 
     private void ApplyStartupSettings()
@@ -221,94 +221,6 @@ public partial class MainForm : Form
 
         DownloadFolder = GUITool.ResolveAppPath(save.DownloadPath.Trim());
         Directory.CreateDirectory(DownloadFolder);
-    }
-
-    private void InitDataGridView()
-    {
-        dGV_DownloadList.Columns.Clear();
-        dGV_DownloadList.RowHeadersVisible = false;
-
-        // # 序號
-        dGV_DownloadList.Columns.Add(new DataGridViewTextBoxColumn
-        {
-            Name = "colIndex",
-            HeaderText = "#",
-            Width = 40,
-            ReadOnly = true,
-            Resizable = DataGridViewTriState.False
-        });
-
-        // 檔名
-        dGV_DownloadList.Columns.Add(new DataGridViewTextBoxColumn
-        {
-            Name = "colTitle",
-            HeaderText = "檔名",
-            AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill,
-            ReadOnly = true
-        });
-
-        // 類型（音訊 / 視訊）
-        dGV_DownloadList.Columns.Add(new DataGridViewTextBoxColumn
-        {
-            Name = "colMediaType",
-            HeaderText = "類型",
-            Width = 65,
-            ReadOnly = true,
-            Resizable = DataGridViewTriState.False
-        });
-
-        // 進度條（自訂繪製）
-        dGV_DownloadList.Columns.Add(new DataGridViewProgressBarColumn
-        {
-            Name = "colProgress",
-            HeaderText = "進度",
-            Width = 160,
-            Resizable = DataGridViewTriState.False
-        });
-
-        // 狀態文字
-        dGV_DownloadList.Columns.Add(new DataGridViewTextBoxColumn
-        {
-            Name = "colStatus",
-            HeaderText = "狀態",
-            Width = 200,
-            ReadOnly = true,
-            Resizable = DataGridViewTriState.True,
-            DefaultCellStyle = new DataGridViewCellStyle
-                { Alignment = DataGridViewContentAlignment.MiddleLeft }
-        });
-
-        // 操作按鈕（暫停 / 繼續 / 重試 / —）
-        dGV_DownloadList.Columns.Add(new DataGridViewButtonColumn
-        {
-            Name = "colAction",
-            HeaderText = "操作",
-            Width = 60,
-            Resizable = DataGridViewTriState.False,
-            UseColumnTextForButtonValue = false // 使用每格的 Value 作為按鈕文字
-        });
-
-        // 取消按鈕
-        dGV_DownloadList.Columns.Add(new DataGridViewButtonColumn
-        {
-            Name = "colCancel",
-            HeaderText = "",
-            Width = 55,
-            Resizable = DataGridViewTriState.False,
-            UseColumnTextForButtonValue = false
-        });
-
-        // 隱藏的任務 ID（用於刪除列後仍能找到正確的 controller）
-        dGV_DownloadList.Columns.Add(new DataGridViewTextBoxColumn
-        {
-            Name = "colTaskId",
-            HeaderText = "TaskId",
-            Visible = false
-        });
-
-        dGV_DownloadList.CellContentClick += OnDownloadListCellContentClick;
-
-        dGV_DownloadList.Rows.Clear();
     }
 
     private void InitOptions()
@@ -458,7 +370,7 @@ public partial class MainForm : Form
                 if (isSuccess)
                 {
                     _logger.LogInformation($"成功獲取播放清單資訊：{msg}");
-                    _playlistHandlerForm.Location = new Point(700, 0);
+                    PositionChildForm(_playlistHandlerForm);
                     _playlistHandlerForm.Disposed += playlistHandlerForm_Disposed;
                     _playlistHandlerForm.Show();
                 }
@@ -482,6 +394,11 @@ public partial class MainForm : Form
         {
             _logger.LogError(ex, "Failed to retrieve selected options.");
         }
+    }
+
+    private void playlistHandlerForm_Disposed(object? sender, EventArgs e)
+    {
+        _playlistHandlerForm = null;
     }
 
     private void ShowSingleVideoUnavailableMessage()
@@ -533,11 +450,6 @@ public partial class MainForm : Form
         GUITool.ApplyStartupFont(dialog, _settings);
         GUITool.Apply(dialog, _settings);
         dialog.ShowDialog(this);
-    }
-
-    private void playlistHandlerForm_Disposed(object? sender, EventArgs e)
-    {
-        _playlistHandlerForm = null;
     }
 
     private void downloadHistoryForm_Disposed(object? sender, EventArgs e)

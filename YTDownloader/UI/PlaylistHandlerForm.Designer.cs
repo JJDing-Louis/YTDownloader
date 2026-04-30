@@ -35,6 +35,13 @@
             btn_Cancel = new Button();
             groupBox2 = new GroupBox();
             dGV_PlayList = new DataGridView();
+            colSelected = new DataGridViewCheckBoxColumn();
+            colIndex = new DataGridViewTextBoxColumn();
+            colId = new DataGridViewTextBoxColumn();
+            colTitle = new DataGridViewTextBoxColumn();
+            colUploader = new DataGridViewTextBoxColumn();
+            colDuration = new DataGridViewTextBoxColumn();
+            colURL = new DataGridViewTextBoxColumn();
             tableLayoutPanel1.SuspendLayout();
             groupBox1.SuspendLayout();
             tableLayoutPanel2.SuspendLayout();
@@ -128,12 +135,72 @@
             // 
             // dGV_PlayList
             // 
+            dGV_PlayList.AllowUserToAddRows = false;
+            dGV_PlayList.AllowUserToDeleteRows = false;
+            dGV_PlayList.ColumnHeadersHeight = 30;
             dGV_PlayList.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
+            dGV_PlayList.Columns.AddRange(new DataGridViewColumn[] { colSelected, colIndex, colId, colTitle, colUploader, colDuration, colURL });
             dGV_PlayList.Dock = DockStyle.Fill;
             dGV_PlayList.Location = new Point(3, 19);
             dGV_PlayList.Name = "dGV_PlayList";
+            dGV_PlayList.RowHeadersVisible = false;
             dGV_PlayList.Size = new Size(788, 355);
             dGV_PlayList.TabIndex = 0;
+            dGV_PlayList.CellPainting += PlayList_CellPainting;
+            dGV_PlayList.CellValueChanged += PlayList_CellValueChanged;
+            dGV_PlayList.ColumnHeaderMouseClick += PlayList_ColumnHeaderMouseClick;
+            dGV_PlayList.CurrentCellDirtyStateChanged += PlayList_CurrentCellDirtyStateChanged;
+            // 
+            // colSelected
+            // 
+            colSelected.HeaderText = "";
+            colSelected.Name = "colSelected";
+            colSelected.Resizable = DataGridViewTriState.False;
+            colSelected.Width = 76;
+            // 
+            // colIndex
+            // 
+            colIndex.HeaderText = "#";
+            colIndex.Name = "colIndex";
+            colIndex.ReadOnly = true;
+            colIndex.Width = 45;
+            // 
+            // colId
+            // 
+            colId.HeaderText = "Id";
+            colId.Name = "colId";
+            colId.ReadOnly = true;
+            colId.Visible = false;
+            colId.Width = 45;
+            // 
+            // colTitle
+            // 
+            colTitle.AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
+            colTitle.HeaderText = "標題";
+            colTitle.Name = "colTitle";
+            colTitle.ReadOnly = true;
+            // 
+            // colUploader
+            // 
+            colUploader.HeaderText = "頻道";
+            colUploader.Name = "colUploader";
+            colUploader.ReadOnly = true;
+            colUploader.Width = 150;
+            // 
+            // colDuration
+            // 
+            colDuration.HeaderText = "時長";
+            colDuration.Name = "colDuration";
+            colDuration.ReadOnly = true;
+            colDuration.Width = 80;
+            // 
+            // colURL
+            // 
+            colURL.HeaderText = "連結";
+            colURL.Name = "colURL";
+            colURL.ReadOnly = true;
+            colURL.Visible = false;
+            colURL.Width = 80;
             // 
             // PlaylistHandlerForm
             // 
@@ -160,5 +227,12 @@
         private Button btn_Cancel;
         private GroupBox groupBox2;
         private DataGridView dGV_PlayList;
+        private DataGridViewCheckBoxColumn colSelected;
+        private DataGridViewTextBoxColumn colIndex;
+        private DataGridViewTextBoxColumn colId;
+        private DataGridViewTextBoxColumn colTitle;
+        private DataGridViewTextBoxColumn colUploader;
+        private DataGridViewTextBoxColumn colDuration;
+        private DataGridViewTextBoxColumn colURL;
     }
 }

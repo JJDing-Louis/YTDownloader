@@ -2,6 +2,7 @@
 using JJNET.Utility.Tools;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using YTDownloader.Model;
 using YTDownloader.Service;
 using YTDownloader.Tool;
@@ -30,8 +31,12 @@ public partial class PlaylistHandlerForm : Form
     public PlaylistHandlerForm()
     {
         _configService = new ConfigService();
-        _settings = _configService.Load();
-        _logger = Program.Startup.Container.Resolve<ILogger<PlaylistHandlerForm>>();
+        _settings = IsInDesignMode()
+            ? new ConfigModel()
+            : _configService.Load();
+        _logger = IsInDesignMode()
+            ? NullLogger<PlaylistHandlerForm>.Instance
+            : Program.Startup.Container.Resolve<ILogger<PlaylistHandlerForm>>();
         InitializeForm();
     }
 
@@ -56,11 +61,22 @@ public partial class PlaylistHandlerForm : Form
 
     private void InitializeForm()
     {
-        GUITool.ApplyStartupFont(this, _settings);
+        if (!IsInDesignMode())
+            GUITool.ApplyStartupFont(this, _settings);
+
         InitializeComponent();
+
+        if (IsInDesignMode())
+            return;
+
         GUITool.Apply(this, _settings);
         _logger.LogInformation("PlaylistHandlerForm form initialized.");
         Init();
+    }
+
+    private static bool IsInDesignMode()
+    {
+        return System.ComponentModel.LicenseManager.UsageMode == System.ComponentModel.LicenseUsageMode.Designtime;
     }
 
     #region Public Methods
@@ -124,161 +140,9 @@ public partial class PlaylistHandlerForm : Form
 
     #region Init
 
-    private void ShowPlaylistUnavailableSummary(
-        int privateCount,
-        int subscriberOnlyCount,
-        int downloadableCount)
-    {
-        using var dialog = new Form
-        {
-            Text = "部分影片無法存取",
-            StartPosition = FormStartPosition.CenterParent,
-            FormBorderStyle = FormBorderStyle.FixedDialog,
-            MaximizeBox = false,
-            MinimizeBox = false,
-            ShowInTaskbar = false,
-            AutoSize = true,
-            AutoSizeMode = AutoSizeMode.GrowAndShrink,
-            Padding = new Padding(18)
-        };
-
-        var messageLabel = new Label
-        {
-            AutoSize = true,
-            MinimumSize = new Size(260, 0),
-            Text = $"私人影片：{privateCount} 部{Environment.NewLine}" +
-                   $"會員專屬：{subscriberOnlyCount} 部{Environment.NewLine}" +
-                   $"可下載：{downloadableCount} 部"
-        };
-
-        var okButton = new Button
-        {
-            Text = "確定",
-            AutoSize = true,
-            DialogResult = DialogResult.OK,
-            Anchor = AnchorStyles.Right
-        };
-
-        var layout = new TableLayoutPanel
-        {
-            AutoSize = true,
-            AutoSizeMode = AutoSizeMode.GrowAndShrink,
-            ColumnCount = 1,
-            RowCount = 2,
-            Dock = DockStyle.Fill
-        };
-        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        layout.Controls.Add(messageLabel, 0, 0);
-        layout.Controls.Add(okButton, 0, 1);
-        okButton.Margin = new Padding(0, 18, 0, 0);
-
-        dialog.Controls.Add(layout);
-        dialog.AcceptButton = okButton;
-        GUITool.ApplyStartupFont(dialog, _settings);
-        GUITool.Apply(dialog, _settings);
-        dialog.ShowDialog(this);
-    }
-
     private void Init()
     {
         InitConfig();
-        InitUI();
-    }
-
-    private void InitUI()
-    {
-        InitDataGridView();
-    }
-
-
-    private void InitDataGridView()
-    {
-        dGV_PlayList.Columns.Clear();
-        dGV_PlayList.AllowUserToAddRows = false; // 禁止自動產生空白新增列
-        dGV_PlayList.AllowUserToDeleteRows = false; // 禁止使用者刪除列
-        dGV_PlayList.RowHeadersVisible = false;
-
-        // 勾選欄
-        dGV_PlayList.Columns.Add(new DataGridViewCheckBoxColumn
-        {
-            Name = SelectColumnName,
-            HeaderText = "",
-            Width = 76,
-            ReadOnly = false,
-            Resizable = DataGridViewTriState.False
-        });
-
-        // 序號欄
-        dGV_PlayList.Columns.Add(new DataGridViewTextBoxColumn
-        {
-            Name = "colIndex",
-            HeaderText = "#",
-            Width = 45,
-            ReadOnly = true
-        });
-
-        // 影片唯一識別碼
-        dGV_PlayList.Columns.Add(new DataGridViewTextBoxColumn
-        {
-            Name = "colId",
-            HeaderText = "Id",
-            Width = 45,
-            ReadOnly = true,
-            Visible = false // 隱藏 ID 欄位，僅供內部使用
-        });
-
-        // 標題欄
-        dGV_PlayList.Columns.Add(new DataGridViewTextBoxColumn
-        {
-            Name = "colTitle",
-            HeaderText = "標題",
-            AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill,
-            ReadOnly = true
-        });
-
-        // 頻道欄
-        dGV_PlayList.Columns.Add(new DataGridViewTextBoxColumn
-        {
-            Name = "colUploader",
-            HeaderText = "頻道",
-            Width = 150,
-            ReadOnly = true
-        });
-
-        // 時長欄
-        dGV_PlayList.Columns.Add(new DataGridViewTextBoxColumn
-        {
-            Name = "colDuration",
-            HeaderText = "時長",
-            Width = 80,
-            ReadOnly = true
-        });
-
-        // 時長欄
-        dGV_PlayList.Columns.Add(new DataGridViewTextBoxColumn
-        {
-            Name = "colURL",
-            HeaderText = "連結",
-            Width = 80,
-            ReadOnly = true,
-            Visible = false // 隱藏 URL 欄位，僅供內部使用
-        });
-
-        dGV_PlayList.ColumnHeadersHeight = 30;
-        InitSelectAllHeader();
-    }
-
-    private void InitSelectAllHeader()
-    {
-        dGV_PlayList.CurrentCellDirtyStateChanged -= PlayList_CurrentCellDirtyStateChanged;
-        dGV_PlayList.CurrentCellDirtyStateChanged += PlayList_CurrentCellDirtyStateChanged;
-        dGV_PlayList.CellValueChanged -= PlayList_CellValueChanged;
-        dGV_PlayList.CellValueChanged += PlayList_CellValueChanged;
-        dGV_PlayList.CellPainting -= PlayList_CellPainting;
-        dGV_PlayList.CellPainting += PlayList_CellPainting;
-        dGV_PlayList.ColumnHeaderMouseClick -= PlayList_ColumnHeaderMouseClick;
-        dGV_PlayList.ColumnHeaderMouseClick += PlayList_ColumnHeaderMouseClick;
     }
 
     private void PlayList_ColumnHeaderMouseClick(object? sender, DataGridViewCellMouseEventArgs e)
@@ -423,6 +287,62 @@ public partial class PlaylistHandlerForm : Form
         downloadDir = string.IsNullOrWhiteSpace(downloadDirRel)
             ? Path.Combine(Environment.CurrentDirectory, "Downloads")
             : Path.Combine(Environment.CurrentDirectory, downloadDirRel.Trim());
+    }
+
+    private void ShowPlaylistUnavailableSummary(
+        int privateCount,
+        int subscriberOnlyCount,
+        int downloadableCount)
+    {
+        using var dialog = new Form
+        {
+            Text = "部分影片無法存取",
+            StartPosition = FormStartPosition.CenterParent,
+            FormBorderStyle = FormBorderStyle.FixedDialog,
+            MaximizeBox = false,
+            MinimizeBox = false,
+            ShowInTaskbar = false,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            Padding = new Padding(18)
+        };
+
+        var messageLabel = new Label
+        {
+            AutoSize = true,
+            MinimumSize = new Size(260, 0),
+            Text = $"私人影片：{privateCount} 部{Environment.NewLine}" +
+                   $"會員專屬：{subscriberOnlyCount} 部{Environment.NewLine}" +
+                   $"可下載：{downloadableCount} 部"
+        };
+
+        var okButton = new Button
+        {
+            Text = "確定",
+            AutoSize = true,
+            DialogResult = DialogResult.OK,
+            Anchor = AnchorStyles.Right
+        };
+
+        var layout = new TableLayoutPanel
+        {
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            ColumnCount = 1,
+            RowCount = 2,
+            Dock = DockStyle.Fill
+        };
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        layout.Controls.Add(messageLabel, 0, 0);
+        layout.Controls.Add(okButton, 0, 1);
+        okButton.Margin = new Padding(0, 18, 0, 0);
+
+        dialog.Controls.Add(layout);
+        dialog.AcceptButton = okButton;
+        GUITool.ApplyStartupFont(dialog, _settings);
+        GUITool.Apply(dialog, _settings);
+        dialog.ShowDialog(this);
     }
 
     #endregion

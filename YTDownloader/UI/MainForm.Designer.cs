@@ -41,6 +41,14 @@
             tB_URL = new System.Windows.Forms.TextBox();
             groupBox1 = new System.Windows.Forms.GroupBox();
             dGV_DownloadList = new System.Windows.Forms.DataGridView();
+            colIndex = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            colTitle = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            colMediaType = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            colProgress = new YTDownloader.UI.CustomUI.DataGridViewProgressBarColumn();
+            colStatus = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            colAction = new System.Windows.Forms.DataGridViewButtonColumn();
+            colCancel = new System.Windows.Forms.DataGridViewButtonColumn();
+            colTaskId = new System.Windows.Forms.DataGridViewTextBoxColumn();
             tableLayoutPanel3 = new System.Windows.Forms.TableLayoutPanel();
             btn_ClearCompleteTask = new System.Windows.Forms.Button();
             btn_CancelAll = new System.Windows.Forms.Button();
@@ -189,11 +197,72 @@
             // 
             dGV_DownloadList.AllowUserToAddRows = false;
             dGV_DownloadList.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
+            dGV_DownloadList.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] { colIndex, colTitle, colMediaType, colProgress, colStatus, colAction, colCancel, colTaskId });
             dGV_DownloadList.Dock = System.Windows.Forms.DockStyle.Fill;
             dGV_DownloadList.Location = new System.Drawing.Point(3, 19);
             dGV_DownloadList.Name = "dGV_DownloadList";
+            dGV_DownloadList.RowHeadersVisible = false;
             dGV_DownloadList.Size = new System.Drawing.Size(946, 461);
             dGV_DownloadList.TabIndex = 0;
+            dGV_DownloadList.CellContentClick += OnDownloadListCellContentClick;
+            // 
+            // colIndex
+            // 
+            colIndex.HeaderText = "#";
+            colIndex.Name = "colIndex";
+            colIndex.ReadOnly = true;
+            colIndex.Resizable = System.Windows.Forms.DataGridViewTriState.False;
+            colIndex.Width = 40;
+            // 
+            // colTitle
+            // 
+            colTitle.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.Fill;
+            colTitle.HeaderText = "檔名";
+            colTitle.Name = "colTitle";
+            colTitle.ReadOnly = true;
+            // 
+            // colMediaType
+            // 
+            colMediaType.HeaderText = "類型";
+            colMediaType.Name = "colMediaType";
+            colMediaType.ReadOnly = true;
+            colMediaType.Resizable = System.Windows.Forms.DataGridViewTriState.False;
+            colMediaType.Width = 65;
+            // 
+            // colProgress
+            // 
+            colProgress.HeaderText = "進度";
+            colProgress.Name = "colProgress";
+            colProgress.Resizable = System.Windows.Forms.DataGridViewTriState.False;
+            colProgress.Width = 160;
+            // 
+            // colStatus
+            // 
+            colStatus.DefaultCellStyle = new System.Windows.Forms.DataGridViewCellStyle { Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleLeft };
+            colStatus.HeaderText = "狀態";
+            colStatus.Name = "colStatus";
+            colStatus.ReadOnly = true;
+            colStatus.Width = 200;
+            // 
+            // colAction
+            // 
+            colAction.HeaderText = "操作";
+            colAction.Name = "colAction";
+            colAction.Resizable = System.Windows.Forms.DataGridViewTriState.False;
+            colAction.Width = 60;
+            // 
+            // colCancel
+            // 
+            colCancel.HeaderText = "";
+            colCancel.Name = "colCancel";
+            colCancel.Resizable = System.Windows.Forms.DataGridViewTriState.False;
+            colCancel.Width = 55;
+            // 
+            // colTaskId
+            // 
+            colTaskId.HeaderText = "TaskId";
+            colTaskId.Name = "colTaskId";
+            colTaskId.Visible = false;
             // 
             // tableLayoutPanel3
             // 
@@ -248,6 +317,10 @@
             ClientSize = new System.Drawing.Size(958, 635);
             Controls.Add(tableLayoutPanel1);
             Controls.Add(menuStrip1);
+            FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedSingle;
+            MaximizeBox = false;
+            MaximumSize = Size;
+            MinimumSize = Size;
             Text = "Youtube下載器";
             menuStrip1.ResumeLayout(false);
             menuStrip1.PerformLayout();
@@ -265,6 +338,11 @@
 
         #endregion
 
+        private static void PositionChildForm(Form form)
+        {
+            form.Location = new System.Drawing.Point(700, 0);
+        }
+
         private MenuStrip menuStrip1;
         private System.Windows.Forms.ToolStripMenuItem MSItem_Config;
         private System.Windows.Forms.ToolStripMenuItem MSItem_DownloadHistory;
@@ -274,6 +352,14 @@
         private Button btn_OpenDownloadForder;
         private GroupBox groupBox1;
         private DataGridView dGV_DownloadList;
+        private DataGridViewTextBoxColumn colIndex;
+        private DataGridViewTextBoxColumn colTitle;
+        private DataGridViewTextBoxColumn colMediaType;
+        private YTDownloader.UI.CustomUI.DataGridViewProgressBarColumn colProgress;
+        private DataGridViewTextBoxColumn colStatus;
+        private DataGridViewButtonColumn colAction;
+        private DataGridViewButtonColumn colCancel;
+        private DataGridViewTextBoxColumn colTaskId;
         private GroupBox gB_ListMediaType;
         private ComboBox cB_ListMediaType;
         private GroupBox groupBox4;
