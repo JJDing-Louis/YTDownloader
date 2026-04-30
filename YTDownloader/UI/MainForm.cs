@@ -24,8 +24,8 @@ public partial class MainForm : Form
     private readonly HashSet<long> _canceledDownloadTaskIds = new();
     private readonly object _canceledDownloadTaskIdsLock = new();
 
-    /// <summary>跨批次共用的並發信號量，最大同時下載數由 Config.json 控制。</summary>
-    private readonly SemaphoreSlim _downloadSemaphore;
+    /// <summary>跨批次共用的下載併發限制器，最大同時下載數由 Config.json 控制。</summary>
+    private readonly AdjustableConcurrencyLimiter _downloadLimiter;
 
     private readonly ILogger _logger;
     private readonly OptionService _optionService;
@@ -52,7 +52,7 @@ public partial class MainForm : Form
         _settings = _configService.Load();
         _optionService = Program.Startup.Container.Resolve<OptionService>();
         _logger = Program.Startup.Container.Resolve<ILogger<MainForm>>();
-        _downloadSemaphore = CreateDownloadSemaphore(_settings);
+        _downloadLimiter = CreateDownloadLimiter(_settings);
         InitializeForm();
     }
 
@@ -62,7 +62,7 @@ public partial class MainForm : Form
         _settings = _configService.Load();
         _optionService = optionService;
         _logger = logger;
-        _downloadSemaphore = CreateDownloadSemaphore(_settings);
+        _downloadLimiter = CreateDownloadLimiter(_settings);
         InitializeForm();
     }
 
@@ -100,10 +100,10 @@ public partial class MainForm : Form
 
         _configForm = new ConfigForm(_configService);
         _configForm.Location = new Point(700, 0);
+        _configForm.SettingsApplied += (_, settings) => ApplyRuntimeSettings(settings);
         _configForm.FormClosed += (_, _) =>
         {
-            _settings = _configService.Load();
-            ApplyStartupSettings();
+            ApplyRuntimeSettings(_configService.Load());
         };
         _configForm.Disposed += (_, _) => _configForm = null;
         _configForm.Show(this);
@@ -111,13 +111,17 @@ public partial class MainForm : Form
 
     private void btn_ClearCompleteTask_Click(object sender, EventArgs e)
     {
-        foreach (DataGridViewRow row in dGV_DownloadList.Rows)
+        var completedRows = dGV_DownloadList.Rows
+            .Cast<DataGridViewRow>()
+            .Where(row => !row.IsNewRow && IsCompletedDownloadRow(row))
+            .ToList();
+
+        foreach (var row in completedRows)
         {
-            if (row.Cells["Status"].Value.ToString() == "已完成")
-            {
+            if (dGV_DownloadList.Rows.Contains(row))
                 dGV_DownloadList.Rows.Remove(row);
-            }
         }
+
         RenumberRows();
     }
 
@@ -198,10 +202,21 @@ public partial class MainForm : Form
         ApplyDownloadFolderSetting(_settings.Save);
     }
 
-    private static SemaphoreSlim CreateDownloadSemaphore(ConfigModel settings)
+    private void ApplyRuntimeSettings(ConfigModel settings)
     {
-        var maxCount = Math.Clamp(settings.Thread.MaxCount, 1, 32);
-        return new SemaphoreSlim(maxCount, maxCount);
+        _settings = settings;
+        ApplyStartupSettings();
+        _downloadLimiter.UpdateLimit(GetDownloadConcurrencyLimit(settings));
+    }
+
+    private static AdjustableConcurrencyLimiter CreateDownloadLimiter(ConfigModel settings)
+    {
+        return new AdjustableConcurrencyLimiter(GetDownloadConcurrencyLimit(settings));
+    }
+
+    private static int GetDownloadConcurrencyLimit(ConfigModel settings)
+    {
+        return Math.Clamp(settings.Thread.MaxCount, 1, 32);
     }
 
     private void ApplyDownloadFolderSetting(SaveConfigModel save)
@@ -1304,7 +1319,7 @@ public partial class MainForm : Form
             // 排入背景，受全域信號量並發控制
             _ = Task.Run(async () =>
             {
-                await _downloadSemaphore.WaitAsync();
+                await _downloadLimiter.WaitAsync();
                 try
                 {
                     if (controller.Cts.IsCancellationRequested || IsDownloadCanceled(taskId))
@@ -1314,7 +1329,7 @@ public partial class MainForm : Form
                 }
                 finally
                 {
-                    _downloadSemaphore.Release();
+                    _downloadLimiter.Release();
                 }
             });
         }

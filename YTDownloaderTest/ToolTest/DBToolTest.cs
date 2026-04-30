@@ -17,6 +17,7 @@ namespace YTDownloaderTest.ToolTest
     {
         private string? originalCurrentDirectory;
         private string? originalEnvironment;
+        private string? testDatabaseDirectory;
 
         [SetUp]
         public void Setup()
@@ -25,14 +26,16 @@ namespace YTDownloaderTest.ToolTest
             originalEnvironment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
 
             var testDirectory = TestContext.CurrentContext.TestDirectory;
-            var seedDatabasePath = Path.GetFullPath(Path.Combine(testDirectory, "..", "..", "..", "JJNET.db"));
-            var testDatabasePath = Path.Combine(testDirectory, "JJNET.db");
+            var seedDatabasePath = FindSeedDatabasePath(testDirectory);
+            testDatabaseDirectory = Path.Combine(Path.GetTempPath(), "YTDownloaderTest", TestContext.CurrentContext.Test.ID);
+            Directory.CreateDirectory(testDatabaseDirectory);
+            var testDatabasePath = Path.Combine(testDatabaseDirectory, "JJNET.db");
 
             Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
             File.Copy(seedDatabasePath, testDatabasePath, overwrite: true);
 
             Environment.SetEnvironmentVariable("ASPNETCORE_ENVIRONMENT", "YTDownloaderTest");
-            Environment.CurrentDirectory = testDirectory;
+            Environment.CurrentDirectory = testDatabaseDirectory;
         }
 
         [TearDown]
@@ -42,6 +45,30 @@ namespace YTDownloaderTest.ToolTest
                 Environment.CurrentDirectory = originalCurrentDirectory;
 
             Environment.SetEnvironmentVariable("ASPNETCORE_ENVIRONMENT", originalEnvironment);
+
+            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+
+            if (!string.IsNullOrWhiteSpace(testDatabaseDirectory) && Directory.Exists(testDatabaseDirectory))
+                Directory.Delete(testDatabaseDirectory, recursive: true);
+        }
+
+        private static string FindSeedDatabasePath(string testDirectory)
+        {
+            var candidates = new[]
+            {
+                Path.GetFullPath(Path.Combine(testDirectory, "..", "..", "..", "JJNET.db")),
+                Path.Combine(TestContext.CurrentContext.WorkDirectory, "JJNET.db"),
+                Path.Combine(Environment.CurrentDirectory, "YTDownloaderTest", "JJNET.db"),
+                Path.Combine(Environment.CurrentDirectory, "JJNET.db")
+            };
+
+            var seedDatabasePath = candidates.FirstOrDefault(File.Exists);
+            if (seedDatabasePath == null)
+                throw new FileNotFoundException("找不到測試用 JJNET.db。", string.Join(Environment.NewLine, candidates));
+
+            return seedDatabasePath;
         }
 
         [Test]

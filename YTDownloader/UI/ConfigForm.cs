@@ -42,6 +42,8 @@ public partial class ConfigForm : Form
         InitializeForm();
     }
 
+    public event EventHandler<ConfigModel>? SettingsApplied;
+
     private void InitializeForm()
     {
         GUITool.ApplyStartupFont(this, _settings);
@@ -447,6 +449,7 @@ public partial class ConfigForm : Form
         _settings.General.Language = _languageComboBox.SelectedItem?.ToString() ?? "zh-TW";
 
         _configService.Save(_settings);
+        SettingsApplied?.Invoke(this, _settings);
         return true;
     }
 
