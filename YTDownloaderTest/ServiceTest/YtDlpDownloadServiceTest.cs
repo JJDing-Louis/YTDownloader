@@ -403,6 +403,38 @@ namespace YTDownloaderTest.ServiceTest
                 $"標題 [{title ?? "(null)"}] 預期 IsUnavailable={expected}，實際={actual}");
         }
 
+        [Test]
+        [Description("會員專屬影片在 flat playlist 中仍有標題，但 availability=subscriber_only 時應排除")]
+        public void IsUnavailablePlaylistEntry_SubscriberOnly_ReturnsTrue()
+        {
+            var actual = YtDlpDownloadService.IsUnavailablePlaylistEntry(
+                "[Japanese-style jazz girl x relaxing BGM] 4Costumes&4-Scenes / Relaxing Japanese jazz lofi",
+                "subscriber_only",
+                out var reason);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(actual, Is.True);
+                Assert.That(reason, Is.EqualTo("會員專屬"));
+            });
+        }
+
+        [Test]
+        [Description("一般可公開觀看影片不應被不可播放條目過濾器排除")]
+        public void IsUnavailablePlaylistEntry_PublicVideo_ReturnsFalse()
+        {
+            var actual = YtDlpDownloadService.IsUnavailablePlaylistEntry(
+                "正常影片標題",
+                null,
+                out var reason);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(actual, Is.False);
+                Assert.That(reason, Is.Empty);
+            });
+        }
+
         // =====================================================================
         // PlaylistFetchResult — UnavailableEntries 與 SkippedCount
         // =====================================================================

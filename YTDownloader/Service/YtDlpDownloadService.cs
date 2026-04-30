@@ -497,11 +497,18 @@ public class YtDlpDownloadService
                         && piProp.ValueKind == JsonValueKind.Number)
                         playlistIndex = piProp.GetInt32();
 
+                    var availability = GetJsonString(root, "availability");
+
                     // 過濾不可播放的佔位條目（[Deleted video]、[Private video] 等）
-                    if (IsUnavailableTitle(title))
+                    // 以及 yt-dlp 可讀到標題、但實際需會員權限才可下載的項目。
+                    if (IsUnavailablePlaylistEntry(title, availability, out var unavailableReason))
                     {
-                        unavailableEntries.Add($"#{playlistIndex}：{title}");
-                        logger.LogInformation("跳過不可播放條目 #{Index}：{Title}", playlistIndex, title);
+                        unavailableEntries.Add($"#{playlistIndex}：{unavailableReason} - {title}");
+                        logger.LogInformation(
+                            "跳過不可播放條目 #{Index}：{Reason} - {Title}",
+                            playlistIndex,
+                            unavailableReason,
+                            title);
                         continue;
                     }
 
@@ -533,9 +540,16 @@ public class YtDlpDownloadService
             {
                 var stderr = stderrSb.ToString();
                 logger.LogError("播放清單解析完畢但無影片。stderr={Stderr}", stderr);
-                return PlaylistFetchResult.Fail(
+                if (unavailableEntries.Count == 0
+                    && TryCreateUnavailableEntryFromYtDlpError(stderr, out var unavailableEntry))
+                    unavailableEntries.Add(unavailableEntry);
+
+                var failedResult = PlaylistFetchResult.Fail(
                     "播放清單為空，或所有影片均無法存取（私人 / 已刪除）。\n\n" +
                     $"yt-dlp 訊息：{(stderr.Length > 400 ? stderr[..400] + "…" : stderr)}");
+                failedResult.DeclaredCount = declaredCount;
+                failedResult.UnavailableEntries = unavailableEntries;
+                return failedResult;
             }
 
             logger.LogInformation(
@@ -576,6 +590,57 @@ public class YtDlpDownloadService
         if (_unavailableTitles.Contains(title)) return true;
         // 通用防禦：格式為 "[Xxx video]" 或 "[Xxx]" 的佔位標題
         return title.StartsWith('[') && title.EndsWith(']');
+    }
+
+    internal static bool IsUnavailablePlaylistEntry(
+        string? title,
+        string? availability,
+        out string reason)
+    {
+        if (IsUnavailableTitle(title))
+        {
+            reason = "不可存取";
+            return true;
+        }
+
+        if (string.Equals(availability, "subscriber_only", StringComparison.OrdinalIgnoreCase))
+        {
+            reason = "會員專屬";
+            return true;
+        }
+
+        reason = string.Empty;
+        return false;
+    }
+
+    private static bool TryCreateUnavailableEntryFromYtDlpError(
+        string ytDlpError,
+        out string unavailableEntry)
+    {
+        if (ytDlpError.Contains("Private video", StringComparison.OrdinalIgnoreCase)
+            || ytDlpError.Contains("This is a private video", StringComparison.OrdinalIgnoreCase))
+        {
+            unavailableEntry = "#1：不可存取 - [Private video]";
+            return true;
+        }
+
+        if (ytDlpError.Contains("members-only", StringComparison.OrdinalIgnoreCase)
+            || ytDlpError.Contains("subscriber", StringComparison.OrdinalIgnoreCase)
+            || ytDlpError.Contains("Join this channel", StringComparison.OrdinalIgnoreCase))
+        {
+            unavailableEntry = "#1：會員專屬 - [Members-only video]";
+            return true;
+        }
+
+        if (ytDlpError.Contains("This video is not available", StringComparison.OrdinalIgnoreCase)
+            || ytDlpError.Contains("Video unavailable", StringComparison.OrdinalIgnoreCase))
+        {
+            unavailableEntry = "#1：不可存取 - [Unavailable video]";
+            return true;
+        }
+
+        unavailableEntry = string.Empty;
+        return false;
     }
 
     private async Task<DownloadResult> ExecuteDownloadAsync(

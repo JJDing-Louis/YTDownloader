@@ -395,6 +395,12 @@ public partial class MainForm : Form
                 _logger.LogInformation($"檢測到單一影片：{SourceType.Title}", "資源檢測", MessageBoxButtons.OK,
                     MessageBoxIcon.Information);
                 var playlist = await YTDownloadService.GetPlaylistVideosAsync(URL);
+                if (playlist.SkippedCount > 0)
+                {
+                    ShowSingleVideoUnavailableMessage();
+                    return;
+                }
+
                 var video = playlist.Videos.FirstOrDefault() ?? throw new Exception("無法取得影片資訊");
                 var selectedMediaType = OptionService.GetOptionName(
                     OptionListMediaType,
@@ -450,6 +456,57 @@ public partial class MainForm : Form
         {
             _logger.LogError(ex, "Failed to retrieve selected options.");
         }
+    }
+
+    private void ShowSingleVideoUnavailableMessage()
+    {
+        using var dialog = new Form
+        {
+            Text = "影片無法下載",
+            StartPosition = FormStartPosition.CenterParent,
+            FormBorderStyle = FormBorderStyle.FixedDialog,
+            MaximizeBox = false,
+            MinimizeBox = false,
+            ShowInTaskbar = false,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            Padding = new Padding(18)
+        };
+
+        var messageLabel = new Label
+        {
+            AutoSize = true,
+            MinimumSize = new Size(260, 0),
+            Text = "該影片或者清單為私人或者會員專屬，無法下載"
+        };
+
+        var okButton = new Button
+        {
+            Text = "確定",
+            AutoSize = true,
+            DialogResult = DialogResult.OK,
+            Anchor = AnchorStyles.Right
+        };
+
+        var layout = new TableLayoutPanel
+        {
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            ColumnCount = 1,
+            RowCount = 2,
+            Dock = DockStyle.Fill
+        };
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        layout.Controls.Add(messageLabel, 0, 0);
+        layout.Controls.Add(okButton, 0, 1);
+        okButton.Margin = new Padding(0, 18, 0, 0);
+
+        dialog.Controls.Add(layout);
+        dialog.AcceptButton = okButton;
+        GUITool.ApplyStartupFont(dialog, _settings);
+        GUITool.Apply(dialog, _settings);
+        dialog.ShowDialog(this);
     }
 
     private void playlistHandlerForm_Disposed(object? sender, EventArgs e)

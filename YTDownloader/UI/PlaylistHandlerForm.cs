@@ -111,20 +111,10 @@ public partial class PlaylistHandlerForm : Form
             {
                 var privateCount = playlist.UnavailableEntries
                     .Count(e => e.Contains("[Private video]", StringComparison.OrdinalIgnoreCase));
-                var deletedCount = playlist.UnavailableEntries
-                    .Count(e => e.Contains("[Deleted video]", StringComparison.OrdinalIgnoreCase));
-                var otherCount = playlist.SkippedCount - privateCount - deletedCount;
+                var subscriberOnlyCount = playlist.UnavailableEntries
+                    .Count(e => e.Contains("會員專屬", StringComparison.OrdinalIgnoreCase));
 
-                var lines = new StringBuilder();
-                if (privateCount > 0) lines.AppendLine($"私人影片：{privateCount} 部");
-                if (deletedCount > 0) lines.AppendLine($"刪除影片：{deletedCount} 部");
-                if (otherCount > 0) lines.AppendLine($"其他無法存取：{otherCount} 部");
-
-                MessageBox.Show(
-                    $"{lines}\n可下載：{playlist.TotalCount} 部",
-                    "部分影片無法存取",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Information);
+                ShowPlaylistUnavailableSummary(privateCount, subscriberOnlyCount, playlist.TotalCount);
             }
 
             return (playlist.IsSuccess, playlist.Message ?? string.Empty);
@@ -138,6 +128,62 @@ public partial class PlaylistHandlerForm : Form
     #endregion
 
     #region Init
+
+    private void ShowPlaylistUnavailableSummary(
+        int privateCount,
+        int subscriberOnlyCount,
+        int downloadableCount)
+    {
+        using var dialog = new Form
+        {
+            Text = "部分影片無法存取",
+            StartPosition = FormStartPosition.CenterParent,
+            FormBorderStyle = FormBorderStyle.FixedDialog,
+            MaximizeBox = false,
+            MinimizeBox = false,
+            ShowInTaskbar = false,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            Padding = new Padding(18)
+        };
+
+        var messageLabel = new Label
+        {
+            AutoSize = true,
+            MinimumSize = new Size(260, 0),
+            Text = $"私人影片：{privateCount} 部{Environment.NewLine}" +
+                   $"會員專屬：{subscriberOnlyCount} 部{Environment.NewLine}" +
+                   $"可下載：{downloadableCount} 部"
+        };
+
+        var okButton = new Button
+        {
+            Text = "確定",
+            AutoSize = true,
+            DialogResult = DialogResult.OK,
+            Anchor = AnchorStyles.Right
+        };
+
+        var layout = new TableLayoutPanel
+        {
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            ColumnCount = 1,
+            RowCount = 2,
+            Dock = DockStyle.Fill
+        };
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        layout.Controls.Add(messageLabel, 0, 0);
+        layout.Controls.Add(okButton, 0, 1);
+        okButton.Margin = new Padding(0, 18, 0, 0);
+
+        dialog.Controls.Add(layout);
+        dialog.AcceptButton = okButton;
+        GUITool.ApplyStartupFont(dialog, _settings);
+        GUITool.Apply(dialog, _settings);
+        dialog.ShowDialog(this);
+    }
 
     private void Init()
     {
