@@ -27,6 +27,9 @@ public partial class MainForm : Form
 
     /// <summary>跨批次共用的下載併發限制器，最大同時下載數由 Config.json 控制。</summary>
     private readonly AdjustableConcurrencyLimiter _downloadLimiter;
+    private readonly object _downloadQueueLock = new();
+    private readonly Queue<QueuedDownload> _queuedDownloads = new();
+    private readonly HashSet<long> _queuedDownloadTaskIds = new();
 
     private readonly ILogger _logger;
     private readonly OptionService _optionService;
@@ -46,6 +49,7 @@ public partial class MainForm : Form
     private PlaylistHandlerForm? _playlistHandlerForm;
     private ConfigModel _settings;
     private IConfiguration config = null!;
+    private int _activeQueuedDownloadCount;
     private string DownloadFolder = string.Empty;
     private string ffmpegPath = string.Empty;
     private string ytDlpPath = string.Empty;
@@ -218,6 +222,7 @@ public partial class MainForm : Form
         _settings = settings;
         ApplyStartupSettings();
         _downloadLimiter.UpdateLimit(GetDownloadConcurrencyLimit(settings));
+        StartQueuedDownloads();
     }
 
     private static AdjustableConcurrencyLimiter CreateDownloadLimiter(ConfigModel settings)
@@ -549,9 +554,8 @@ public partial class MainForm : Form
                 // 重啟前先清理：避免不完整輸出或殘留串流檔干擾 yt-dlp 判斷
                 CleanTempFilesBeforeRestart(controller);
                 row.Cells["colAction"].Value = "暫停";
-                UpdateDownloadProgress(taskId, controller.LastPercent, "InProgress");
-                var cts = controller.Cts;
-                _ = Task.Run(async () => await controller.RestartAction(cts.Token));
+                UpdateDownloadProgress(taskId, Math.Max(controller.LastPercent, GetRowProgress(row)), "Waiting");
+                EnqueueDownloadTask(taskId, controller);
                 break;
 
             // ── 已完成 / 其他（不動作）───────────────────────
@@ -1288,22 +1292,68 @@ public partial class MainForm : Form
             var controller = RegisterDownload(taskId, downloadAction);
             controller.OriginalRequest = capturedReq; // 供重啟前清除暫存檔使用
 
-            // 排入背景，受全域信號量並發控制
-            _ = Task.Run(async () =>
-            {
-                await _downloadLimiter.WaitAsync();
-                try
-                {
-                    if (controller.Cts.IsCancellationRequested || IsDownloadCanceled(taskId))
-                        return;
+            EnqueueDownloadTask(taskId, controller);
+        }
+    }
 
-                    await downloadAction(controller.Cts.Token);
-                }
-                finally
-                {
-                    _downloadLimiter.Release();
-                }
-            });
+    private void EnqueueDownloadTask(long taskId, DownloadTaskController controller)
+    {
+        lock (_downloadQueueLock)
+        {
+            if (!_queuedDownloadTaskIds.Add(taskId))
+                return;
+
+            _queuedDownloads.Enqueue(new QueuedDownload(taskId, controller));
+        }
+
+        StartQueuedDownloads();
+    }
+
+    private void StartQueuedDownloads()
+    {
+        List<QueuedDownload> downloadsToStart = new();
+
+        lock (_downloadQueueLock)
+        {
+            while (_activeQueuedDownloadCount < _downloadLimiter.Limit
+                   && _queuedDownloads.TryDequeue(out var queuedDownload))
+            {
+                _queuedDownloadTaskIds.Remove(queuedDownload.TaskId);
+
+                if (!_downloadControllers.ContainsKey(queuedDownload.TaskId)
+                    || queuedDownload.Controller.Cts.IsCancellationRequested
+                    || IsDownloadCanceled(queuedDownload.TaskId))
+                    continue;
+
+                _activeQueuedDownloadCount++;
+                downloadsToStart.Add(queuedDownload);
+            }
+        }
+
+        foreach (var queuedDownload in downloadsToStart)
+            _ = Task.Run(() => RunQueuedDownloadAsync(queuedDownload));
+    }
+
+    private async Task RunQueuedDownloadAsync(QueuedDownload queuedDownload)
+    {
+        try
+        {
+            if (queuedDownload.Controller.Cts.IsCancellationRequested
+                || IsDownloadCanceled(queuedDownload.TaskId))
+                return;
+
+            UpdateDownloadProgress(queuedDownload.TaskId, queuedDownload.Controller.LastPercent, "InProgress");
+            await queuedDownload.Controller.RestartAction(queuedDownload.Controller.Cts.Token);
+        }
+        finally
+        {
+            lock (_downloadQueueLock)
+            {
+                if (_activeQueuedDownloadCount > 0)
+                    _activeQueuedDownloadCount--;
+            }
+
+            StartQueuedDownloads();
         }
     }
 
@@ -1340,6 +1390,7 @@ public partial class MainForm : Form
     }
 
     private sealed record ProgressUpdateState(int Percent, string StatusName, DateTime UpdatedAt);
+    private sealed record QueuedDownload(long TaskId, DownloadTaskController Controller);
 
     #endregion
 }
