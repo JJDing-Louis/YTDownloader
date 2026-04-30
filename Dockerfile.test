@@ -1,10 +1,17 @@
+# escape=`
 # =============================================================================
 # YTDownloader 測試映像
 # 基底：Windows Server Core + .NET 8 SDK
 #
+# 注意：使用 # escape=` 將反引號設為 Dockerfile 行延續字元，
+#       讓反斜線可在 Windows 路徑中自由使用。
+#
 # 前置條件：
 #   Docker Desktop 必須切換至「Windows 容器」模式，
 #   因為測試專案含 WinForms（net8.0-windows）相依。
+#
+# yt-dlp.exe 由主專案的 CopyToOutputDirectory=Always 自動複製至測試輸出目錄，
+# 不需在 Docker 額外下載。
 #
 # 建置：
 #   docker build -f Dockerfile.test -t ytdownloader-test .
@@ -16,26 +23,28 @@ FROM mcr.microsoft.com/dotnet/sdk:8.0-windowsservercore-ltsc2022
 
 WORKDIR C:/src
 
-# ── 第一層：只複製專案定義檔，讓 NuGet restore 可被快取 ─────────────────────
+# ── Step 1：複製專案定義檔，讓 NuGet restore 可被快取 ─────────────────────────
 COPY YTDownloader.sln                              ./
 COPY YTDownloader/YTDownloader.csproj              YTDownloader/
 COPY YTDownloaderTest/YTDownloaderTest.csproj      YTDownloaderTest/
 
 RUN dotnet restore YTDownloaderTest/YTDownloaderTest.csproj
 
-# ── 第二層：複製所有原始碼並建置（不重新 restore）────────────────────────────
+# ── Step 2：複製所有原始碼並建置 ───────────────────────────────────────────────
+#    yt-dlp.exe 在 YTDownloader/ 原始碼中，build 時由 CopyToOutputDirectory=Always
+#    複製至 YTDownloaderTest/bin/Debug/net8.0-windows/yt-dlp.exe（測試執行目錄）
 COPY . .
 
-RUN dotnet build YTDownloaderTest/YTDownloaderTest.csproj ^
-        --no-restore ^
+RUN dotnet build YTDownloaderTest/YTDownloaderTest.csproj `
+        --no-restore `
         --configuration Debug
 
-# ── 建立測試結果輸出目錄 ──────────────────────────────────────────────────────
+# ── Step 3：建立測試結果輸出目錄 ────────────────────────────────────────────────
 RUN mkdir C:\TestResults
 
-# ── 複製容器入口點腳本 ────────────────────────────────────────────────────────
+# ── Step 4：複製容器入口點腳本 ──────────────────────────────────────────────────
 COPY docker-entrypoint.ps1 C:/src/docker-entrypoint.ps1
 
-# ── 使用 PowerShell 執行入口點，以支援 TEST_FILTER 環境變數 ───────────────────
-ENTRYPOINT ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", \
+# ── 使用 PowerShell 執行入口點，以支援 TEST_FILTER 環境變數 ─────────────────────
+ENTRYPOINT ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", `
             "-File", "C:/src/docker-entrypoint.ps1"]

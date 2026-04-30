@@ -295,7 +295,6 @@ namespace YTDownloaderTest.ServiceTest
 
         [Test]
         [Category("Integration")]
-        [Ignore("需要實際 yt-dlp 執行檔與網路連線，請手動執行整合測試")]
         [Description("播放清單 URL 應回傳多筆影片資訊，且每筆 URL 不為空")]
         public async Task GetPlaylistVideosAsync_RealPlaylistUrl_ReturnsMultipleVideos()
         {
@@ -322,7 +321,6 @@ namespace YTDownloaderTest.ServiceTest
 
         [Test]
         [Category("Integration")]
-        [Ignore("需要實際 yt-dlp 執行檔與網路連線，請手動執行整合測試")]
         [Description("單一影片 URL 傳入 GetPlaylistVideosAsync 應包成 1 筆清單回傳")]
         public async Task GetPlaylistVideosAsync_SingleVideoUrl_ReturnsOneItem()
         {
@@ -341,7 +339,6 @@ namespace YTDownloaderTest.ServiceTest
 
         [Test]
         [Category("Integration")]
-        [Ignore("需要實際 yt-dlp 執行檔與網路連線，請手動執行整合測試")]
         [Description("含會員專屬影片的播放清單應跳過不可下載項目，且不回傳該影片到 Videos")]
         public async Task GetPlaylistVideosAsync_MembersOnlyPlaylist_SkipsSubscriberOnlyVideo()
         {
@@ -362,7 +359,6 @@ namespace YTDownloaderTest.ServiceTest
 
         [Test]
         [Category("Integration")]
-        [Ignore("需要實際 yt-dlp 執行檔與網路連線，請手動執行整合測試")]
         [Description("不可存取的單一影片應回傳 SkippedCount，不應回傳可下載影片")]
         public async Task GetPlaylistVideosAsync_UnavailableSingleVideo_ReturnsSkippedEntry()
         {
@@ -581,25 +577,38 @@ namespace YTDownloaderTest.ServiceTest
         }
 
         /// <summary>
-        /// 取得系統上實際的 yt-dlp 路徑（供整合測試使用）。
-        /// 可依實際環境修改此路徑。
+        ///     取得執行環境下實際的 yt-dlp 路徑（供整合測試使用）。
+        ///     搜尋順序：
+        ///       1. 測試輸出目錄（dotnet build CopyToOutputDirectory=Always 的位置）
+        ///       2. PATH 環境變數
+        ///       3. Fallback 常見手動安裝位置
         /// </summary>
         private static string GetRealYtDlpPath()
         {
-            // 優先嘗試 PATH 中的 yt-dlp
-            var candidates = new[] { "yt-dlp", "yt-dlp.exe" };
-            foreach (var candidate in candidates)
+            const string ytDlpExe = "yt-dlp.exe";
+
+            // 1. 優先查詢測試執行環境的輸出目錄
+            //    yt-dlp.exe 透過主專案的 CopyToOutputDirectory=Always 複製至此。
+            var outputDirCandidates = new[]
             {
-                var resolved = Environment.GetEnvironmentVariable("PATH")?
-                    .Split(Path.PathSeparator)
-                    .Select(dir => Path.Combine(dir, candidate))
-                    .FirstOrDefault(File.Exists);
+                Path.Combine(TestContext.CurrentContext.TestDirectory, ytDlpExe),
+                Path.Combine(AppContext.BaseDirectory,                 ytDlpExe),
+            };
 
-                if (resolved != null)
-                    return resolved;
-            }
+            var fromOutputDir = outputDirCandidates.FirstOrDefault(File.Exists);
+            if (fromOutputDir != null)
+                return fromOutputDir;
 
-            // fallback：常見安裝位置
+            // 2. 嘗試 PATH 中的 yt-dlp
+            var fromPath = Environment.GetEnvironmentVariable("PATH")?
+                .Split(Path.PathSeparator)
+                .Select(dir => Path.Combine(dir, ytDlpExe))
+                .FirstOrDefault(File.Exists);
+
+            if (fromPath != null)
+                return fromPath;
+
+            // 3. Fallback：常見手動安裝位置
             return @"C:\yt-dlp\yt-dlp.exe";
         }
     }
