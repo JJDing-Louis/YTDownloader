@@ -19,9 +19,9 @@ public partial class DownloadHistoryForm : Form
     private readonly MainForm? _mainForm;
     private readonly OptionService _optionService;
     private readonly ConfigModel _settings;
-    private IConfiguration config = null!;
     private bool _isSelectAllChecked;
     private bool _updatingSelectAllState;
+    private IConfiguration config = null!;
 
     public DownloadHistoryForm()
     {
@@ -73,7 +73,7 @@ public partial class DownloadHistoryForm : Form
     private void ConfigureSearchLayout()
     {
         tableLayoutPanel2.Padding = new Padding(0, 4, 0, 0);
-        var reDownloadButtonSize = GetButtonSize(btn_ReDownload, minWidth: 120, minHeight: 34);
+        var reDownloadButtonSize = GetButtonSize(btn_ReDownload, 120, 34);
         var criteriaRowHeight = Math.Max(48, Font.Height + 24);
         var searchPanelHeight = tableLayoutPanel2.Padding.Top + criteriaRowHeight * tableLayoutPanel2.RowCount + 8;
         var actionRowHeight = reDownloadButtonSize.Height + 16;
@@ -111,7 +111,8 @@ public partial class DownloadHistoryForm : Form
         tableLayoutPanel3.Dock = DockStyle.Fill;
         tableLayoutPanel3.Margin = new Padding(0);
         tableLayoutPanel3.ColumnStyles[0].SizeType = SizeType.Absolute;
-        tableLayoutPanel3.ColumnStyles[0].Width = Math.Max(230, TextRenderer.MeasureText("2026年  4月30日", Font).Width + 64);
+        tableLayoutPanel3.ColumnStyles[0].Width =
+            Math.Max(230, TextRenderer.MeasureText("2026年  4月30日", Font).Width + 64);
         tableLayoutPanel3.ColumnStyles[1].SizeType = SizeType.Absolute;
         tableLayoutPanel3.ColumnStyles[1].Width = 48;
         tableLayoutPanel3.ColumnStyles[2].SizeType = SizeType.Absolute;
@@ -136,7 +137,7 @@ public partial class DownloadHistoryForm : Form
 
         btn_Search.Anchor = AnchorStyles.Left;
         btn_Search.Margin = new Padding(10, 0, 0, 0);
-        btn_Search.Size = GetButtonSize(btn_Search, minWidth: 96, minHeight: 32);
+        btn_Search.Size = GetButtonSize(btn_Search, 96, 32);
 
         btn_ReDownload.Dock = DockStyle.None;
         btn_ReDownload.Anchor = AnchorStyles.Left;
@@ -225,7 +226,7 @@ public partial class DownloadHistoryForm : Form
             ReadOnly = true,
             Resizable = DataGridViewTriState.True,
             DefaultCellStyle = new DataGridViewCellStyle
-            { Alignment = DataGridViewContentAlignment.MiddleLeft }
+                { Alignment = DataGridViewContentAlignment.MiddleLeft }
         });
         // 隱藏的任務 ID（用於刪除列後仍能找到正確的 controller）
         dGV_SearchResult.Columns.Add(new DataGridViewTextBoxColumn
@@ -274,10 +275,7 @@ public partial class DownloadHistoryForm : Form
 
     private void SearchResult_ColumnHeaderMouseClick(object? sender, DataGridViewCellMouseEventArgs e)
     {
-        if (e.ColumnIndex < 0 || dGV_SearchResult.Columns[e.ColumnIndex].Name != SelectColumnName)
-        {
-            return;
-        }
+        if (e.ColumnIndex < 0 || dGV_SearchResult.Columns[e.ColumnIndex].Name != SelectColumnName) return;
 
         SetAllRowsSelected(!_isSelectAllChecked);
     }
@@ -287,12 +285,9 @@ public partial class DownloadHistoryForm : Form
         dGV_SearchResult.EndEdit();
         _updatingSelectAllState = true;
         foreach (DataGridViewRow row in dGV_SearchResult.Rows)
-        {
             if (!row.IsNewRow)
-            {
                 row.Cells[SelectColumnName].Value = isSelected;
-            }
-        }
+
         _updatingSelectAllState = false;
 
         _isSelectAllChecked = isSelected;
@@ -303,9 +298,7 @@ public partial class DownloadHistoryForm : Form
     {
         if (dGV_SearchResult.IsCurrentCellDirty &&
             dGV_SearchResult.CurrentCell?.OwningColumn?.Name == SelectColumnName)
-        {
             dGV_SearchResult.CommitEdit(DataGridViewDataErrorContexts.Commit);
-        }
     }
 
     private void SearchResult_CellValueChanged(object? sender, DataGridViewCellEventArgs e)
@@ -314,9 +307,7 @@ public partial class DownloadHistoryForm : Form
             e.ColumnIndex < 0 ||
             dGV_SearchResult.Columns[e.ColumnIndex].Name != SelectColumnName ||
             _updatingSelectAllState)
-        {
             return;
-        }
 
         UpdateSelectAllCheckBoxState();
     }
@@ -336,14 +327,9 @@ public partial class DownloadHistoryForm : Form
         if (e.RowIndex != -1 ||
             e.ColumnIndex < 0 ||
             dGV_SearchResult.Columns[e.ColumnIndex].Name != SelectColumnName)
-        {
             return;
-        }
 
-        if (e.Graphics == null)
-        {
-            return;
-        }
+        if (e.Graphics == null) return;
 
         e.Paint(e.CellBounds, e.PaintParts & ~DataGridViewPaintParts.ContentForeground);
 
@@ -413,10 +399,7 @@ public partial class DownloadHistoryForm : Form
 
     private static string FormatLocalDateTime(DateTime? dateTime)
     {
-        if (dateTime == null)
-        {
-            return string.Empty;
-        }
+        if (dateTime == null) return string.Empty;
 
         var utcDateTime = dateTime.Value.Kind == DateTimeKind.Utc
             ? dateTime.Value
@@ -426,7 +409,7 @@ public partial class DownloadHistoryForm : Form
     }
 
     /// <summary>
-    /// TODO:待測
+    ///     TODO:待測
     /// </summary>
     /// <param name="sender"></param>
     /// <param name="e"></param>
@@ -439,20 +422,20 @@ public partial class DownloadHistoryForm : Form
         var IsAudio = cB_MediaType.Checked && cB_Audio.Checked ? "Audio" : null;
         var IsVideo = cB_MediaType.Checked && cB_Video.Checked ? "Video" : null;
         var sqlcmd = """
-                    SELECT 
-                        * 
-                    FROM DownloadHistory
-                    WHERE (@FileName IS NULL OR FileName LIKE '%' || @FileName || '%')
-                    AND (@DownloadStartDate IS NULL OR DownloadDateTime >= @DownloadStartDate)
-                    AND (@DownloadEndDate IS NULL OR DownloadDateTime <= @DownloadEndDate)
-                    AND (@DownloadResult IS NULL OR Status = @DownloadResult)
-                    AND (
-                        (@IsAudio IS NULL AND @IsVideo IS NULL)
-                        OR Type = @IsAudio
-                        OR Type = @IsVideo
-                    )
-                    ORDER BY DownloadDateTime DESC
-                  """;
+                       SELECT 
+                           * 
+                       FROM DownloadHistory
+                       WHERE (@FileName IS NULL OR FileName LIKE '%' || @FileName || '%')
+                       AND (@DownloadStartDate IS NULL OR DownloadDateTime >= @DownloadStartDate)
+                       AND (@DownloadEndDate IS NULL OR DownloadDateTime <= @DownloadEndDate)
+                       AND (@DownloadResult IS NULL OR Status = @DownloadResult)
+                       AND (
+                           (@IsAudio IS NULL AND @IsVideo IS NULL)
+                           OR Type = @IsAudio
+                           OR Type = @IsVideo
+                       )
+                       ORDER BY DownloadDateTime DESC
+                     """;
         var Param = new { FileName, DownloadStartDate, DownloadEndDate, DownloadResult, IsAudio, IsVideo };
         var SearchResult = new List<DownloadHistory>();
         dGV_SearchResult.Rows.Clear();
@@ -461,10 +444,8 @@ public partial class DownloadHistoryForm : Form
             var result = conn.Query<DownloadHistory>(sqlcmd, Param).ToList();
             if (result != null && result.Count > 0)
             {
-
                 SearchResult.AddRange(result);
                 foreach (var item in SearchResult)
-                {
                     dGV_SearchResult.Rows.Add(
                         false,
                         dGV_SearchResult.Rows.Count + 1,
@@ -476,8 +457,7 @@ public partial class DownloadHistoryForm : Form
                         item.Title,
                         item.URL,
                         item.Path
-                        );
-                }
+                    );
                 UpdateSelectAllCheckBoxState();
             }
         }
@@ -485,14 +465,14 @@ public partial class DownloadHistoryForm : Form
 
     private void btn_ReDownload_Click(object sender, EventArgs e)
     {
-        var selectedItem =  dGV_SearchResult.Rows
+        var selectedItem = dGV_SearchResult.Rows
             .Cast<DataGridViewRow>()
-            .Where(row => !row.IsNewRow 
-            && Convert.ToBoolean(row.Cells[SelectColumnName].Value)
-            && row.Cells["colTaskId"].Value != null
-            && row.Cells["colURL"].Value != null
+            .Where(row => !row.IsNewRow
+                          && Convert.ToBoolean(row.Cells[SelectColumnName].Value)
+                          && row.Cells["colTaskId"].Value != null
+                          && row.Cells["colURL"].Value != null
             ).ToList();
-   
+
         var requests = selectedItem.Select(row =>
         {
             var mediaType = OptionService.GetOptionName(
@@ -505,7 +485,7 @@ public partial class DownloadHistoryForm : Form
                 WebpageUrl = row.Cells["colURL"].Value?.ToString() ?? string.Empty,
                 MediaType = mediaType,
                 MediaTypeDisplay = OptionService.GetOptionDesc(OptionListMediaType, mediaType),
-                DownloadDir = row.Cells["colPath"].Value?.ToString() ?? string.Empty,
+                DownloadDir = row.Cells["colPath"].Value?.ToString() ?? string.Empty
             };
         }).ToList();
         _mainForm?.EnqueueDownloads(requests);
@@ -516,24 +496,24 @@ public partial class DownloadHistoryForm : Form
     {
         if (cB_FileName.Checked)
         {
-            txt_Filename.Enabled=true;
-        } 
+            txt_Filename.Enabled = true;
+        }
         else
         {
             txt_Filename.Enabled = false;
             txt_Filename.Text = string.Empty;
         }
 
-        if (cB_DownloadDate.Checked) 
+        if (cB_DownloadDate.Checked)
         {
-            dTP_DownLoadStartDate.Enabled =true;
-            dTP_DownLoadEndDate.Enabled =  true;
+            dTP_DownLoadStartDate.Enabled = true;
+            dTP_DownLoadEndDate.Enabled = true;
             dTP_DownLoadStartDate.Value = DateTime.Now;
             dTP_DownLoadEndDate.Value = DateTime.Now;
         }
         else
         {
-            dTP_DownLoadStartDate.Enabled =false;
+            dTP_DownLoadStartDate.Enabled = false;
             dTP_DownLoadEndDate.Enabled = false;
             dTP_DownLoadStartDate.Value = DateTime.Now;
             dTP_DownLoadEndDate.Value = DateTime.Now;
@@ -542,9 +522,11 @@ public partial class DownloadHistoryForm : Form
         if (cB_DownloadResult.Checked)
         {
             cBO_DownloadResult.Enabled = true;
-            cBO_DownloadResult.Text = cBO_DownloadResult.Items.Count > 0 ? cBO_DownloadResult.Items[0].ToString() : string.Empty;
+            cBO_DownloadResult.Text = cBO_DownloadResult.Items.Count > 0
+                ? cBO_DownloadResult.Items[0].ToString()
+                : string.Empty;
         }
-        else 
+        else
         {
             cBO_DownloadResult.Enabled = false;
             cBO_DownloadResult.Text = string.Empty;
@@ -557,10 +539,10 @@ public partial class DownloadHistoryForm : Form
         }
         else
         {
-             cB_Audio.Enabled = false;
-             cB_Video.Enabled = false;
-             cB_Audio.Checked = false;
-             cB_Video.Checked = false;
+            cB_Audio.Enabled = false;
+            cB_Video.Enabled = false;
+            cB_Audio.Checked = false;
+            cB_Video.Checked = false;
         }
     }
 }

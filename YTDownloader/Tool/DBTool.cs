@@ -1,5 +1,4 @@
-﻿using System.Data.Common;
-using JJNET.DataAccess.Entity;
+﻿using JJNET.DataAccess.Entity;
 using JJNET.Utility.Tools;
 using YTDownloader.Model;
 

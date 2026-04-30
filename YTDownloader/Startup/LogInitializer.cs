@@ -1,15 +1,13 @@
-using Serilog;
-using JJNET.DataAccess;
 using JJNET.Utility.Tools;
+using Serilog;
 
-namespace YTDownloader.Startup
+namespace YTDownloader.Startup;
+
+internal class LogInitializer : IAppInitializer
 {
-    internal class LogInitializer : IAppInitializer
+    public void Initialize()
     {
-        public void Initialize()
-        {
-            Log.Logger = LoggerTool.GetSeriLog(consoleOutput: true);
-            Log.Information("Logger initialized.");
-        }
+        Log.Logger = LoggerTool.GetSeriLog(true);
+        Log.Information("Logger initialized.");
     }
 }

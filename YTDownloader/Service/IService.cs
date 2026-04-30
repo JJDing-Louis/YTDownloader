@@ -1,7 +1,6 @@
-﻿
-
-/// <summary>
+﻿/// <summary>
 /// TODO: 下個版本要把邏輯轉移到Service裡面，做UI解構
+
 namespace YTDownloader.Service;
 
 internal interface IService : IDisposable

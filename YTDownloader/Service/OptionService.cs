@@ -33,7 +33,7 @@ public class OptionService
     }
 
     /// <summary>
-    /// 取得指定外部選單的全部項目。Key 為 Desc（顯示文字），Value 為 Name（資料庫值）。
+    ///     取得指定外部選單的全部項目。Key 為 Desc（顯示文字），Value 為 Name（資料庫值）。
     /// </summary>
     public static IReadOnlyList<KeyValuePair<string, string>> GetOptions(string listName)
     {
@@ -44,7 +44,7 @@ public class OptionService
     }
 
     /// <summary>
-    /// 依 Name（資料庫值）取得 Desc（顯示文字）。
+    ///     依 Name（資料庫值）取得 Desc（顯示文字）。
     /// </summary>
     public static string GetOptionDesc(string listName, string name)
     {
@@ -56,7 +56,7 @@ public class OptionService
     }
 
     /// <summary>
-    /// 依 Desc（顯示文字）取得 Name（資料庫值）。
+    ///     依 Desc（顯示文字）取得 Name（資料庫值）。
     /// </summary>
     public static string GetOptionName(string listName, string desc)
     {

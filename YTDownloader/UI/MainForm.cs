@@ -16,13 +16,13 @@ public partial class MainForm : Form
 {
     private const string OptionListMediaType = "ListMediaType";
     private const string OptionListDownloadStatus = "ListDownloadStatus";
+
+    private readonly HashSet<long> _canceledDownloadTaskIds = new();
+    private readonly object _canceledDownloadTaskIdsLock = new();
     private readonly ConfigService _configService;
 
     /// <summary>以 Task ID 為 Key，記錄每筆下載任務的控制器。</summary>
     private readonly Dictionary<long, DownloadTaskController> _downloadControllers = new();
-
-    private readonly HashSet<long> _canceledDownloadTaskIds = new();
-    private readonly object _canceledDownloadTaskIdsLock = new();
 
     /// <summary>跨批次共用的下載併發限制器，最大同時下載數由 Config.json 控制。</summary>
     private readonly AdjustableConcurrencyLimiter _downloadLimiter;
@@ -101,10 +101,7 @@ public partial class MainForm : Form
         _configForm = new ConfigForm(_configService);
         _configForm.Location = new Point(700, 0);
         _configForm.SettingsApplied += (_, settings) => ApplyRuntimeSettings(settings);
-        _configForm.FormClosed += (_, _) =>
-        {
-            ApplyRuntimeSettings(_configService.Load());
-        };
+        _configForm.FormClosed += (_, _) => { ApplyRuntimeSettings(_configService.Load()); };
         _configForm.Disposed += (_, _) => _configForm = null;
         _configForm.Show(this);
     }
@@ -117,10 +114,8 @@ public partial class MainForm : Form
             .ToList();
 
         foreach (var row in completedRows)
-        {
             if (dGV_DownloadList.Rows.Contains(row))
                 dGV_DownloadList.Rows.Remove(row);
-        }
 
         RenumberRows();
     }
@@ -165,11 +160,11 @@ public partial class MainForm : Form
 
         foreach (var controller in controllersToClean)
         {
-            CleanCanceledDownloadFiles(controller, releaseReservedFileName: true);
+            CleanCanceledDownloadFiles(controller, true);
             _ = Task.Run(async () =>
             {
                 await Task.Delay(TimeSpan.FromSeconds(2));
-                CleanCanceledDownloadFiles(controller, releaseReservedFileName: false);
+                CleanCanceledDownloadFiles(controller, false);
             });
         }
     }

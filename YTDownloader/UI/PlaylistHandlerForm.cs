@@ -1,5 +1,4 @@
-﻿using System.Text;
-using Autofac;
+﻿using Autofac;
 using JJNET.Utility.Tools;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -16,15 +15,15 @@ public partial class PlaylistHandlerForm : Form
     private readonly ConfigService _configService;
     private readonly ILogger _logger;
     private readonly ConfigModel _settings;
-    private IConfiguration config = null!;
-    private bool _isSelectAllChecked;
-    private bool _updatingSelectAllState;
-    private string downloadDir = string.Empty;
-    private string ffmpegPath = string.Empty;
     private readonly MainForm mainForm = null!;
     private readonly string mediaType = string.Empty;
     private readonly string mediaTypeDisplay = string.Empty;
     private readonly string playlistUrl = string.Empty;
+    private bool _isSelectAllChecked;
+    private bool _updatingSelectAllState;
+    private IConfiguration config = null!;
+    private string downloadDir = string.Empty;
+    private string ffmpegPath = string.Empty;
     private List<PlaylistVideoItem> playlistVideos = new();
     private string ytDlpPath = string.Empty;
 
@@ -85,14 +84,10 @@ public partial class PlaylistHandlerForm : Form
             {
                 //暫存目前取得的播放清單媒體資訊
                 playlistVideos = playlist.Videos.DeepClone();
-                foreach (var video in playlistVideos)
-                {
-                    video.IsSelected = false;
-                }
+                foreach (var video in playlistVideos) video.IsSelected = false;
 
                 //UI顯示
                 foreach (var video in playlist.Videos)
-                {
                     dGV_PlayList.Rows.Add(
                         false, // CheckBox 欄
                         video.Index, // #
@@ -102,8 +97,8 @@ public partial class PlaylistHandlerForm : Form
                         video.DurationString, // 時長（mm:ss / hh:mm:ss）
                         video.WebpageUrl // 連結（隱藏欄位）
                     );
-                }
             }
+
             UpdateSelectAllCheckBoxState();
 
             // 若有不可播放的影片（私人 / 刪除 / 地區限制），跳出一次性提示
@@ -197,7 +192,6 @@ public partial class PlaylistHandlerForm : Form
     }
 
 
-
     private void InitDataGridView()
     {
         dGV_PlayList.Columns.Clear();
@@ -289,10 +283,7 @@ public partial class PlaylistHandlerForm : Form
 
     private void PlayList_ColumnHeaderMouseClick(object? sender, DataGridViewCellMouseEventArgs e)
     {
-        if (e.ColumnIndex < 0 || dGV_PlayList.Columns[e.ColumnIndex].Name != SelectColumnName)
-        {
-            return;
-        }
+        if (e.ColumnIndex < 0 || dGV_PlayList.Columns[e.ColumnIndex].Name != SelectColumnName) return;
 
         SetAllRowsSelected(!_isSelectAllChecked);
     }
@@ -302,12 +293,9 @@ public partial class PlaylistHandlerForm : Form
         dGV_PlayList.EndEdit();
         _updatingSelectAllState = true;
         foreach (DataGridViewRow row in dGV_PlayList.Rows)
-        {
             if (!row.IsNewRow)
-            {
                 row.Cells[SelectColumnName].Value = isSelected;
-            }
-        }
+
         _updatingSelectAllState = false;
 
         _isSelectAllChecked = isSelected;
@@ -318,9 +306,7 @@ public partial class PlaylistHandlerForm : Form
     {
         if (dGV_PlayList.IsCurrentCellDirty &&
             dGV_PlayList.CurrentCell?.OwningColumn?.Name == SelectColumnName)
-        {
             dGV_PlayList.CommitEdit(DataGridViewDataErrorContexts.Commit);
-        }
     }
 
     private void PlayList_CellValueChanged(object? sender, DataGridViewCellEventArgs e)
@@ -329,9 +315,7 @@ public partial class PlaylistHandlerForm : Form
             e.ColumnIndex < 0 ||
             dGV_PlayList.Columns[e.ColumnIndex].Name != SelectColumnName ||
             _updatingSelectAllState)
-        {
             return;
-        }
 
         UpdateSelectAllCheckBoxState();
     }
@@ -351,14 +335,9 @@ public partial class PlaylistHandlerForm : Form
         if (e.RowIndex != -1 ||
             e.ColumnIndex < 0 ||
             dGV_PlayList.Columns[e.ColumnIndex].Name != SelectColumnName)
-        {
             return;
-        }
 
-        if (e.Graphics == null)
-        {
-            return;
-        }
+        if (e.Graphics == null) return;
 
         e.Paint(e.CellBounds, e.PaintParts & ~DataGridViewPaintParts.ContentForeground);
 
@@ -449,7 +428,6 @@ public partial class PlaylistHandlerForm : Form
     #endregion
 
     #region UI Functions
-
 
     private void btn_Download_Click(object sender, EventArgs e)
     {

@@ -11,15 +11,15 @@
 - [建構子](#建構子)
 - [公開方法總覽](#公開方法總覽)
 - [方法詳細說明](#方法詳細說明)
-  - [DownloadVideoAsync](#downloadvideoasync)
-  - [DownloadAudioAsync](#downloadaudioasync)
-  - [DownloadVideosAsync](#downloadvideosasync)
-  - [DownloadBestMuxedVideoAsync](#downloadbestmuxedvideoasync)
-  - [DownloadByDetectedTypeAsync](#downloadbydetectedtypeasync)
-  - [GetPlaylistVideosAsync](#getplaylistvideosasync)
-  - [GetMetadataAsync](#getmetadataasync)
-  - [DetectResourceAsync](#detectresourceasync)
-  - [GetFormatsAsync](#getformatsasync)
+    - [DownloadVideoAsync](#downloadvideoasync)
+    - [DownloadAudioAsync](#downloadaudioasync)
+    - [DownloadVideosAsync](#downloadvideosasync)
+    - [DownloadBestMuxedVideoAsync](#downloadbestmuxedvideoasync)
+    - [DownloadByDetectedTypeAsync](#downloadbydetectedtypeasync)
+    - [GetPlaylistVideosAsync](#getplaylistvideosasync)
+    - [GetMetadataAsync](#getmetadataasync)
+    - [DetectResourceAsync](#detectresourceasync)
+    - [GetFormatsAsync](#getformatsasync)
 - [相關 Model](#相關-model)
 - [錯誤處理](#錯誤處理)
 - [注意事項](#注意事項)
@@ -28,12 +28,12 @@
 
 ## 前置需求
 
-| 項目 | 說明 |
-|------|------|
-| **yt-dlp 執行檔** | 需事先下載並放置於固定路徑，官方下載：https://github.com/yt-dlp/yt-dlp/releases |
-| **ffmpeg**（選用） | 若需要影音合併（muxing）或音訊轉檔，需額外提供 ffmpeg 資料夾路徑 |
-| **.NET 8** | 目標框架 `net8.0-windows` |
-| **ManuHub.Ytdlp.NET 3.0.x** | NuGet 套件，已由專案引用 |
+| 項目                          | 說明                                                           |
+|-----------------------------|--------------------------------------------------------------|
+| **yt-dlp 執行檔**              | 需事先下載並放置於固定路徑，官方下載：https://github.com/yt-dlp/yt-dlp/releases |
+| **ffmpeg**（選用）              | 若需要影音合併（muxing）或音訊轉檔，需額外提供 ffmpeg 資料夾路徑                      |
+| **.NET 8**                  | 目標框架 `net8.0-windows`                                        |
+| **ManuHub.Ytdlp.NET 3.0.x** | NuGet 套件，已由專案引用                                              |
 
 ---
 
@@ -43,10 +43,10 @@
 public YtDlpDownloadService(string ytDlpPath, string? ffmpegFolder = null)
 ```
 
-| 參數 | 型別 | 必填 | 說明 |
-|------|------|------|------|
-| `ytDlpPath` | `string` | ✅ | `yt-dlp.exe` 的完整路徑 |
-| `ffmpegFolder` | `string?` | ❌ | ffmpeg 執行檔所在的**資料夾**路徑（非執行檔路徑），留空則跳過設定 |
+| 參數             | 型別        | 必填 | 說明                                     |
+|----------------|-----------|----|----------------------------------------|
+| `ytDlpPath`    | `string`  | ✅  | `yt-dlp.exe` 的完整路徑                     |
+| `ffmpegFolder` | `string?` | ❌  | ffmpeg 執行檔所在的**資料夾**路徑（非執行檔路徑），留空則跳過設定 |
 
 **例外：** `ytDlpPath` 為空白時拋出 `ArgumentException`。
 
@@ -62,17 +62,17 @@ var service = new YtDlpDownloadService(
 
 ## 公開方法總覽
 
-| 方法 | 回傳型別 | 用途 |
-|------|----------|------|
-| `DownloadVideoAsync` | `DownloadResult` | 下載單一影片（或整個播放清單） |
-| `DownloadAudioAsync` | `DownloadResult` | 提取並下載音訊 |
-| `DownloadVideosAsync` | `BatchDownloadResult` | 批次下載多個 URL |
-| `DownloadBestMuxedVideoAsync` | `DownloadResult` | 自動選最佳影音格式後下載 |
-| `DownloadByDetectedTypeAsync` | `DownloadResult` | 偵測類型後自動分流下載 |
-| `GetPlaylistVideosAsync` | `PlaylistFetchResult` | 讀取播放清單所有影片資訊供 UI 勾選 |
-| `GetMetadataAsync` | `YtDlpMetadata?` | 取得影片或播放清單的 metadata |
-| `DetectResourceAsync` | `ResourceDetectionResult` | 判斷 URL 是單一影片或播放清單 |
-| `GetFormatsAsync` | `List<VideoFormatDto>` | 取得可用的影音格式清單 |
+| 方法                            | 回傳型別                      | 用途                  |
+|-------------------------------|---------------------------|---------------------|
+| `DownloadVideoAsync`          | `DownloadResult`          | 下載單一影片（或整個播放清單）     |
+| `DownloadAudioAsync`          | `DownloadResult`          | 提取並下載音訊             |
+| `DownloadVideosAsync`         | `BatchDownloadResult`     | 批次下載多個 URL          |
+| `DownloadBestMuxedVideoAsync` | `DownloadResult`          | 自動選最佳影音格式後下載        |
+| `DownloadByDetectedTypeAsync` | `DownloadResult`          | 偵測類型後自動分流下載         |
+| `GetPlaylistVideosAsync`      | `PlaylistFetchResult`     | 讀取播放清單所有影片資訊供 UI 勾選 |
+| `GetMetadataAsync`            | `YtDlpMetadata?`          | 取得影片或播放清單的 metadata |
+| `DetectResourceAsync`         | `ResourceDetectionResult` | 判斷 URL 是單一影片或播放清單   |
+| `GetFormatsAsync`             | `List<VideoFormatDto>`    | 取得可用的影音格式清單         |
 
 ---
 
@@ -96,14 +96,14 @@ Task<DownloadResult> DownloadVideoAsync(
     CancellationToken cancellationToken = default)
 ```
 
-| 參數 | 預設值 | 說明 |
-|------|--------|------|
-| `url` | — | 影片 URL（必填） |
-| `outputFolder` | — | 輸出資料夾路徑，不存在時自動建立（必填） |
-| `format` | `"best"` | yt-dlp 格式選擇字串，例如 `"bestvideo+bestaudio/best"` |
-| `outputTemplate` | `"%(title)s.%(ext)s"` | 輸出檔名模板，使用 yt-dlp 的 `%(field)s` 語法 |
-| `downloadThumbnail` | `false` | 是否一併下載縮圖 |
-| `embedMetadata` | `false` | 是否將 metadata 嵌入影片檔案 |
+| 參數                  | 預設值                   | 說明                                            |
+|---------------------|-----------------------|-----------------------------------------------|
+| `url`               | —                     | 影片 URL（必填）                                    |
+| `outputFolder`      | —                     | 輸出資料夾路徑，不存在時自動建立（必填）                          |
+| `format`            | `"best"`              | yt-dlp 格式選擇字串，例如 `"bestvideo+bestaudio/best"` |
+| `outputTemplate`    | `"%(title)s.%(ext)s"` | 輸出檔名模板，使用 yt-dlp 的 `%(field)s` 語法             |
+| `downloadThumbnail` | `false`               | 是否一併下載縮圖                                      |
+| `embedMetadata`     | `false`               | 是否將 metadata 嵌入影片檔案                           |
 
 ```csharp
 // 範例：下載最佳畫質，並嵌入 metadata
@@ -137,12 +137,12 @@ Task<DownloadResult> DownloadAudioAsync(
     CancellationToken cancellationToken = default)
 ```
 
-| 參數 | 預設值 | 說明 |
-|------|--------|------|
-| `audioFormat` | `Mp3` | 輸出音訊格式，可選 `Mp3`、`M4a`、`Flac`、`Wav`、`Opus` 等 |
-| `audioQuality` | `5` | 音質等級，`0` 最佳，`10` 最差（VBR 模式） |
-| `embedMetadata` | `true` | 是否嵌入 metadata（標題、作者等） |
-| `embedThumbnail` | `false` | 是否將縮圖嵌入音訊檔作為封面 |
+| 參數               | 預設值     | 說明                                          |
+|------------------|---------|---------------------------------------------|
+| `audioFormat`    | `Mp3`   | 輸出音訊格式，可選 `Mp3`、`M4a`、`Flac`、`Wav`、`Opus` 等 |
+| `audioQuality`   | `5`     | 音質等級，`0` 最佳，`10` 最差（VBR 模式）                 |
+| `embedMetadata`  | `true`  | 是否嵌入 metadata（標題、作者等）                       |
+| `embedThumbnail` | `false` | 是否將縮圖嵌入音訊檔作為封面                              |
 
 ```csharp
 // 範例：下載為高品質 MP3 並嵌入封面
@@ -170,12 +170,13 @@ Task<BatchDownloadResult> DownloadVideosAsync(
     CancellationToken cancellationToken = default)
 ```
 
-| 參數 | 預設值 | 說明 |
-|------|--------|------|
-| `urls` | — | URL 清單，空白項目自動略過，重複項目自動去除 |
-| `maxConcurrency` | `3` | 同時下載的最大數量 |
+| 參數               | 預設值 | 說明                       |
+|------------------|-----|--------------------------|
+| `urls`           | —   | URL 清單，空白項目自動略過，重複項目自動去除 |
+| `maxConcurrency` | `3` | 同時下載的最大數量                |
 
 **例外：**
+
 - `urls` 為 `null` → `ArgumentNullException`
 - 過濾後清單為空 → `ArgumentException`
 
@@ -210,8 +211,8 @@ Task<DownloadResult> DownloadBestMuxedVideoAsync(
     CancellationToken cancellationToken = default)
 ```
 
-| 參數 | 預設值 | 說明 |
-|------|--------|------|
+| 參數          | 預設值    | 說明                                 |
+|-------------|--------|------------------------------------|
 | `maxHeight` | `1080` | 影像解析度上限（像素），例如 `720`、`1080`、`2160` |
 
 ```csharp
@@ -269,9 +270,9 @@ Task<PlaylistFetchResult> GetPlaylistVideosAsync(
     CancellationToken cancellationToken = default)
 ```
 
-| 參數 | 預設值 | 說明 |
-|------|--------|------|
-| `progress` | `null` | 進度回報，每解析完一筆影片時觸發，含（目前索引、總數、影片標題） |
+| 參數         | 預設值    | 說明                                         |
+|------------|--------|--------------------------------------------|
+| `progress` | `null` | 進度回報，每解析完一筆影片時觸發，含（目前索引、總數、影片標題）           |
 | `bufferKb` | `8192` | metadata 讀取緩衝，大型播放清單（100 部以上）建議調高至 `16384` |
 
 **完整 UI 使用流程：**
@@ -317,17 +318,17 @@ private async void btnDownload_Click(object sender, EventArgs e)
 
 **`PlaylistVideoItem` 主要欄位：**
 
-| 屬性 | 型別 | 說明 |
-|------|------|------|
-| `Index` | `int` | 在播放清單中的順序（從 1 開始） |
-| `Title` | `string?` | 影片標題 |
-| `Uploader` | `string?` | 上傳者 / 頻道名稱 |
-| `Duration` | `int?` | 長度（秒） |
-| `DurationString` | `string` | 格式化時間，例如 `"03:45"` 或 `"01:02:30"` |
-| `Thumbnail` | `string?` | 縮圖 URL |
-| `WebpageUrl` | `string?` | 影片頁面 URL（下載時使用） |
-| `IsSelected` | `bool` | UI 勾選狀態，預設 `true` |
-| `DisplayTitle` | `string` | 顯示用標題，為空時 fallback 至 ID |
+| 屬性               | 型別        | 說明                                |
+|------------------|-----------|-----------------------------------|
+| `Index`          | `int`     | 在播放清單中的順序（從 1 開始）                 |
+| `Title`          | `string?` | 影片標題                              |
+| `Uploader`       | `string?` | 上傳者 / 頻道名稱                        |
+| `Duration`       | `int?`    | 長度（秒）                             |
+| `DurationString` | `string`  | 格式化時間，例如 `"03:45"` 或 `"01:02:30"` |
+| `Thumbnail`      | `string?` | 縮圖 URL                            |
+| `WebpageUrl`     | `string?` | 影片頁面 URL（下載時使用）                   |
+| `IsSelected`     | `bool`    | UI 勾選狀態，預設 `true`                 |
+| `DisplayTitle`   | `string`  | 顯示用標題，為空時 fallback 至 ID           |
 
 ---
 
@@ -356,19 +357,19 @@ if (meta != null)
 
 **`YtDlpMetadata` 主要欄位：**
 
-| 屬性 | 說明 |
-|------|------|
-| `Id` | 影片 ID |
-| `Title` | 標題 |
-| `Uploader` | 上傳者 |
-| `Duration` | 長度（秒） |
-| `Thumbnail` | 縮圖 URL |
-| `WebpageUrl` | 影片頁面 URL |
-| `PlaylistId` | 播放清單 ID（單一影片時為 null） |
-| `PlaylistTitle` | 播放清單標題 |
-| `PlaylistCount` | 播放清單宣告總數 |
-| `EntryCount` | 實際解析到的 Entry 數量 |
-| `IsPlaylist` | 綜合以上欄位判斷是否為播放清單 |
+| 屬性              | 說明                   |
+|-----------------|----------------------|
+| `Id`            | 影片 ID                |
+| `Title`         | 標題                   |
+| `Uploader`      | 上傳者                  |
+| `Duration`      | 長度（秒）                |
+| `Thumbnail`     | 縮圖 URL               |
+| `WebpageUrl`    | 影片頁面 URL             |
+| `PlaylistId`    | 播放清單 ID（單一影片時為 null） |
+| `PlaylistTitle` | 播放清單標題               |
+| `PlaylistCount` | 播放清單宣告總數             |
+| `EntryCount`    | 實際解析到的 Entry 數量      |
+| `IsPlaylist`    | 綜合以上欄位判斷是否為播放清單      |
 
 ---
 
@@ -431,13 +432,13 @@ await service.DownloadVideoAsync(url, outputFolder, format: selectedFormatId);
 
 **`VideoFormatDto` 欄位：**
 
-| 屬性 | 說明 |
-|------|------|
-| `Id` | yt-dlp 格式 ID（用於 `format` 參數） |
-| `Extension` | 副檔名，例如 `mp4`、`webm` |
-| `Resolution` | 解析度字串，例如 `1920x1080` |
-| `VCodec` | 影像編碼，例如 `avc1`、`vp9` |
-| `ACodec` | 音訊編碼，例如 `mp4a`、`opus` |
+| 屬性           | 說明                           |
+|--------------|------------------------------|
+| `Id`         | yt-dlp 格式 ID（用於 `format` 參數） |
+| `Extension`  | 副檔名，例如 `mp4`、`webm`          |
+| `Resolution` | 解析度字串，例如 `1920x1080`         |
+| `VCodec`     | 影像編碼，例如 `avc1`、`vp9`         |
+| `ACodec`     | 音訊編碼，例如 `mp4a`、`opus`        |
 | `FormatNote` | 補充說明，例如 `1080p`、`DASH audio` |
 
 ---
@@ -461,14 +462,14 @@ YTDownloader.Model
 
 所有下載與查詢方法都遵循以下統一原則：
 
-| 情境 | 行為 |
-|------|------|
-| `url` 為空或格式不正確 | 直接拋出 `ArgumentException`，**不進入** yt-dlp 流程 |
-| `outputFolder` 為空 | 直接拋出 `ArgumentException` |
-| `urls` 為 `null`（批次下載） | 拋出 `ArgumentNullException` |
-| 使用者取消（`CancellationToken`） | 回傳 `IsSuccess = false`，`Message` 說明已取消，**不拋出例外** |
-| yt-dlp 執行期間發生錯誤 | 記錄 Log，回傳 `IsSuccess = false`，**不拋出例外** |
-| `GetMetadataAsync` / `GetFormatsAsync` 失敗 | 回傳 `null` 或空清單，**不拋出例外** |
+| 情境                                        | 行為                                               |
+|-------------------------------------------|--------------------------------------------------|
+| `url` 為空或格式不正確                            | 直接拋出 `ArgumentException`，**不進入** yt-dlp 流程       |
+| `outputFolder` 為空                         | 直接拋出 `ArgumentException`                         |
+| `urls` 為 `null`（批次下載）                     | 拋出 `ArgumentNullException`                       |
+| 使用者取消（`CancellationToken`）                | 回傳 `IsSuccess = false`，`Message` 說明已取消，**不拋出例外** |
+| yt-dlp 執行期間發生錯誤                           | 記錄 Log，回傳 `IsSuccess = false`，**不拋出例外**          |
+| `GetMetadataAsync` / `GetFormatsAsync` 失敗 | 回傳 `null` 或空清單，**不拋出例外**                         |
 
 取消下載範例：
 

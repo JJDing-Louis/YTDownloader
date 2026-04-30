@@ -121,10 +121,8 @@ internal static class GUITool
             ApplyFontToControlTree(child, font);
 
         if (control is MenuStrip menuStrip)
-        {
             foreach (ToolStripItem item in menuStrip.Items)
                 ApplyFontToToolStripItem(item, font);
-        }
     }
 
     private static void ApplyFontToToolStripItem(ToolStripItem item, Font font)
@@ -132,10 +130,8 @@ internal static class GUITool
         item.Font = new Font(font, font.Style);
 
         if (item is ToolStripDropDownItem dropDownItem)
-        {
             foreach (ToolStripItem child in dropDownItem.DropDownItems)
                 ApplyFontToToolStripItem(child, font);
-        }
     }
 
     private static void ApplyBackgroundImage(Form form, string backgroundImage)
@@ -153,7 +149,8 @@ internal static class GUITool
         form.BackgroundImageLayout = ImageLayout.Stretch;
     }
 
-    private static void ApplyColorsToControls(Control.ControlCollection controls, Color backColor, Color foreColor, bool isDarkMode)
+    private static void ApplyColorsToControls(Control.ControlCollection controls, Color backColor, Color foreColor,
+        bool isDarkMode)
     {
         foreach (Control control in controls)
         {

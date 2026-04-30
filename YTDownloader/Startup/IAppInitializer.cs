@@ -1,7 +1,6 @@
-namespace YTDownloader.Startup
+namespace YTDownloader.Startup;
+
+internal interface IAppInitializer
 {
-    internal interface IAppInitializer
-    {
-        void Initialize();
-    }
+    void Initialize();
 }
