@@ -14,6 +14,8 @@ namespace YTDownloader.Service;
 /// </summary>
 public class YtDlpDownloadService
 {
+    private static readonly string[] BrowserCookieSources = { "edge", "chrome", "firefox" };
+
     /// <summary>
     ///     yt-dlp 在 flat-playlist 模式下，對無法存取的影片會輸出佔位標題，
     ///     格式為 "[Xxx video]"。此方法用來偵測這類條目。
@@ -46,6 +48,7 @@ public class YtDlpDownloadService
     };
 
     private readonly string? _ffmpegFolder;
+    private readonly string? _cookiesFilePath;
     private readonly string _ytDlpPath;
     private readonly ILogger<YtDlpDownloadService> logger;
 
@@ -63,13 +66,15 @@ public class YtDlpDownloadService
     public YtDlpDownloadService(
         string ytDlpPath,
         string? ffmpegFolder = null,
-        ILogger<YtDlpDownloadService>? logger = null)
+        ILogger<YtDlpDownloadService>? logger = null,
+        string? cookiesFilePath = null)
     {
         if (string.IsNullOrWhiteSpace(ytDlpPath))
             throw new ArgumentException("yt-dlp 路徑不可為空", nameof(ytDlpPath));
 
         _ytDlpPath = ytDlpPath;
         _ffmpegFolder = ffmpegFolder;
+        _cookiesFilePath = ResolveCookiesFilePath(cookiesFilePath);
         this.logger = logger ?? ResolveLogger();
     }
 
@@ -134,13 +139,14 @@ public class YtDlpDownloadService
                 "影片下載完成",
                 "影片下載已取消",
                 "影片下載失敗"),
-            () => BuildVideoDownloader(
+            browserCookieSource => BuildVideoDownloader(
                 outputFolder,
                 format,
                 outputTemplate,
                 downloadThumbnail,
                 embedMetadata,
-                knownTitle),
+                knownTitle,
+                browserCookieSource),
             onProgress,
             cancellationToken);
     }
@@ -209,14 +215,15 @@ public class YtDlpDownloadService
                 $"音訊下載完成，格式：{audioFormat}",
                 "音訊下載已取消",
                 "音訊下載失敗"),
-            () => BuildAudioDownloader(
+            browserCookieSource => BuildAudioDownloader(
                 outputFolder,
                 audioFormat,
                 audioQuality,
                 outputTemplate,
                 embedMetadata,
                 embedThumbnail,
-                knownTitle),
+                knownTitle,
+                browserCookieSource),
             onProgress,
             cancellationToken);
     }
@@ -645,7 +652,7 @@ public class YtDlpDownloadService
 
     private async Task<DownloadResult> ExecuteDownloadAsync(
         DownloadExecutionRequest request,
-        Func<Ytdlp> createDownloader,
+        Func<string?, Ytdlp> createDownloader,
         Action<double>? onProgress,
         CancellationToken cancellationToken)
     {
@@ -654,22 +661,67 @@ public class YtDlpDownloadService
 
         try
         {
-            await using var ytdlp = createDownloader();
-
-            var ytSuccess = true;
-            var ytErrors = string.Empty;
-            AttachEvents(ytdlp, onProgress, (ok, err) =>
-            {
-                ytSuccess = ok;
-                ytErrors = err;
-            });
-
             logger.LogInformation(request.StartLogMessage, request.Url, request.OutputFolder);
-            await ytdlp.DownloadAsync(request.Url, cancellationToken);
+            var firstAttempt = await RunDownloadAttemptAsync(
+                request,
+                createDownloader,
+                onProgress,
+                null,
+                cancellationToken);
 
-            return ytSuccess
-                ? DownloadResult.Success(request.Url, request.OutputFolder, request.SuccessMessage)
-                : DownloadResult.Fail(request.Url, BuildYtDlpFailureMessage(ytErrors));
+            if (firstAttempt.IsSuccess)
+                return DownloadResult.Success(request.Url, request.OutputFolder, request.SuccessMessage);
+
+            if (!NeedsAuthenticatedCookies(firstAttempt.ErrorMessage))
+                return DownloadResult.Fail(request.Url, BuildYtDlpFailureMessage(firstAttempt.ErrorMessage));
+
+            var retryErrors = new List<string>();
+
+            foreach (var browserCookieSource in BrowserCookieSources)
+            {
+                logger.LogInformation(
+                    "yt-dlp 需要登入驗證，改用 {Browser} cookies 重試：{Url}",
+                    browserCookieSource,
+                    request.Url);
+
+                try
+                {
+                    var retryAttempt = await RunDownloadAttemptAsync(
+                        request,
+                        createDownloader,
+                        onProgress,
+                        browserCookieSource,
+                        cancellationToken);
+
+                    if (retryAttempt.IsSuccess)
+                        return DownloadResult.Success(
+                            request.Url,
+                            request.OutputFolder,
+                            $"{request.SuccessMessage}（已使用 {browserCookieSource} cookies 驗證）");
+
+                    if (!string.IsNullOrWhiteSpace(retryAttempt.ErrorMessage))
+                        retryErrors.Add($"{browserCookieSource}: {retryAttempt.ErrorMessage}");
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    retryErrors.Add($"{browserCookieSource}: {ex.Message}");
+                    logger.LogWarning(
+                        ex,
+                        "使用 {Browser} cookies 重試下載失敗，將嘗試下一個瀏覽器。",
+                        browserCookieSource);
+                }
+            }
+
+            return DownloadResult.Fail(
+                request.Url,
+                BuildYtDlpFailureMessage(
+                    firstAttempt.ErrorMessage
+                    + Environment.NewLine
+                    + BuildAuthenticatedCookiesHelpMessage(retryErrors)));
         }
         catch (OperationCanceledException)
         {
@@ -682,11 +734,66 @@ public class YtDlpDownloadService
         }
     }
 
+    private async Task<DownloadAttemptResult> RunDownloadAttemptAsync(
+        DownloadExecutionRequest request,
+        Func<string?, Ytdlp> createDownloader,
+        Action<double>? onProgress,
+        string? browserCookieSource,
+        CancellationToken cancellationToken)
+    {
+        await using var ytdlp = createDownloader(browserCookieSource);
+
+        var ytSuccess = true;
+        var ytErrors = string.Empty;
+        AttachEvents(ytdlp, onProgress, (ok, err) =>
+        {
+            ytSuccess = ok;
+            ytErrors = err;
+        });
+
+        await ytdlp.DownloadAsync(request.Url, cancellationToken);
+        return new DownloadAttemptResult(ytSuccess, ytErrors);
+    }
+
     private static string BuildYtDlpFailureMessage(string ytErrors)
     {
         return string.IsNullOrWhiteSpace(ytErrors)
             ? "yt-dlp 回報下載失敗（未知原因）"
             : $"yt-dlp 下載失敗：{ytErrors}";
+    }
+
+    private static bool NeedsAuthenticatedCookies(string ytErrors)
+    {
+        return ytErrors.Contains("Sign in to confirm your age", StringComparison.OrdinalIgnoreCase)
+               || ytErrors.Contains("age-restricted", StringComparison.OrdinalIgnoreCase)
+               || ytErrors.Contains("Use --cookies-from-browser", StringComparison.OrdinalIgnoreCase)
+               || ytErrors.Contains("Use --cookies", StringComparison.OrdinalIgnoreCase)
+               || ytErrors.Contains("confirm your age", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string BuildAuthenticatedCookiesHelpMessage(IReadOnlyCollection<string> retryErrors)
+    {
+        var message = "此影片需要登入或年齡驗證；已嘗試讀取 Edge/Chrome/Firefox cookies 但仍未成功。"
+                      + " 請關閉正在使用的瀏覽器後重試，或將已登入 YouTube 的 cookies 匯出為 cookies.txt 並放在程式目錄。";
+
+        return retryErrors.Count == 0
+            ? message
+            : message + Environment.NewLine + string.Join(Environment.NewLine, retryErrors);
+    }
+
+    private static string? ResolveCookiesFilePath(string? configuredPath)
+    {
+        var candidates = new List<string>();
+
+        if (!string.IsNullOrWhiteSpace(configuredPath))
+            candidates.Add(configuredPath.Trim());
+
+        candidates.Add(Path.Combine(AppContext.BaseDirectory, "cookies.txt"));
+        candidates.Add(Path.Combine(Environment.CurrentDirectory, "cookies.txt"));
+
+        return candidates
+            .Select(path => Path.GetFullPath(path))
+            .FirstOrDefault(File.Exists);
     }
 
     private static ILogger<YtDlpDownloadService> ResolveLogger()
@@ -701,11 +808,17 @@ public class YtDlpDownloadService
         }
     }
 
-    private Ytdlp CreateBaseClient()
+    private Ytdlp CreateBaseClient(string? browserCookieSource = null)
     {
         var client = new Ytdlp(_ytDlpPath);
 
         if (!string.IsNullOrWhiteSpace(_ffmpegFolder)) client = client.WithFFmpegLocation(_ffmpegFolder);
+
+        if (!string.IsNullOrWhiteSpace(_cookiesFilePath))
+            client = client.WithCookiesFile(_cookiesFilePath);
+
+        if (!string.IsNullOrWhiteSpace(browserCookieSource))
+            client = client.WithCookiesFromBrowser(browserCookieSource);
 
         return client;
     }
@@ -716,12 +829,13 @@ public class YtDlpDownloadService
         string? outputTemplate,
         bool downloadThumbnail,
         bool embedMetadata,
-        string? knownTitle)
+        string? knownTitle,
+        string? browserCookieSource)
     {
         var resolvedTemplate = ResolveUniqueOutputTemplate(
             outputFolder, outputTemplate, knownTitle, _videoCandidateExtensions);
 
-        var ytdlp = CreateBaseClient()
+        var ytdlp = CreateBaseClient(browserCookieSource)
             .WithFormat(format)
             .WithOutputFolder(outputFolder);
 
@@ -741,12 +855,13 @@ public class YtDlpDownloadService
         string? outputTemplate,
         bool embedMetadata,
         bool embedThumbnail,
-        string? knownTitle)
+        string? knownTitle,
+        string? browserCookieSource)
     {
         var resolvedTemplate = ResolveUniqueOutputTemplate(
             outputFolder, outputTemplate, knownTitle, _audioCandidateExtensions);
 
-        var ytdlp = CreateBaseClient()
+        var ytdlp = CreateBaseClient(browserCookieSource)
             .WithExtractAudio(audioFormat, audioQuality)
             .WithOutputFolder(outputFolder);
 
@@ -1097,4 +1212,6 @@ public class YtDlpDownloadService
         string SuccessMessage,
         string CanceledMessage,
         string FailurePrefix);
+
+    private sealed record DownloadAttemptResult(bool IsSuccess, string ErrorMessage);
 }

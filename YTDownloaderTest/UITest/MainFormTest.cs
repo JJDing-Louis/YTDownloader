@@ -13,9 +13,10 @@ public class MainFormTest
     public void ClearCompleteTask_RemovesOnlyCompletedRows()
     {
         using var grid = CreateDownloadListGrid();
-        grid.Rows.Add(1, "完成項目", "已完成");
+        grid.Rows.Add(1, "完成項目", "完成");
         grid.Rows.Add(2, "下載中項目", "下載中");
         grid.Rows.Add(3, "英文完成項目", "Complete");
+        grid.Rows.Add(4, "舊版完成項目", "已完成");
 
         var mainForm = (MainForm)RuntimeHelpers.GetUninitializedObject(typeof(MainForm));
         SetPrivateField(mainForm, "dGV_DownloadList", grid);
@@ -27,6 +28,17 @@ public class MainFormTest
             Assert.That(grid.Rows[0].Cells["colTitle"].Value, Is.EqualTo("下載中項目"));
             Assert.That(grid.Rows[0].Cells["colIndex"].Value, Is.EqualTo(1));
         });
+    }
+
+    [Test]
+    [Description("年齡驗證下載失敗時，下載清單狀態應顯示清楚的中文摘要")]
+    public void BuildFailureStatusSummary_AgeVerification_ReturnsAgeVerificationMessage()
+    {
+        var message = "yt-dlp 下載失敗：ERROR: [youtube] qpgTC9MDx1o: Sign in to confirm your age.";
+
+        var summary = InvokePrivateStatic<string>("BuildFailureStatusSummary", message);
+
+        Assert.That(summary, Is.EqualTo("需要年齡驗證，請登入 YouTube 或提供 cookies.txt"));
     }
 
     private static DataGridView CreateDownloadListGrid()
@@ -52,5 +64,13 @@ public class MainFormTest
             .GetMethod(methodName, BindingFlags.Instance | BindingFlags.NonPublic);
         Assert.That(method, Is.Not.Null, $"找不到方法 {methodName}");
         method!.Invoke(target, args);
+    }
+
+    private static T InvokePrivateStatic<T>(string methodName, params object?[] args)
+    {
+        var method = typeof(MainForm)
+            .GetMethod(methodName, BindingFlags.Static | BindingFlags.NonPublic);
+        Assert.That(method, Is.Not.Null, $"找不到方法 {methodName}");
+        return (T)method!.Invoke(null, args)!;
     }
 }

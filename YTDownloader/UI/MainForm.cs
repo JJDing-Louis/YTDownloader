@@ -16,6 +16,7 @@ public partial class MainForm : Form
 {
     private const string OptionListMediaType = "ListMediaType";
     private const string OptionListDownloadStatus = "ListDownloadStatus";
+    private static readonly TimeSpan ProgressUpdateInterval = TimeSpan.FromMilliseconds(250);
 
     private readonly HashSet<long> _canceledDownloadTaskIds = new();
     private readonly object _canceledDownloadTaskIdsLock = new();
@@ -32,6 +33,9 @@ public partial class MainForm : Form
 
     private readonly Dictionary<string, HashSet<string>> _reservedDownloadFileNamesByFolder =
         new(StringComparer.OrdinalIgnoreCase);
+
+    private readonly Dictionary<long, ProgressUpdateState> _progressUpdateStates = new();
+    private readonly object _progressUpdateStatesLock = new();
 
     private ConfigForm? _configForm;
     private DownloadHistoryForm? _downloadHistoryForm;
@@ -81,6 +85,7 @@ public partial class MainForm : Form
             return;
 
         ApplyStartupSettings();
+        ConfigureDownloadListGrid();
         _logger.LogInformation("MainForm form initialized.");
         Init();
     }
@@ -132,6 +137,17 @@ public partial class MainForm : Form
                 dGV_DownloadList.Rows.Remove(row);
 
         RenumberRows();
+    }
+
+    private void ConfigureDownloadListGrid()
+    {
+        typeof(DataGridView)
+            .GetProperty("DoubleBuffered", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+            ?.SetValue(dGV_DownloadList, true, null);
+
+        dGV_DownloadList.AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.None;
+        dGV_DownloadList.RowTemplate.Height = 24;
+        dGV_DownloadList.ScrollBars = ScrollBars.Both;
     }
 
     private void btn_CancelAll_Click(object sender, EventArgs e)
@@ -576,6 +592,7 @@ public partial class MainForm : Form
                 100);
 
             DBTool.UpdateDownloadProgress(taskId, progress, "Cancel");
+            ClearProgressUpdateState(taskId);
         }
         catch (Exception ex)
         {
@@ -686,16 +703,65 @@ public partial class MainForm : Form
         var statusDesc = OptionService.GetOptionDesc(OptionListDownloadStatus, statusName);
         var displayStatus = parts.Length == 2 ? $"{statusDesc}：{parts[1]}" : statusDesc;
 
+        if (!ShouldApplyProgressUpdate(taskId, percent, statusName))
+            return;
+
         UpdateDownloadProgressInDatabase(taskId, percent, status);
 
-        // 如果不是在 UI 執行緒，使用 Invoke 切換到 UI 執行緒執行，確保 DataGridView 操作安全。
         if (dGV_DownloadList.InvokeRequired)
         {
-            dGV_DownloadList.Invoke(() => UpdateDownloadProgressInGrid(taskId, percent, displayStatus));
+            dGV_DownloadList.BeginInvoke(() => UpdateDownloadProgressInGrid(taskId, percent, displayStatus));
             return;
         }
 
         UpdateDownloadProgressInGrid(taskId, percent, displayStatus);
+    }
+
+    private bool ShouldApplyProgressUpdate(long taskId, double percent, string statusName)
+    {
+        if (IsTerminalStatus(statusName))
+            return true;
+        if (_progressUpdateStatesLock == null || _progressUpdateStates == null)
+            return true;
+
+        var roundedPercent = Math.Clamp((int)Math.Round(percent, MidpointRounding.AwayFromZero), 0, 100);
+        var now = DateTime.UtcNow;
+
+        lock (_progressUpdateStatesLock)
+        {
+            if (!_progressUpdateStates.TryGetValue(taskId, out var state))
+            {
+                _progressUpdateStates[taskId] = new ProgressUpdateState(roundedPercent, statusName, now);
+                return true;
+            }
+
+            if (state.Percent == roundedPercent
+                && string.Equals(state.StatusName, statusName, StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            if (now - state.UpdatedAt < ProgressUpdateInterval)
+            {
+                if (!IsImportantProgressBoundary(state.Percent, roundedPercent))
+                    return false;
+            }
+
+            _progressUpdateStates[taskId] = new ProgressUpdateState(roundedPercent, statusName, now);
+            return true;
+        }
+    }
+
+    private static bool IsImportantProgressBoundary(int oldPercent, int newPercent)
+    {
+        return newPercent is <= 0 or >= 100
+               || Math.Abs(newPercent - oldPercent) >= 5;
+    }
+
+    private static bool IsTerminalStatus(string statusName)
+    {
+        return string.Equals(statusName, "Complete", StringComparison.OrdinalIgnoreCase)
+               || string.Equals(statusName, "Fail", StringComparison.OrdinalIgnoreCase)
+               || string.Equals(statusName, "Cancel", StringComparison.OrdinalIgnoreCase)
+               || string.Equals(statusName, "Pause", StringComparison.OrdinalIgnoreCase);
     }
 
     private void UpdateDownloadProgressInGrid(long taskId, double percent, string status)
@@ -873,6 +939,7 @@ public partial class MainForm : Form
     {
         var status = row.Cells["colStatus"].Value?.ToString();
         return string.Equals(status, "已完成", StringComparison.OrdinalIgnoreCase)
+               || string.Equals(status, "完成", StringComparison.OrdinalIgnoreCase)
                || string.Equals(status, "Complete", StringComparison.OrdinalIgnoreCase);
     }
 
@@ -1200,6 +1267,7 @@ public partial class MainForm : Form
                     SetActionButton(taskId, "—");
                     ClearDownloadCanceled(taskId);
                     _downloadControllers.Remove(taskId);
+                    ClearProgressUpdateState(taskId);
                     ReleaseReservedDownloadFileName(capturedReq);
                     // 音訊下載完成後，清除 yt-dlp/ffmpeg 未自動刪除的中間影片串流暫存檔
                     if (capturedReq.MediaType == "Audio")
@@ -1207,12 +1275,9 @@ public partial class MainForm : Form
                 }
                 else
                 {
-                    // 取第一行作為簡短狀態文字，完整訊息放 Tooltip
-                    var firstLine = (result.Message ?? "未知錯誤")
-                        .Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)
-                        .FirstOrDefault() ?? "未知錯誤";
+                    var statusSummary = BuildFailureStatusSummary(result.Message);
 
-                    UpdateDownloadProgress(taskId, 0, $"Fail：{firstLine}");
+                    UpdateDownloadProgress(taskId, 0, $"Fail：{statusSummary}");
                     SetActionButton(taskId, "重試");
                     SetStatusTooltip(taskId, result.Message ?? "未知錯誤");
                     _logger.LogError("下載失敗 [{Title}]：{Message}", capturedReq.Title, result.Message);
@@ -1241,6 +1306,40 @@ public partial class MainForm : Form
             });
         }
     }
+
+    private static string BuildFailureStatusSummary(string? message)
+    {
+        if (string.IsNullOrWhiteSpace(message))
+            return "未知錯誤";
+
+        if (IsAgeVerificationFailure(message))
+            return "需要年齡驗證，請登入 YouTube 或提供 cookies.txt";
+
+        return message
+            .Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)
+            .FirstOrDefault() ?? "未知錯誤";
+    }
+
+    private static bool IsAgeVerificationFailure(string message)
+    {
+        return message.Contains("年齡驗證", StringComparison.OrdinalIgnoreCase)
+               || message.Contains("Sign in to confirm your age", StringComparison.OrdinalIgnoreCase)
+               || message.Contains("age-restricted", StringComparison.OrdinalIgnoreCase)
+               || message.Contains("confirm your age", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private void ClearProgressUpdateState(long taskId)
+    {
+        if (_progressUpdateStatesLock == null || _progressUpdateStates == null)
+            return;
+
+        lock (_progressUpdateStatesLock)
+        {
+            _progressUpdateStates.Remove(taskId);
+        }
+    }
+
+    private sealed record ProgressUpdateState(int Percent, string StatusName, DateTime UpdatedAt);
 
     #endregion
 }

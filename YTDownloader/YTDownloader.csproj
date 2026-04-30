@@ -13,8 +13,8 @@
         <PackageReference Include="Autofac.Extensions.DependencyInjection" Version="11.0.0"/>
         <PackageReference Include="EastAsiaNumericFormatter" Version="1.0.0"/>
         <PackageReference Include="FFMpegCore" Version="5.4.0" />
-        <PackageReference Include="JJNET.DataAccess" Version="0.0.2-Beta3"/>
-        <PackageReference Include="JJNET.Utility" Version="0.0.6"/>
+        <PackageReference Include="JJNET.DataAccess" Version="0.0.2-Beta4" />
+        <PackageReference Include="JJNET.Utility" Version="0.0.8" />
         <PackageReference Include="JsonDiffPatch.Net" Version="2.5.0"/>
         <PackageReference Include="Microsoft.Data.SqlClient" Version="7.0.0"/>
         <PackageReference Include="Microsoft.Extensions.Configuration" Version="10.0.7"/>
