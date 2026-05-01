@@ -174,7 +174,7 @@ public partial class ConfigForm : Form
 
     private void CacheClearButton_Click(object? sender, EventArgs e)
     {
-        ClearTableWithConfirmation("快取", "TSQL_LOG", DBTool.ClearTsqlLog);
+        DBTool.ClearTsqlLog();
     }
 
     private void HistoryClearButton_Click(object? sender, EventArgs e)

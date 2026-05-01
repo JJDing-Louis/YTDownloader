@@ -281,7 +281,7 @@ namespace YTDownloader.UI
             historyClearButton.Name = "historyClearButton";
             historyClearButton.Size = new Size(120, 32);
             historyClearButton.TabIndex = 1;
-            historyClearButton.Text = "歷史紀錄清出";
+            historyClearButton.Text = "清除歷史紀錄";
             historyClearButton.UseVisualStyleBackColor = true;
             historyClearButton.Click += HistoryClearButton_Click;
             // 
