@@ -217,7 +217,9 @@ public partial class DownloadHistoryForm : Form
         var FileName = cB_FileName.Checked ? txt_Filename.Text.Trim() : null;
         var DownloadStartDate = cB_DownloadDate.Checked ? dTP_DownLoadStartDate.Value.Date : (DateTime?)null;
         var DownloadEndDate = cB_DownloadDate.Checked ? dTP_DownLoadEndDate.Value.Date : (DateTime?)null;
-        var DownloadResult = cB_DownloadResult.Checked ? cBO_DownloadResult.SelectedValue : null;
+        var DownloadResult = cB_DownloadResult.Checked
+            ? GUITool.GetComboBoxSelectedName(cBO_DownloadResult)
+            : null;
         var IsAudio = cB_MediaType.Checked && cB_Audio.Checked ? "Audio" : null;
         var IsVideo = cB_MediaType.Checked && cB_Video.Checked ? "Video" : null;
         var sqlcmd = """
@@ -321,9 +323,8 @@ public partial class DownloadHistoryForm : Form
         if (cB_DownloadResult.Checked)
         {
             cBO_DownloadResult.Enabled = true;
-            cBO_DownloadResult.Text = cBO_DownloadResult.Items.Count > 0
-                ? cBO_DownloadResult.Items[0].ToString()
-                : string.Empty;
+            if (cBO_DownloadResult.Items.Count > 0)
+                cBO_DownloadResult.SelectedIndex = 0;
         }
         else
         {

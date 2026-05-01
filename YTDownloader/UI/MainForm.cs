@@ -160,7 +160,10 @@ public partial class MainForm : Form
             .Cast<DataGridViewRow>()
             .Where(row => !row.IsNewRow)
             .ToList();
-        var controllersToClean = new List<DownloadTaskController>();
+        var queuedTaskIds = ClearQueuedDownloads();
+        var queuedRows = new List<DataGridViewRow>();
+        var remainingRows = new List<DataGridViewRow>();
+        var canceledDownloads = new List<CanceledDownload>();
 
         foreach (var row in rows)
         {
@@ -176,31 +179,37 @@ public partial class MainForm : Form
                 else if (_downloadControllers.TryGetValue(taskId, out var cancelCtrl))
                 {
                     cancelCtrl.Cts.Cancel();
-                    MarkDownloadCanceled(taskId, cancelCtrl.LastPercent);
-                    controllersToClean.Add(cancelCtrl);
+                    AddDownloadCanceled(taskId);
+                    if (cancelCtrl.OriginalRequest != null)
+                        ReleaseReservedDownloadFileName(cancelCtrl.OriginalRequest);
+                    canceledDownloads.Add(new CanceledDownload(taskId, cancelCtrl.LastPercent, cancelCtrl));
                     _downloadControllers.Remove(taskId);
                 }
                 else
                 {
-                    MarkDownloadCanceled(taskId, GetRowProgress(row));
+                    AddDownloadCanceled(taskId);
+                    canceledDownloads.Add(new CanceledDownload(taskId, GetRowProgress(row), null));
                 }
-            }
 
-            if (!row.IsNewRow && dGV_DownloadList.Rows.Contains(row))
-                dGV_DownloadList.Rows.Remove(row);
+                if (queuedTaskIds.Contains(taskId))
+                    queuedRows.Add(row);
+                else
+                    remainingRows.Add(row);
+            }
+            else
+            {
+                remainingRows.Add(row);
+            }
         }
 
+        RemoveDownloadRows(queuedRows);
+        RenumberRows();
+        dGV_DownloadList.Refresh();
+
+        RemoveDownloadRows(remainingRows);
         RenumberRows();
 
-        foreach (var controller in controllersToClean)
-        {
-            CleanCanceledDownloadFiles(controller, true);
-            _ = Task.Run(async () =>
-            {
-                await Task.Delay(TimeSpan.FromSeconds(2));
-                CleanCanceledDownloadFiles(controller, false);
-            });
-        }
+        _ = Task.Run(() => FinalizeCanceledDownloadsAsync(canceledDownloads));
     }
 
     #region Init
@@ -585,11 +594,27 @@ public partial class MainForm : Form
     {
         try
         {
-            lock (_canceledDownloadTaskIdsLock)
-            {
-                _canceledDownloadTaskIds.Add(taskId);
-            }
+            AddDownloadCanceled(taskId);
+            PersistDownloadCanceled(taskId, percent);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "更新 DownloadHistory 取消狀態失敗。TaskID: {TaskID}", taskId);
+        }
+    }
 
+    private void AddDownloadCanceled(long taskId)
+    {
+        lock (_canceledDownloadTaskIdsLock)
+        {
+            _canceledDownloadTaskIds.Add(taskId);
+        }
+    }
+
+    private void PersistDownloadCanceled(long taskId, double percent)
+    {
+        try
+        {
             var progress = Math.Clamp(
                 (int)Math.Round(percent, MidpointRounding.AwayFromZero),
                 0,
@@ -966,6 +991,9 @@ public partial class MainForm : Form
         bool releaseReservedFileName)
     {
         var req = controller.OriginalRequest;
+        if (releaseReservedFileName && req != null && !string.IsNullOrWhiteSpace(req.FileName))
+            ReleaseReservedDownloadFileName(req);
+
         if (req == null
             || string.IsNullOrWhiteSpace(req.DownloadDir)
             || !Directory.Exists(req.DownloadDir))
@@ -991,10 +1019,6 @@ public partial class MainForm : Form
 
             TryDeleteTempFile(file, ref deletedCount);
         }
-
-        if (releaseReservedFileName && !string.IsNullOrWhiteSpace(req.FileName))
-            GetReservedFileNames(req.DownloadDir).Remove(req.FileName);
-
         if (deletedCount > 0)
             _logger.LogInformation(
                 "取消下載後清除 {Count} 個檔案（檔名：{FileName}）",
@@ -1309,6 +1333,47 @@ public partial class MainForm : Form
         StartQueuedDownloads();
     }
 
+    private HashSet<long> ClearQueuedDownloads()
+    {
+        lock (_downloadQueueLock)
+        {
+            var taskIds = _queuedDownloadTaskIds.ToHashSet();
+            _queuedDownloads.Clear();
+            _queuedDownloadTaskIds.Clear();
+            return taskIds;
+        }
+    }
+
+    private void RemoveDownloadRows(IEnumerable<DataGridViewRow> rows)
+    {
+        foreach (var row in rows)
+            if (!row.IsNewRow && dGV_DownloadList.Rows.Contains(row))
+                dGV_DownloadList.Rows.Remove(row);
+    }
+
+    private async Task FinalizeCanceledDownloadsAsync(IReadOnlyCollection<CanceledDownload> canceledDownloads)
+    {
+        if (canceledDownloads.Count == 0)
+            return;
+
+        foreach (var canceledDownload in canceledDownloads)
+            PersistDownloadCanceled(canceledDownload.TaskId, canceledDownload.Percent);
+
+        foreach (var controller in canceledDownloads
+                     .Select(item => item.Controller)
+                     .Where(controller => controller != null)
+                     .Distinct())
+            CleanCanceledDownloadFiles(controller!, false);
+
+        await Task.Delay(TimeSpan.FromSeconds(2));
+
+        foreach (var controller in canceledDownloads
+                     .Select(item => item.Controller)
+                     .Where(controller => controller != null)
+                     .Distinct())
+            CleanCanceledDownloadFiles(controller!, false);
+    }
+
     private void StartQueuedDownloads()
     {
         List<QueuedDownload> downloadsToStart = new();
@@ -1391,6 +1456,7 @@ public partial class MainForm : Form
 
     private sealed record ProgressUpdateState(int Percent, string StatusName, DateTime UpdatedAt);
     private sealed record QueuedDownload(long TaskId, DownloadTaskController Controller);
+    private sealed record CanceledDownload(long TaskId, double Percent, DownloadTaskController? Controller);
 
     #endregion
 }
