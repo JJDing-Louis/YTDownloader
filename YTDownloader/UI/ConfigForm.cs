@@ -172,6 +172,16 @@ public partial class ConfigForm : Form
         BrowseDownloadPath();
     }
 
+    private void CacheClearButton_Click(object? sender, EventArgs e)
+    {
+        ClearTableWithConfirmation("快取", "TSQL_LOG", DBTool.ClearTsqlLog);
+    }
+
+    private void HistoryClearButton_Click(object? sender, EventArgs e)
+    {
+        ClearTableWithConfirmation("歷史紀錄", "DownloadHistory", DBTool.ClearDownloadHistory);
+    }
+
     private void BackColorTextBox_TextChanged(object? sender, EventArgs e)
     {
         UpdateBackColorPreview();
@@ -273,6 +283,30 @@ public partial class ConfigForm : Form
 
         if (dialog.ShowDialog(this) == DialogResult.OK)
             _downloadPathTextBox.Text = dialog.SelectedPath;
+    }
+
+    private void ClearTableWithConfirmation(string itemName, string tableName, Func<int> clearAction)
+    {
+        var confirmResult = MessageBox.Show(
+            $"確定要清空{itemName}資料嗎？此動作會刪除 {tableName} 的所有資料且無法復原。",
+            "確認清空",
+            MessageBoxButtons.YesNo,
+            MessageBoxIcon.Warning,
+            MessageBoxDefaultButton.Button2);
+
+        if (confirmResult != DialogResult.Yes)
+            return;
+
+        try
+        {
+            var affectedRows = clearAction();
+            MessageBox.Show($"{itemName}已清空，共刪除 {affectedRows} 筆資料。", "清空完成", MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"{itemName}清空失敗：{ex.Message}", "清空失敗", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
     }
 
     private void UpdateBackColorPreview()

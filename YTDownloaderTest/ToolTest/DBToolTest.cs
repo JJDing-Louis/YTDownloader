@@ -124,6 +124,37 @@ namespace YTDownloaderTest.ToolTest
         }
 
         [Test]
+        public void ClearTsqlLog_RemovesAllRows()
+        {
+            using (var conn = ConnectionTool.GetConnection())
+            {
+                conn.Execute("""
+                             INSERT INTO TSQL_LOG (TS, TSQL, CLTID)
+                             VALUES (@TS, @TSQL, @CLTID)
+                             """, new { TS = DateTime.UtcNow, TSQL = "SELECT 1", CLTID = "test" });
+            }
+
+            Assert.That(CountRows("TSQL_LOG"), Is.GreaterThan(0));
+
+            YTDownloader.Tool.DBTool.ClearTsqlLog();
+
+            Assert.That(CountRows("TSQL_LOG"), Is.EqualTo(0));
+        }
+
+        [Test]
+        public void ClearDownloadHistory_RemovesAllRows()
+        {
+            InsertHistory(2001, "Complete", "100");
+            InsertHistory(2002, "Fail", "0");
+
+            Assert.That(CountRows("DownloadHistory"), Is.GreaterThanOrEqualTo(2));
+
+            YTDownloader.Tool.DBTool.ClearDownloadHistory();
+
+            Assert.That(CountRows("DownloadHistory"), Is.EqualTo(0));
+        }
+
+        [Test]
         [Description("已取消的任務若後續背景流程又回報 InProgress，不應覆蓋資料庫中的 Cancel 狀態")]
         public void MainForm_UpdateDownloadProgress_AfterCancel_DoesNotOverwriteCancel()
         {
@@ -194,6 +225,12 @@ namespace YTDownloaderTest.ToolTest
                                   WHERE TaskID = @TaskID
                                   """;
             return conn.QueryFirstOrDefault<DownloadHistory>(sqlcmd, new { TaskID = taskId });
+        }
+
+        private static int CountRows(string tableName)
+        {
+            using var conn = ConnectionTool.GetConnection();
+            return conn.ExecuteScalar<int>($"SELECT COUNT(*) FROM {tableName}");
         }
     }
 }

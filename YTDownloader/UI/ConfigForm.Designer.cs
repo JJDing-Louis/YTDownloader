@@ -38,6 +38,10 @@ namespace YTDownloader.UI
             savePathLabel = new Label();
             _downloadPathTextBox = new TextBox();
             browseFolderButton = new Button();
+            cacheManagementGroupBox = new GroupBox();
+            cacheManagementFlowPanel = new FlowLayoutPanel();
+            cacheClearButton = new Button();
+            historyClearButton = new Button();
             _threadPanel = new Panel();
             threadSectionLayoutPanel = new TableLayoutPanel();
             threadGroupBox = new GroupBox();
@@ -81,6 +85,8 @@ namespace YTDownloader.UI
             saveSectionLayoutPanel.SuspendLayout();
             saveGroupBox.SuspendLayout();
             saveFieldsLayoutPanel.SuspendLayout();
+            cacheManagementGroupBox.SuspendLayout();
+            cacheManagementFlowPanel.SuspendLayout();
             _threadPanel.SuspendLayout();
             threadSectionLayoutPanel.SuspendLayout();
             threadGroupBox.SuspendLayout();
@@ -159,6 +165,7 @@ namespace YTDownloader.UI
             saveSectionLayoutPanel.ColumnCount = 1;
             saveSectionLayoutPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
             saveSectionLayoutPanel.Controls.Add(saveGroupBox, 0, 0);
+            saveSectionLayoutPanel.Controls.Add(cacheManagementGroupBox, 0, 1);
             saveSectionLayoutPanel.Dock = DockStyle.Fill;
             saveSectionLayoutPanel.Location = new Point(0, 0);
             saveSectionLayoutPanel.Name = "saveSectionLayoutPanel";
@@ -204,7 +211,7 @@ namespace YTDownloader.UI
             savePathLabel.Dock = DockStyle.Fill;
             savePathLabel.Location = new Point(15, 12);
             savePathLabel.Name = "savePathLabel";
-            savePathLabel.Size = new Size(104, 36);
+            savePathLabel.Size = new Size(104, 46);
             savePathLabel.TabIndex = 0;
             savePathLabel.Text = "下載資料夾";
             savePathLabel.TextAlign = ContentAlignment.MiddleLeft;
@@ -227,6 +234,56 @@ namespace YTDownloader.UI
             browseFolderButton.Text = "...";
             browseFolderButton.UseVisualStyleBackColor = true;
             browseFolderButton.Click += BrowseFolderButton_Click;
+            // 
+            // cacheManagementGroupBox
+            // 
+            cacheManagementGroupBox.Controls.Add(cacheManagementFlowPanel);
+            cacheManagementGroupBox.Dock = DockStyle.Top;
+            cacheManagementGroupBox.Location = new Point(3, 203);
+            cacheManagementGroupBox.Name = "cacheManagementGroupBox";
+            cacheManagementGroupBox.Size = new Size(640, 92);
+            cacheManagementGroupBox.TabIndex = 1;
+            cacheManagementGroupBox.TabStop = false;
+            cacheManagementGroupBox.Text = "暫存管理";
+            // 
+            // cacheManagementFlowPanel
+            // 
+            cacheManagementFlowPanel.Controls.Add(cacheClearButton);
+            cacheManagementFlowPanel.Controls.Add(historyClearButton);
+            cacheManagementFlowPanel.Dock = DockStyle.Fill;
+            cacheManagementFlowPanel.Location = new Point(3, 19);
+            cacheManagementFlowPanel.Name = "cacheManagementFlowPanel";
+            cacheManagementFlowPanel.Padding = new Padding(12);
+            cacheManagementFlowPanel.Size = new Size(634, 70);
+            cacheManagementFlowPanel.TabIndex = 0;
+            cacheManagementFlowPanel.WrapContents = false;
+            // 
+            // cacheClearButton
+            // 
+            cacheClearButton.AutoSize = true;
+            cacheClearButton.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            cacheClearButton.Location = new Point(15, 15);
+            cacheClearButton.MinimumSize = new Size(100, 32);
+            cacheClearButton.Name = "cacheClearButton";
+            cacheClearButton.Size = new Size(100, 32);
+            cacheClearButton.TabIndex = 0;
+            cacheClearButton.Text = "快取清除";
+            cacheClearButton.UseVisualStyleBackColor = true;
+            cacheClearButton.Click += CacheClearButton_Click;
+            // 
+            // historyClearButton
+            // 
+            historyClearButton.AutoSize = true;
+            historyClearButton.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            historyClearButton.Location = new Point(123, 15);
+            historyClearButton.Margin = new Padding(8, 3, 3, 3);
+            historyClearButton.MinimumSize = new Size(120, 32);
+            historyClearButton.Name = "historyClearButton";
+            historyClearButton.Size = new Size(120, 32);
+            historyClearButton.TabIndex = 1;
+            historyClearButton.Text = "歷史紀錄清出";
+            historyClearButton.UseVisualStyleBackColor = true;
+            historyClearButton.Click += HistoryClearButton_Click;
             // 
             // _threadPanel
             // 
@@ -308,7 +365,7 @@ namespace YTDownloader.UI
             maxThreadLabel.Dock = DockStyle.Fill;
             maxThreadLabel.Location = new Point(15, 48);
             maxThreadLabel.Name = "maxThreadLabel";
-            maxThreadLabel.Size = new Size(134, 36);
+            maxThreadLabel.Size = new Size(134, 46);
             maxThreadLabel.TabIndex = 2;
             maxThreadLabel.Text = "最大數量";
             maxThreadLabel.TextAlign = ContentAlignment.MiddleLeft;
@@ -452,7 +509,7 @@ namespace YTDownloader.UI
             backgroundImageLabel.Dock = DockStyle.Fill;
             backgroundImageLabel.Location = new Point(15, 112);
             backgroundImageLabel.Name = "backgroundImageLabel";
-            backgroundImageLabel.Size = new Size(104, 34);
+            backgroundImageLabel.Size = new Size(104, 36);
             backgroundImageLabel.TabIndex = 6;
             backgroundImageLabel.Text = "背景圖片";
             backgroundImageLabel.TextAlign = ContentAlignment.MiddleLeft;
@@ -470,7 +527,7 @@ namespace YTDownloader.UI
             browseImageButton.Dock = DockStyle.Fill;
             browseImageButton.Location = new Point(549, 115);
             browseImageButton.Name = "browseImageButton";
-            browseImageButton.Size = new Size(70, 28);
+            browseImageButton.Size = new Size(70, 30);
             browseImageButton.TabIndex = 8;
             browseImageButton.Text = "...";
             browseImageButton.UseVisualStyleBackColor = true;
@@ -530,7 +587,7 @@ namespace YTDownloader.UI
             fontSizeLabel.Dock = DockStyle.Fill;
             fontSizeLabel.Location = new Point(15, 44);
             fontSizeLabel.Name = "fontSizeLabel";
-            fontSizeLabel.Size = new Size(104, 34);
+            fontSizeLabel.Size = new Size(104, 36);
             fontSizeLabel.TabIndex = 2;
             fontSizeLabel.Text = "字型大小";
             fontSizeLabel.TextAlign = ContentAlignment.MiddleLeft;
@@ -603,7 +660,7 @@ namespace YTDownloader.UI
             languageLabel.Dock = DockStyle.Fill;
             languageLabel.Location = new Point(15, 12);
             languageLabel.Name = "languageLabel";
-            languageLabel.Size = new Size(104, 36);
+            languageLabel.Size = new Size(104, 46);
             languageLabel.TabIndex = 0;
             languageLabel.Text = "顯示語言";
             languageLabel.TextAlign = ContentAlignment.MiddleLeft;
@@ -641,7 +698,7 @@ namespace YTDownloader.UI
             // 
             saveButton.AutoSize = true;
             saveButton.AutoSizeMode = AutoSizeMode.GrowAndShrink;
-            saveButton.Location = new Point(744, 11);
+            saveButton.Location = new Point(734, 8);
             saveButton.Margin = new Padding(8, 0, 0, 0);
             saveButton.MinimumSize = new Size(88, 32);
             saveButton.Name = "saveButton";
@@ -655,7 +712,7 @@ namespace YTDownloader.UI
             // 
             applyButton.AutoSize = true;
             applyButton.AutoSizeMode = AutoSizeMode.GrowAndShrink;
-            applyButton.Location = new Point(663, 11);
+            applyButton.Location = new Point(638, 8);
             applyButton.Margin = new Padding(8, 0, 0, 0);
             applyButton.MinimumSize = new Size(88, 32);
             applyButton.Name = "applyButton";
@@ -669,7 +726,7 @@ namespace YTDownloader.UI
             // 
             cancelButton.AutoSize = true;
             cancelButton.AutoSizeMode = AutoSizeMode.GrowAndShrink;
-            cancelButton.Location = new Point(582, 11);
+            cancelButton.Location = new Point(542, 8);
             cancelButton.Margin = new Padding(8, 0, 0, 0);
             cancelButton.MinimumSize = new Size(88, 32);
             cancelButton.Name = "cancelButton";
@@ -697,6 +754,9 @@ namespace YTDownloader.UI
             saveGroupBox.ResumeLayout(false);
             saveFieldsLayoutPanel.ResumeLayout(false);
             saveFieldsLayoutPanel.PerformLayout();
+            cacheManagementGroupBox.ResumeLayout(false);
+            cacheManagementFlowPanel.ResumeLayout(false);
+            cacheManagementFlowPanel.PerformLayout();
             _threadPanel.ResumeLayout(false);
             threadSectionLayoutPanel.ResumeLayout(false);
             threadGroupBox.ResumeLayout(false);
@@ -716,8 +776,8 @@ namespace YTDownloader.UI
             generalGroupBox.ResumeLayout(false);
             generalFieldsLayoutPanel.ResumeLayout(false);
             buttonPanel.ResumeLayout(false);
+            buttonPanel.PerformLayout();
             ResumeLayout(false);
-            _categoryList.SelectedIndex = 0;
         }
 
         #endregion
@@ -732,6 +792,10 @@ namespace YTDownloader.UI
         private Label savePathLabel;
         private TextBox _downloadPathTextBox;
         private Button browseFolderButton;
+        private GroupBox cacheManagementGroupBox;
+        private FlowLayoutPanel cacheManagementFlowPanel;
+        private Button cacheClearButton;
+        private Button historyClearButton;
         private Panel _threadPanel;
         private TableLayoutPanel threadSectionLayoutPanel;
         private GroupBox threadGroupBox;

@@ -6,6 +6,22 @@ namespace YTDownloader.Tool;
 
 public class DBTool
 {
+    public static int ClearTsqlLog()
+    {
+        using (var conn = ConnectionTool.GetConnection())
+        {
+            return conn.Execute("DELETE FROM TSQL_LOG");
+        }
+    }
+
+    public static int ClearDownloadHistory()
+    {
+        using (var conn = ConnectionTool.GetConnection())
+        {
+            return conn.Execute("DELETE FROM DownloadHistory");
+        }
+    }
+
     public static void InsertDownloadHistory(DownloadHistory downloadHistory)
     {
         using (var conn = ConnectionTool.GetConnection())
