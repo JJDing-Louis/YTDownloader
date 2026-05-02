@@ -7,7 +7,7 @@ internal class PlaylistHandlerService : IService
     }
 
 
-    public void InitData()
+    public void Init()
     {
     }
 }

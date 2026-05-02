@@ -14,6 +14,7 @@ public partial class PlaylistHandlerForm : Form
     private const string OptionListMediaType = "ListMediaType";
     private const string SelectColumnName = "colSelected";
     private readonly ConfigService _configService;
+    private readonly YtDlpDownloadService? _downloadService;
     private readonly ILogger _logger;
     private readonly ConfigModel _settings;
     private readonly MainForm mainForm = null!;
@@ -28,21 +29,20 @@ public partial class PlaylistHandlerForm : Form
     private List<PlaylistVideoItem> playlistVideos = new();
     private string ytDlpPath = string.Empty;
 
-    public PlaylistHandlerForm()
+    public PlaylistHandlerForm() : this(
+        new ConfigService(),
+        NullLogger<PlaylistHandlerForm>.Instance,
+        null)
     {
-        _configService = new ConfigService();
-        _settings = IsInDesignMode()
-            ? new ConfigModel()
-            : _configService.Load();
-        _logger = IsInDesignMode()
-            ? NullLogger<PlaylistHandlerForm>.Instance
-            : Program.Startup.Container.Resolve<ILogger<PlaylistHandlerForm>>();
-        InitializeForm();
     }
 
-    public PlaylistHandlerForm(ConfigService configService, ILogger<PlaylistHandlerForm> logger)
+    public PlaylistHandlerForm(
+        ConfigService configService,
+        ILogger<PlaylistHandlerForm> logger,
+        YtDlpDownloadService? downloadService = null)
     {
         _configService = configService;
+        _downloadService = downloadService;
         _settings = _configService.Load();
         _logger = logger;
         InitializeForm();
@@ -50,6 +50,23 @@ public partial class PlaylistHandlerForm : Form
 
     public PlaylistHandlerForm(string playlistUrl, MainForm mainForm, string mediaType, string mediaTypeDisplay) :
         this()
+    {
+        this.playlistUrl = playlistUrl;
+        this.mainForm = mainForm;
+        this.mediaType = OptionService.GetOptionName(OptionListMediaType, mediaType);
+        this.mediaTypeDisplay = string.IsNullOrWhiteSpace(mediaTypeDisplay)
+            ? OptionService.GetOptionDesc(OptionListMediaType, this.mediaType)
+            : mediaTypeDisplay;
+    }
+
+    public PlaylistHandlerForm(
+        ConfigService configService,
+        ILogger<PlaylistHandlerForm> logger,
+        YtDlpDownloadService? downloadService,
+        string playlistUrl,
+        MainForm mainForm,
+        string mediaType,
+        string mediaTypeDisplay) : this(configService, logger, downloadService)
     {
         this.playlistUrl = playlistUrl;
         this.mainForm = mainForm;
@@ -93,7 +110,7 @@ public partial class PlaylistHandlerForm : Form
             var ffmpegDir = File.Exists(ffmpegPath)
                 ? Path.GetDirectoryName(ffmpegPath)!
                 : ffmpegPath;
-            var YTDownloadService = new YtDlpDownloadService(ytDlpPath, ffmpegDir);
+            var YTDownloadService = _downloadService ?? new YtDlpDownloadService(ytDlpPath, ffmpegDir);
             var playlist = await YTDownloadService.GetPlaylistVideosAsync(playlistUrl);
             dGV_PlayList.Rows.Clear();
             if (playlist.Videos != null && playlist.Videos.Count > 0)

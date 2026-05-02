@@ -7,7 +7,7 @@ internal class DownloadHistoryService : IService
     }
 
 
-    public void InitData()
+    public void Init()
     {
     }
 }

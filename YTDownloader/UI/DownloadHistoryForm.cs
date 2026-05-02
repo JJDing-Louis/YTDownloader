@@ -24,17 +24,11 @@ public partial class DownloadHistoryForm : Form
     private bool _updatingSelectAllState;
     private IConfiguration config = null!;
 
-    public DownloadHistoryForm()
+    public DownloadHistoryForm() : this(
+        new ConfigService(),
+        new OptionService(),
+        NullLogger<DownloadHistoryForm>.Instance)
     {
-        _configService = new ConfigService();
-        _settings = IsInDesignMode() ? new ConfigModel() : _configService.Load();
-        _optionService = IsInDesignMode()
-            ? null!
-            : Program.Startup.Container.Resolve<OptionService>();
-        _logger = IsInDesignMode()
-            ? NullLogger<DownloadHistoryForm>.Instance
-            : Program.Startup.Container.Resolve<ILogger<DownloadHistoryForm>>();
-        InitializeForm();
     }
 
     public DownloadHistoryForm(MainForm mainForm) : this()

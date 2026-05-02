@@ -32,6 +32,7 @@ public partial class MainForm : Form
     private readonly HashSet<long> _queuedDownloadTaskIds = new();
 
     private readonly ILogger _logger;
+    private readonly ILifetimeScope? _lifetimeScope;
     private readonly OptionService _optionService;
 
     private readonly Dictionary<string, HashSet<string>> _reservedDownloadFileNamesByFolder =
@@ -54,26 +55,18 @@ public partial class MainForm : Form
     private string ffmpegPath = string.Empty;
     private string ytDlpPath = string.Empty;
 
-    public MainForm()
+    public MainForm() : this(new ConfigService(), new OptionService(), NullLogger<MainForm>.Instance, null, null)
     {
-        _configService = new ConfigService();
-        _settings = IsInDesignMode() ? new ConfigModel() : _configService.Load();
-        _optionService = IsInDesignMode()
-            ? null!
-            : Program.Startup.Container.Resolve<OptionService>();
-        _logger = IsInDesignMode()
-            ? NullLogger<MainForm>.Instance
-            : Program.Startup.Container.Resolve<ILogger<MainForm>>();
-        _downloadLimiter = CreateDownloadLimiter(_settings);
-        InitializeForm();
     }
 
-    public MainForm(ConfigService configService, OptionService optionService, ILogger<MainForm> logger)
+    public MainForm(ConfigService configService, OptionService optionService, ILogger<MainForm> logger, YtDlpDownloadService? downloadService, ILifetimeScope? lifetimeScope)
     {
         _configService = configService;
         _settings = _configService.Load();
         _optionService = optionService;
         _logger = logger;
+        _downloadService = downloadService;
+        _lifetimeScope = lifetimeScope;
         _downloadLimiter = CreateDownloadLimiter(_settings);
         InitializeForm();
     }
@@ -107,7 +100,7 @@ public partial class MainForm : Form
             return;
         }
 
-        _downloadHistoryForm = new DownloadHistoryForm(this);
+        _downloadHistoryForm = ResolveForm<DownloadHistoryForm>(TypedParameter.From(this));
         PositionChildForm(_downloadHistoryForm);
         _downloadHistoryForm.Disposed += downloadHistoryForm_Disposed;
         _downloadHistoryForm.Show();
@@ -121,7 +114,7 @@ public partial class MainForm : Form
             return;
         }
 
-        _configForm = new ConfigForm(_configService);
+        _configForm = ResolveForm<ConfigForm>();
         PositionChildForm(_configForm);
         _configForm.SettingsApplied += (_, settings) => ApplyRuntimeSettings(settings);
         _configForm.FormClosed += (_, _) => { ApplyRuntimeSettings(_configService.Load()); };
@@ -355,7 +348,7 @@ public partial class MainForm : Form
             var ffmpegDir = File.Exists(ffmpegPath)
                 ? Path.GetDirectoryName(ffmpegPath)!
                 : ffmpegPath;
-            var YTDownloadService = new YtDlpDownloadService(ytDlpPath, ffmpegDir);
+            var YTDownloadService = _downloadService ?? new YtDlpDownloadService(ytDlpPath, ffmpegDir);
 
             var SourceType = await YTDownloadService.DetectResourceAsync(URL);
             if (SourceType.IsSingleVideo)
@@ -389,9 +382,8 @@ public partial class MainForm : Form
                 //如果沒有被正確關閉，則先釋放資源
                 if (_playlistHandlerForm is { IsDisposed: false })
                     _playlistHandlerForm.Close();
-                _playlistHandlerForm = new PlaylistHandlerForm(
+                _playlistHandlerForm = CreatePlaylistHandlerForm(
                     URL,
-                    this,
                     OptionService.GetOptionName(
                         OptionListMediaType,
                         GUITool.GetComboBoxSelectedName(cB_ListMediaType)),
@@ -429,6 +421,26 @@ public partial class MainForm : Form
     private void playlistHandlerForm_Disposed(object? sender, EventArgs e)
     {
         _playlistHandlerForm = null;
+    }
+
+    private PlaylistHandlerForm CreatePlaylistHandlerForm(
+        string playlistUrl,
+        string mediaType,
+        string mediaTypeDisplay)
+    {
+        return ResolveForm<PlaylistHandlerForm>(
+            new NamedParameter("playlistUrl", playlistUrl),
+            new TypedParameter(typeof(MainForm), this),
+            new NamedParameter("mediaType", mediaType),
+            new NamedParameter("mediaTypeDisplay", mediaTypeDisplay));
+    }
+
+    private TForm ResolveForm<TForm>(params Autofac.Core.Parameter[] parameters) where TForm : Form
+    {
+        if (_lifetimeScope is null)
+            throw new InvalidOperationException($"{nameof(MainForm)} must be created by DI before opening child forms.");
+
+        return _lifetimeScope.Resolve<TForm>(parameters);
     }
 
     private void ShowSingleVideoUnavailableMessage()

@@ -1,7 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
-using Autofac;
 using ManuHub.Ytdlp.NET;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -798,14 +797,7 @@ public class YtDlpDownloadService
 
     private static ILogger<YtDlpDownloadService> ResolveLogger()
     {
-        try
-        {
-            return Program.Startup.Container.Resolve<ILogger<YtDlpDownloadService>>();
-        }
-        catch
-        {
-            return NullLogger<YtDlpDownloadService>.Instance;
-        }
+        return NullLogger<YtDlpDownloadService>.Instance;
     }
 
     private Ytdlp CreateBaseClient(string? browserCookieSource = null)

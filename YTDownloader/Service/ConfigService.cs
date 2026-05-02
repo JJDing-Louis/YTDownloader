@@ -4,7 +4,7 @@ using YTDownloader.Model;
 
 namespace YTDownloader.Service;
 
-public sealed class ConfigService
+public sealed class ConfigService : IService
 {
     /// <summary>
     ///     設定檔預設路徑
@@ -24,7 +24,7 @@ public sealed class ConfigService
         Init();
     }
 
-    private void Init()
+    public void Init()
     {
         if (!File.Exists(_filePath))
             Save(new ConfigModel());
@@ -59,5 +59,10 @@ public sealed class ConfigService
             Formatting = Formatting.Indented,
             ContractResolver = new CamelCasePropertyNamesContractResolver()
         };
+    }
+
+    public void Dispose()
+    {
+        
     }
 }

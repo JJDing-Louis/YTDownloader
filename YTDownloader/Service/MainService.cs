@@ -7,7 +7,7 @@ internal class MainService : IService
     }
 
 
-    public void InitData()
+    public void Init()
     {
     }
 }
