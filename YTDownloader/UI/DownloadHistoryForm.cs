@@ -1,6 +1,3 @@
-using JJNET.DataAccess.Entity;
-using JJNET.Utility.Tools;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using YTDownloader.Model;
 using YTDownloader.Service;
@@ -10,27 +7,25 @@ namespace YTDownloader;
 
 public partial class DownloadHistoryForm : Form
 {
-    private const string OptionListMediaType = "ListMediaType";
     private const string OptionListDownloadStatus = "ListDownloadStatus";
     private const string SelectColumnName = "colSelect";
     private readonly ConfigService _configService;
+    private readonly DownloadHistoryService _downloadHistoryService;
     private readonly ILogger _logger;
     private readonly MainForm? _mainForm;
-    private readonly OptionService _optionService;
     private readonly ConfigModel _settings;
     private bool _isSelectAllChecked;
     private bool _updatingSelectAllState;
-    private IConfiguration config = null!;
 
     public DownloadHistoryForm(
         ConfigService configService,
-        OptionService optionService,
+        DownloadHistoryService downloadHistoryService,
         ILogger<DownloadHistoryForm> logger,
         MainForm? mainForm = null)
     {
         _configService = configService;
+        _downloadHistoryService = downloadHistoryService;
         _settings = _configService.Load();
-        _optionService = optionService;
         _logger = logger;
         _mainForm = mainForm;
         InitializeForm();
@@ -58,7 +53,6 @@ public partial class DownloadHistoryForm : Form
 
     private void Init()
     {
-        InitConfig();
         InitOptions();
         InitUI();
     }
@@ -158,18 +152,6 @@ public partial class DownloadHistoryForm : Form
         e.Handled = true;
     }
 
-    private void InitConfig()
-    {
-        _logger.LogInformation("Initializing configuration...");
-        config = ParameterTool.GetConfiguration();
-
-        if (config == null)
-        {
-            _logger.LogError("Configuration object is null.");
-            MessageBox.Show("載入設定失敗（config 為 null）。", "初始化錯誤", MessageBoxButtons.OK, MessageBoxIcon.Error);
-        }
-    }
-
     private void InitOptions()
     {
         _logger.LogInformation("Initializing options...");
@@ -184,96 +166,38 @@ public partial class DownloadHistoryForm : Form
         }
     }
 
-    private static string FormatLocalDateTime(DateTime? dateTime)
-    {
-        if (dateTime == null) return string.Empty;
-
-        var utcDateTime = dateTime.Value.Kind == DateTimeKind.Utc
-            ? dateTime.Value
-            : DateTime.SpecifyKind(dateTime.Value, DateTimeKind.Utc);
-
-        return utcDateTime.ToLocalTime().ToString("yyyy/MM/dd HH:mm:ss");
-    }
-    
     private void btn_Search_Click(object sender, EventArgs e)
     {
-        var FileName = cB_FileName.Checked ? txt_Filename.Text.Trim() : null;
-        var DownloadStartDate = cB_DownloadDate.Checked ? dTP_DownLoadStartDate.Value.Date : (DateTime?)null;
-        var DownloadEndDate = cB_DownloadDate.Checked ? dTP_DownLoadEndDate.Value.Date : (DateTime?)null;
-        var DownloadResult = cB_DownloadResult.Checked
-            ? GUITool.GetComboBoxSelectedName(cBO_DownloadResult)
-            : null;
-        var IsAudio = cB_MediaType.Checked && cB_Audio.Checked ? "Audio" : null;
-        var IsVideo = cB_MediaType.Checked && cB_Video.Checked ? "Video" : null;
-        var sqlcmd = """
-                       SELECT 
-                           * 
-                       FROM DownloadHistory
-                       WHERE (@FileName IS NULL OR FileName LIKE '%' || @FileName || '%')
-                       AND (@DownloadStartDate IS NULL OR DownloadDateTime >= @DownloadStartDate)
-                       AND (@DownloadEndDate IS NULL OR DownloadDateTime <= @DownloadEndDate)
-                       AND (@DownloadResult IS NULL OR Status = @DownloadResult)
-                       AND (
-                           (@IsAudio IS NULL AND @IsVideo IS NULL)
-                           OR Type = @IsAudio
-                           OR Type = @IsVideo
-                       )
-                       ORDER BY DownloadDateTime DESC
-                     """;
-        var Param = new { FileName, DownloadStartDate, DownloadEndDate, DownloadResult, IsAudio, IsVideo };
-        var SearchResult = new List<DownloadHistory>();
-        dGV_SearchResult.Rows.Clear();
-        using (var conn = ConnectionTool.GetConnection())
-        {
-            var result = conn.Query<DownloadHistory>(sqlcmd, Param).ToList();
-            if (result != null && result.Count > 0)
-            {
-                SearchResult.AddRange(result);
-                foreach (var item in SearchResult)
-                    dGV_SearchResult.Rows.Add(
-                        false,
-                        dGV_SearchResult.Rows.Count + 1,
-                        item.FileName,
-                        FormatLocalDateTime(item.DownloadDateTime),
-                        OptionService.GetOptionDesc(OptionListMediaType, item.Type),
-                        OptionService.GetOptionDesc(OptionListDownloadStatus, item.Status),
-                        item.TaskID,
-                        item.Title,
-                        item.URL,
-                        item.Path
-                    );
-                UpdateSelectAllCheckBoxState();
-            }
-        }
+        var result = _downloadHistoryService.Search(CreateSearchCriteria());
+        GUITool.BindDownloadHistoryRows(dGV_SearchResult, result);
+        UpdateSelectAllCheckBoxState();
     }
 
     private void btn_ReDownload_Click(object sender, EventArgs e)
     {
-        var selectedItem = dGV_SearchResult.Rows
-            .Cast<DataGridViewRow>()
-            .Where(row => !row.IsNewRow
-                          && Convert.ToBoolean(row.Cells[SelectColumnName].Value)
-                          && row.Cells["colTaskId"].Value != null
-                          && row.Cells["colURL"].Value != null
-            ).ToList();
+        var selectedItems = GUITool.GetSelectedTaggedItems<DownloadHistorySearchItem>(
+            dGV_SearchResult,
+            SelectColumnName);
+        var requests = _downloadHistoryService.CreateRedownloadRequests(selectedItems);
 
-        var requests = selectedItem.Select(row =>
-        {
-            var mediaType = OptionService.GetOptionName(
-                OptionListMediaType,
-                row.Cells["colMediaType"].Value?.ToString() ?? string.Empty);
-
-            return new DownloadRequest
-            {
-                Title = row.Cells["colTitle"].Value?.ToString() ?? string.Empty,
-                WebpageUrl = row.Cells["colURL"].Value?.ToString() ?? string.Empty,
-                MediaType = mediaType,
-                MediaTypeDisplay = OptionService.GetOptionDesc(OptionListMediaType, mediaType),
-                DownloadDir = row.Cells["colPath"].Value?.ToString() ?? string.Empty
-            };
-        }).ToList();
         _mainForm?.EnqueueDownloads(requests);
-        _logger.LogInformation("已提交 {Count} 個下載任務，關閉 PlaylistHandlerForm。", selectedItem.Count);
+        _logger.LogInformation("已提交 {Count} 個下載任務。", requests.Count);
+    }
+
+    //TODO: 修改耦合
+    private DownloadHistorySearchCriteria CreateSearchCriteria()
+    {
+        return _downloadHistoryService.CreateSearchCriteria(
+            cB_FileName.Checked,
+            txt_Filename.Text,
+            cB_DownloadDate.Checked,
+            dTP_DownLoadStartDate.Value,
+            dTP_DownLoadEndDate.Value,
+            cB_DownloadResult.Checked,
+            GUITool.GetComboBoxSelectedName(cBO_DownloadResult),
+            cB_MediaType.Checked,
+            cB_Audio.Checked,
+            cB_Video.Checked);
     }
 
     private void cB_SearchCondition_CheckedChanged(object sender, EventArgs e)

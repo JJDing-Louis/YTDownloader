@@ -85,6 +85,44 @@ internal static class GUITool
             comboBox.SelectedIndex = 0;
     }
 
+    public static void BindDownloadHistoryRows(
+        DataGridView grid,
+        IEnumerable<DownloadHistorySearchItem> items)
+    {
+        grid.Rows.Clear();
+
+        foreach (var item in items)
+        {
+            var rowIndex = grid.Rows.Add(
+                false,
+                item.Index,
+                item.FileName,
+                item.DownloadDateTime,
+                item.MediaTypeDisplay,
+                item.StatusDisplay,
+                item.TaskId,
+                item.Title,
+                item.Url,
+                item.Path);
+
+            grid.Rows[rowIndex].Tag = item;
+        }
+    }
+
+    public static IReadOnlyList<T> GetSelectedTaggedItems<T>(
+        DataGridView grid,
+        string selectColumnName)
+    {
+        return grid.Rows
+            .Cast<DataGridViewRow>()
+            .Where(row =>
+                !row.IsNewRow &&
+                row.Tag is T &&
+                Convert.ToBoolean(row.Cells[selectColumnName].Value))
+            .Select(row => (T)row.Tag!)
+            .ToList();
+    }
+
     private static void ApplyConfiguredFont(Form form, string fontName, int fontSize)
     {
         using var configuredFont = CreateConfiguredFont(form.Font, fontName, fontSize);
