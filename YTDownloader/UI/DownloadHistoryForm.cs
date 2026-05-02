@@ -1,9 +1,7 @@
-﻿using Autofac;
 using JJNET.DataAccess.Entity;
 using JJNET.Utility.Tools;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 using YTDownloader.Model;
 using YTDownloader.Service;
 using YTDownloader.Tool;
@@ -24,20 +22,11 @@ public partial class DownloadHistoryForm : Form
     private bool _updatingSelectAllState;
     private IConfiguration config = null!;
 
-    public DownloadHistoryForm() : this(
-        new ConfigService(),
-        new OptionService(),
-        NullLogger<DownloadHistoryForm>.Instance)
-    {
-    }
-
-    public DownloadHistoryForm(MainForm mainForm) : this()
-    {
-        _mainForm = mainForm;
-    }
-
-    public DownloadHistoryForm(ConfigService configService, OptionService optionService,
-        ILogger<DownloadHistoryForm> logger, MainForm? mainForm = null)
+    public DownloadHistoryForm(
+        ConfigService configService,
+        OptionService optionService,
+        ILogger<DownloadHistoryForm> logger,
+        MainForm? mainForm = null)
     {
         _configService = configService;
         _settings = _configService.Load();

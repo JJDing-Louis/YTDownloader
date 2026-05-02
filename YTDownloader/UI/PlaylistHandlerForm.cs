@@ -1,8 +1,6 @@
-﻿using Autofac;
 using JJNET.Utility.Tools;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 using YTDownloader.Model;
 using YTDownloader.Service;
 using YTDownloader.Tool;
@@ -29,13 +27,6 @@ public partial class PlaylistHandlerForm : Form
     private List<PlaylistVideoItem> playlistVideos = new();
     private string ytDlpPath = string.Empty;
 
-    public PlaylistHandlerForm() : this(
-        new ConfigService(),
-        NullLogger<PlaylistHandlerForm>.Instance,
-        null)
-    {
-    }
-
     public PlaylistHandlerForm(
         ConfigService configService,
         ILogger<PlaylistHandlerForm> logger,
@@ -46,17 +37,6 @@ public partial class PlaylistHandlerForm : Form
         _settings = _configService.Load();
         _logger = logger;
         InitializeForm();
-    }
-
-    public PlaylistHandlerForm(string playlistUrl, MainForm mainForm, string mediaType, string mediaTypeDisplay) :
-        this()
-    {
-        this.playlistUrl = playlistUrl;
-        this.mainForm = mainForm;
-        this.mediaType = OptionService.GetOptionName(OptionListMediaType, mediaType);
-        this.mediaTypeDisplay = string.IsNullOrWhiteSpace(mediaTypeDisplay)
-            ? OptionService.GetOptionDesc(OptionListMediaType, this.mediaType)
-            : mediaTypeDisplay;
     }
 
     public PlaylistHandlerForm(

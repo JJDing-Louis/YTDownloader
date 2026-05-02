@@ -44,7 +44,7 @@
             colIndex = new System.Windows.Forms.DataGridViewTextBoxColumn();
             colTitle = new System.Windows.Forms.DataGridViewTextBoxColumn();
             colMediaType = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            colProgress = new YTDownloader.UI.CustomUI.DataGridViewProgressBarColumn();
+            colProgress = new System.Windows.Forms.DataGridViewTextBoxColumn();
             colStatus = new System.Windows.Forms.DataGridViewTextBoxColumn();
             colAction = new System.Windows.Forms.DataGridViewButtonColumn();
             colCancel = new System.Windows.Forms.DataGridViewButtonColumn();
@@ -355,7 +355,7 @@
         private DataGridViewTextBoxColumn colIndex;
         private DataGridViewTextBoxColumn colTitle;
         private DataGridViewTextBoxColumn colMediaType;
-        private YTDownloader.UI.CustomUI.DataGridViewProgressBarColumn colProgress;
+        private DataGridViewTextBoxColumn colProgress;
         private DataGridViewTextBoxColumn colStatus;
         private DataGridViewButtonColumn colAction;
         private DataGridViewButtonColumn colCancel;

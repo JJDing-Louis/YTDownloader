@@ -10,14 +10,18 @@ public partial class ConfigForm : Form
     private readonly ConfigService _configService;
     private ConfigModel _settings = new();
 
-    public ConfigForm() : this(new ConfigService())
+    public ConfigForm()
     {
+        _configService = null!;
+        _settings = new ConfigModel();
+
+        InitializeComponent();
     }
 
     public ConfigForm(ConfigService configService)
     {
         _configService = configService;
-        _settings = IsInDesignMode() ? new ConfigModel() : _configService.Load();
+        _settings = _configService.Load();
         InitializeForm();
     }
 
@@ -45,8 +49,6 @@ public partial class ConfigForm : Form
 
     private void LoadSettings()
     {
-        _settings = _configService.Load();
-
         _isDarkModeCheckBox.Checked = _settings.Appearance.IsDarkMode;
         _backColorTextBox.Text = NormalizeColorText(_settings.Appearance.BackColor);
         _backgroundImageTextBox.Text = _settings.Appearance.BackGroundImage;

@@ -32,7 +32,7 @@ public partial class MainForm : Form
     private readonly HashSet<long> _queuedDownloadTaskIds = new();
 
     private readonly ILogger _logger;
-    private readonly ILifetimeScope? _lifetimeScope;
+    private readonly ILifetimeScope _lifetimeScope;
     private readonly OptionService _optionService;
 
     private readonly Dictionary<string, HashSet<string>> _reservedDownloadFileNamesByFolder =
@@ -44,8 +44,7 @@ public partial class MainForm : Form
     private ConfigForm? _configForm;
     private DownloadHistoryForm? _downloadHistoryForm;
 
-    /// <summary>共用的下載服務實例（延遲建立，確保 ytDlpPath / ffmpegPath 已讀取完畢）。</summary>
-    private YtDlpDownloadService? _downloadService;
+    private readonly YtDlpDownloadService _downloadService;
 
     private PlaylistHandlerForm? _playlistHandlerForm;
     private ConfigModel _settings;
@@ -55,11 +54,26 @@ public partial class MainForm : Form
     private string ffmpegPath = string.Empty;
     private string ytDlpPath = string.Empty;
 
-    public MainForm() : this(new ConfigService(), new OptionService(), NullLogger<MainForm>.Instance, null, null)
+    public MainForm()
     {
+        // WinForms Designer 需要無參數建構子；這裡只載入控制項，避免設計階段初始化 DI、設定檔或資料庫。
+        _configService = null!;
+        _settings = new ConfigModel();
+        _optionService = null!;
+        _logger = NullLogger<MainForm>.Instance;
+        _downloadService = null!;
+        _lifetimeScope = null!;
+        _downloadLimiter = CreateDownloadLimiter(_settings);
+
+        InitializeComponent();
     }
 
-    public MainForm(ConfigService configService, OptionService optionService, ILogger<MainForm> logger, YtDlpDownloadService? downloadService, ILifetimeScope? lifetimeScope)
+    public MainForm(
+        ConfigService configService,
+        OptionService optionService,
+        ILogger<MainForm> logger,
+        YtDlpDownloadService downloadService,
+        ILifetimeScope lifetimeScope)
     {
         _configService = configService;
         _settings = _configService.Load();
@@ -138,6 +152,8 @@ public partial class MainForm : Form
 
     private void ConfigureDownloadListGrid()
     {
+        EnsureProgressBarColumn();
+
         typeof(DataGridView)
             .GetProperty("DoubleBuffered", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
             ?.SetValue(dGV_DownloadList, true, null);
@@ -145,6 +161,34 @@ public partial class MainForm : Form
         dGV_DownloadList.AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.None;
         dGV_DownloadList.RowTemplate.Height = 24;
         dGV_DownloadList.ScrollBars = ScrollBars.Both;
+    }
+
+    private void EnsureProgressBarColumn()
+    {
+        if (dGV_DownloadList.Columns["colProgress"] is YTDownloader.UI.CustomUI.DataGridViewProgressBarColumn)
+            return;
+
+        var currentColumn = dGV_DownloadList.Columns["colProgress"];
+        if (currentColumn == null)
+            return;
+
+        var columnIndex = currentColumn.Index;
+        var displayIndex = currentColumn.DisplayIndex;
+        var progressColumn = new YTDownloader.UI.CustomUI.DataGridViewProgressBarColumn
+        {
+            Name = currentColumn.Name,
+            HeaderText = currentColumn.HeaderText,
+            Width = currentColumn.Width,
+            AutoSizeMode = currentColumn.AutoSizeMode,
+            DefaultCellStyle = new DataGridViewCellStyle(currentColumn.DefaultCellStyle),
+            Resizable = currentColumn.Resizable,
+            ReadOnly = true
+        };
+
+        dGV_DownloadList.Columns.Remove(currentColumn);
+        dGV_DownloadList.Columns.Insert(columnIndex, progressColumn);
+        progressColumn.DisplayIndex = displayIndex;
+        colProgress = progressColumn;
     }
 
     private void btn_CancelAll_Click(object sender, EventArgs e)
@@ -348,7 +392,7 @@ public partial class MainForm : Form
             var ffmpegDir = File.Exists(ffmpegPath)
                 ? Path.GetDirectoryName(ffmpegPath)!
                 : ffmpegPath;
-            var YTDownloadService = _downloadService ?? new YtDlpDownloadService(ytDlpPath, ffmpegDir);
+            var YTDownloadService = _downloadService;
 
             var SourceType = await YTDownloadService.DetectResourceAsync(URL);
             if (SourceType.IsSingleVideo)
@@ -437,9 +481,6 @@ public partial class MainForm : Form
 
     private TForm ResolveForm<TForm>(params Autofac.Core.Parameter[] parameters) where TForm : Form
     {
-        if (_lifetimeScope is null)
-            throw new InvalidOperationException($"{nameof(MainForm)} must be created by DI before opening child forms.");
-
         return _lifetimeScope.Resolve<TForm>(parameters);
     }
 
@@ -1247,7 +1288,7 @@ public partial class MainForm : Form
             ? Path.GetDirectoryName(ffmpegPath)!
             : ffmpegPath;
 
-        _downloadService ??= new YtDlpDownloadService(ytDlpPath, ffmpegDir);
+        var downloadService = _downloadService;
         foreach (var req in requests)
         {
             req.FileName = CreateUniqueDownloadFileName(req);
@@ -1259,7 +1300,7 @@ public partial class MainForm : Form
 
             // 捕捉區域變數，避免 closure 捕捉迴圈變數
             var capturedReq = req;
-            var svc = _downloadService;
+            var svc = downloadService;
 
             Func<CancellationToken, Task> downloadAction = async ct =>
             {
